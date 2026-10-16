@@ -15,6 +15,100 @@ export type McqCard = {
 export type ReviewCard = FlashCard | McqCard;
 
 export const CARDS: ReviewCard[] = [
+  // --- cross-validation
+  {
+    id: "cv-1",
+    concept: "cross-validation",
+    kind: "flash",
+    front: "Décris la validation croisée à k plis.",
+    back: "On découpe les données en k plis. Pour chaque pli : entraîner sur les k−1 autres, mesurer l'erreur sur celui-ci. L'estimation est la moyenne des k erreurs ; chaque exemple sert une fois en validation.",
+  },
+  {
+    id: "cv-2",
+    concept: "cross-validation",
+    kind: "mcq",
+    front: "Pourquoi préférer la validation croisée à un seul découpage train / validation sur un petit dataset ?",
+    options: [
+      "Elle est plus rapide",
+      "L'estimation dépend moins du hasard du découpage et utilise toutes les données",
+      "Elle supprime l'overfitting",
+      "Elle remplace le test set final",
+    ],
+    answer: 1,
+    explain: "Un seul découpage est une loterie avec peu de données ; la moyenne sur k plis est plus stable.",
+  },
+  // --- leakage
+  {
+    id: "leak-1",
+    concept: "leakage",
+    kind: "flash",
+    front: "Qu'est-ce qu'une fuite de données (data leakage) ?",
+    back: "Quand une information issue des données de validation ou de test (ou du futur) influence l'entraînement. L'évaluation devient trop optimiste. Ex. : sélection de variables ou standardisation faites sur tout le dataset avant le découpage.",
+  },
+  {
+    id: "leak-2",
+    concept: "leakage",
+    kind: "mcq",
+    front: "Quelle étape peut se faire sur tout le dataset AVANT la validation croisée sans créer de fuite ?",
+    options: [
+      "Standardiser avec la moyenne globale",
+      "Sélectionner les variables les plus corrélées à la cible",
+      "Supprimer une colonne d'identifiant inutile",
+      "Imputer les valeurs manquantes par la moyenne globale",
+    ],
+    answer: 2,
+    explain: "Retirer une colonne sans regarder la cible ni les statistiques des données n'apprend rien des données. Les trois autres apprennent quelque chose et doivent être faites dans chaque pli.",
+  },
+  // --- knn
+  {
+    id: "knn-1",
+    concept: "knn",
+    kind: "flash",
+    front: "Comment le k-NN classe-t-il un nouveau point ?",
+    back: "Il calcule la distance à tous les exemples d'entraînement, garde les k plus proches et prédit la classe majoritaire parmi eux (la moyenne en régression).",
+  },
+  {
+    id: "knn-2",
+    concept: "knn",
+    kind: "mcq",
+    front: "Avec k = 1, précision d'entraînement 100 %, précision de test 85 %. Que faire ?",
+    options: ["Diminuer k", "Augmenter k", "Ajouter des variables", "Rien, c'est optimal"],
+    answer: 1,
+    explain: "k = 1 overfitte : augmenter k lisse la frontière et réduit la variance.",
+  },
+  {
+    id: "knn-3",
+    concept: "knn",
+    kind: "flash",
+    front: "Pourquoi standardiser les variables avant un k-NN ?",
+    back: "Les distances sont dominées par les variables aux plus grandes valeurs numériques. Sans standardisation, une variable en milliers écrase une variable en unités.",
+  },
+  // --- arbres
+  {
+    id: "tree-1",
+    concept: "arbres",
+    kind: "mcq",
+    front: "Indice de Gini d'un groupe avec 50 % de chaque classe (2 classes) ?",
+    options: ["0", "0,25", "0,5", "1"],
+    answer: 2,
+    explain: "G = 1 − 0,5² − 0,5² = 0,5 : impureté maximale pour deux classes.",
+  },
+  {
+    id: "tree-2",
+    concept: "arbres",
+    kind: "flash",
+    front: "Comment régularise-t-on un arbre de décision ?",
+    back: "En limitant sa croissance : profondeur maximale, nombre minimal d'exemples par feuille, élagage. Ou en moyennant de nombreux arbres (forêt aléatoire).",
+  },
+  {
+    id: "tree-3",
+    concept: "arbres",
+    kind: "mcq",
+    front: "Quelle forme ont les régions de décision d'un arbre sur deux variables numériques ?",
+    options: ["Des cercles", "Des rectangles alignés sur les axes", "Des droites obliques", "Des formes quelconques"],
+    answer: 1,
+    explain: "Chaque question porte sur une seule variable (x ≤ seuil) : elle coupe le plan verticalement ou horizontalement.",
+  },
   // --- ic
   {
     id: "ic-1",

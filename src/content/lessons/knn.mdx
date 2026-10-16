@@ -1,0 +1,85 @@
+<Predict
+  id="hook"
+  question="Pour estimer le prix d'un appartement, un agent immobilier regarde les ventes récentes les plus proches : même quartier, même surface. Quel algorithme de ML fait exactement ça ?"
+  options={["Une régression linéaire", "Les k plus proches voisins", "Un réseau de neurones", "Un arbre de décision"]}
+  answer={1}
+>
+Les **k plus proches voisins** (*k-nearest neighbors*, k-NN) sont l'algorithme le plus intuitif du machine learning : pour prédire un nouvel exemple, on cherche les $k$ exemples connus les plus ressemblants, et on fait voter leurs étiquettes (classification) ou on moyenne leurs valeurs (régression). Pas d'entraînement au sens habituel : le modèle, **ce sont les données**.
+</Predict>
+
+## Voter avec ses voisins
+
+Pour classer un point $x$ :
+
+1. calculer sa distance à tous les exemples d'entraînement, en général la distance euclidienne $d(x, x_i) = \sqrt{\sum_j (x_j - x_{ij})^2}$ ;
+2. garder les $k$ plus proches ;
+3. prédire la classe majoritaire parmi eux.
+
+Les données ci-dessous forment deux « demi-lunes » imbriquées et bruitées. Les zones colorées montrent ce que le modèle prédirait en chaque point du plan. Commence avec $k = 1$ et monte doucement.
+
+<KnnLab id="decouverte" k={1} challenge="knn-best" />
+
+<Predict
+  id="k1"
+  question="Avec k = 1, la précision sur les données d'entraînement est de 100 %. Pourquoi ?"
+  options={[
+    "Le modèle est parfait",
+    "Chaque point d'entraînement est son propre plus proche voisin",
+    "Les données sont faciles",
+    "C'est un bug",
+  ]}
+  answer={1}
+>
+Évalué sur ses propres données, le 1-NN se retrouve lui-même à distance 0 : il ne peut pas se tromper. C'est l'overfitting dans sa forme la plus pure, avec une frontière qui contourne chaque point isolé. Augmenter $k$ lisse la frontière (moins de variance) ; trop l'augmenter la rend grossière (plus de biais). Avec $k = 149$, presque tout le jeu d'entraînement vote : la frontière ne suit plus du tout les demi-lunes.
+</Predict>
+
+<Callout type="intuition">
+C'est encore le bias-variance tradeoff, mais l'axe est **inversé** par rapport au degré d'un polynôme : ici, plus $k$ est petit, plus le modèle est complexe. Le meilleur $k$ se choisit par validation croisée.
+</Callout>
+
+## Le piège des unités
+
+k-NN repose entièrement sur les distances. Que se passe-t-il si une variable est exprimée dans une unité qui la rend 20 fois plus grande que l'autre ?
+
+<KnnLab id="echelle" k={15} allowScale={true} challenge="knn-scale" />
+
+Avec $y$ multiplié par 20, la moindre différence verticale écrase toute différence horizontale : le modèle ne « voit » presque plus $x$. Les régions de décision deviennent des bandes horizontales. La solution : **standardiser** chaque variable (moyenne 0, écart-type 1) avant tout algorithme fondé sur des distances — k-NN, k-means, SVM, et aussi les régularisations L1/L2.
+
+<Callout type="piege">
+k-NN souffre de la **malédiction de la dimension** : en très grande dimension, tous les points deviennent presque aussi éloignés les uns des autres, et la notion de « plus proche voisin » perd son sens. Au-delà de quelques dizaines de variables, on réduit d'abord la dimension (ACP, embeddings) ou on choisit un autre modèle.
+</Callout>
+
+<Callout type="entretien">
+k-NN est un modèle *paresseux* (*lazy learning*) : l'entraînement est instantané, mais chaque prédiction doit parcourir tout le dataset, en $O(n \cdot d)$. En production, on utilise des index de recherche approximative (KD-tree, HNSW). C'est exactement ce qui fait tourner la recherche par similarité des bases vectorielles utilisées pour le RAG.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "On augmente k. En général, la frontière de décision devient…",
+      options: ["Plus irrégulière", "Plus lisse", "Linéaire", "Inchangée"],
+      answer: 1,
+      explain: "Plus de voisins votent : les points isolés pèsent moins, la frontière se lisse (moins de variance, plus de biais).",
+    },
+    {
+      q: "Variables : âge (20–80) et revenu (20 000–200 000 €). Sans prétraitement, le k-NN…",
+      options: [
+        "Fonctionne parfaitement",
+        "Ignore pratiquement l'âge",
+        "Ignore le revenu",
+        "Refuse les variables de types différents",
+      ],
+      answer: 1,
+      explain: "Les écarts de revenu, en dizaines de milliers, dominent la distance. Il faut standardiser.",
+    },
+    {
+      q: "Pourquoi choisit-on souvent un k impair en classification binaire ?",
+      options: ["Pour aller plus vite", "Pour éviter les égalités de vote", "Par convention sans raison", "Parce que k pair est interdit"],
+      answer: 1,
+      explain: "Avec deux classes et un nombre impair de votants, il y a toujours une majorité.",
+    },
+  ]}
+/>
+
+<LessonComplete />

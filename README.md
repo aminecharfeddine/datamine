@@ -18,12 +18,13 @@ npm run build    # build de production
 
 ## Comptes (Supabase)
 
-Connexion par lien magique envoyé par e-mail ; la progression est stockée dans la table `progress` (une ligne JSON par utilisateur, protégée par RLS).
+Comptes par e-mail + mot de passe (avec pseudo et couleur d'avatar dans les métadonnées Supabase), mot de passe oublié, et lien magique en option ; la progression est stockée dans la table `progress` (une ligne JSON par utilisateur, protégée par RLS).
 
 Configuration à faire une fois dans le tableau de bord Supabase :
 
 1. **SQL Editor** → exécuter `supabase/migrations/001_progress.sql`.
-2. **Authentication → URL Configuration** : *Site URL* = l'URL Vercel de production ; ajouter dans *Redirect URLs* `https://<ton-projet>.vercel.app/**` et `http://localhost:3000/**`.
+2. **Authentication → Sign In / Providers → Email** : désactiver *Confirm email* pour une inscription immédiate (facultatif).
+3. **Authentication → URL Configuration** : *Site URL* = l'URL Vercel de production ; ajouter dans *Redirect URLs* `https://<ton-projet>.vercel.app/**` et `http://localhost:3000/**`.
 
 Fonctionnement : la progression reste locale pour une interface instantanée ; à la connexion, au retour sur l'onglet et 1,5 s après chaque changement, l'app fait « lire → fusionner → écrire ». La fusion (`src/lib/sync/merge.ts`) est commutative et idempotente : plusieurs appareils convergent sans jamais perdre de progrès. Un état local appartenant à un autre compte n'est jamais fusionné.
 
@@ -47,7 +48,7 @@ src/
   content/lessons/*.mdx   contenu des leçons
   components/
     pedago/               Predict, Quiz, Callout, LessonComplete (utilisables dans le MDX)
-    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab)
+    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab)
     pages/                écrans client (Today, SkillTree, Review, Profile)
   lib/
     curriculum.ts         modules → concepts → leçons (source de vérité du parcours)
@@ -56,7 +57,8 @@ src/
     gamification.ts       XP, niveaux, séries, badges
     store.ts              état de progression + FSRS
     metrics.ts            métriques de classification (pures, testées)
-    sims.ts               calculs des labos : Bayes, descente de gradient, TCL, régression polynomiale
+    sims.ts               calculs des labos : Bayes, descente de gradient, TCL, IC, tests A/B, polynômes, ridge
+    ml.ts                 validation croisée, fuite de données, k-NN, arbres de décision (CART)
 ```
 
 ## Ajouter une leçon
@@ -77,7 +79,7 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 - [x] Phase 1 — module Évaluation : confusion matrix, precision/recall/F1, ROC/AUC, PR curve
 - [x] Phase 2 — comptes Supabase (lien magique), synchronisation multi-appareils, migration du mode invité
 - [x] Phase 3 — Bayes, descente de gradient, TCL, intervalles de confiance, tests A/B et p-values, bias-variance, régularisation
-- [ ] Phase 3 (suite) — cross-validation, data leakage
-- [ ] Phase 4 — Modèles classiques, Deep learning (playground TensorFlow.js)
+- [x] Phase 3 (suite) — validation croisée, data leakage
+- [ ] Phase 4 — Modèles classiques (k-NN et arbres faits ; régression logistique, ensembles, clustering à venir), Deep learning
 - [ ] Phase 5 — Transformers, LLM, IA agentique
 - [ ] Phase 6 — vitrine publique : landing, SEO, images de partage, accessibilité, version anglaise

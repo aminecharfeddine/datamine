@@ -1,0 +1,105 @@
+<Predict
+  id="hook"
+  question="Tu as 40 exemples. Tu en mets 12 de côté pour la validation et tu choisis le meilleur modèle selon ces 12 exemples. Quel est le problème ?"
+  options={[
+    "Aucun, c'est la bonne méthode",
+    "Le choix dépend beaucoup de quels 12 exemples sont tombés en validation",
+    "12 exemples, c'est trop pour la validation",
+    "Il faudrait valider sur les données d'entraînement",
+  ]}
+  answer={1}
+>
+Avec si peu de données, un seul découpage est une loterie : quelques points faciles ou difficiles en validation suffisent à changer le « meilleur » modèle. Et on n'entraîne que sur 28 exemples au lieu de 40. La **validation croisée** règle les deux problèmes : chaque exemple sert tour à tour à valider et à entraîner.
+</Predict>
+
+## Le principe du k-fold
+
+On découpe les données en $k$ parts égales, les **plis** (*folds*). Puis on répète $k$ fois :
+
+1. on met un pli de côté pour la validation ;
+2. on entraîne le modèle sur les $k-1$ autres ;
+3. on mesure l'erreur sur le pli mis de côté.
+
+L'estimation finale est la moyenne des $k$ erreurs :
+
+$$
+\text{CV}_k = \frac{1}{k}\sum_{f=1}^{k} \text{Erreur}\big(\text{modèle entraîné sans le pli } f,\ \text{pli } f\big)
+$$
+
+Chaque exemple est utilisé exactement une fois en validation. Dans le labo, choisis un degré de polynôme, puis compare la courbe de validation croisée à l'**erreur réelle**, mesurée sur des données neuves que le modèle ne verra jamais en pratique.
+
+<CvLab id="choix" degree={10} k={5} challenge="cv-select" />
+
+<Callout type="intuition">
+Coche « 10 découpages simples » : chaque ligne grise désigne son propre meilleur degré. La validation croisée moyenne ces avis et donne une estimation bien plus stable — pour un coût de calcul $k$ fois plus élevé.
+</Callout>
+
+<Callout type="rappel">
+Quel $k$ choisir ? $k = 5$ ou $10$ est le compromis habituel. **Leave-one-out** ($k = n$) utilise presque toutes les données pour entraîner, mais coûte $n$ entraînements et ses estimations sont plus variables. Pour la classification, on utilise des plis **stratifiés** : chaque pli garde la même proportion de classes que le dataset.
+</Callout>
+
+## La fuite de données
+
+La validation croisée ne protège que si **rien** de ce qui sert à construire le modèle n'a vu les données de validation. Sinon, c'est une **fuite de données** (*data leakage*) : l'information du test s'infiltre dans l'entraînement.
+
+<Predict
+  id="fuite"
+  question="Sur des données de pur bruit (étiquettes au hasard), on garde les 20 variables les plus corrélées à l'étiquette sur TOUT le dataset, puis on fait une validation croisée. Quelle précision obtient-on ?"
+  options={["Environ 50 %, comme le hasard", "Nettement plus que 50 %", "Moins de 50 %", "La validation croisée refuse de tourner"]}
+  answer={1}
+>
+Parmi 2 000 variables de bruit, certaines sont corrélées à l'étiquette **par hasard**, y compris sur les exemples qui serviront ensuite de validation. Les sélectionner en regardant tout le dataset, c'est déjà avoir triché : le modèle « reconnaît » les plis de validation. Vérifie-le.
+</Predict>
+
+<LeakLab id="illusion" challenge="leak-illusion" />
+
+Ce piège a réellement faussé des études publiées, notamment en génomique, où l'on a beaucoup de variables pour peu de patients. La règle est simple : **toute étape apprise à partir des données** fait partie du modèle et doit être refaite dans chaque pli.
+
+- Sélection de variables.
+- Normalisation et standardisation (moyenne et écart-type calculés sur le train seulement).
+- Imputation des valeurs manquantes, encodage des catégories rares.
+- Rééquilibrage des classes (*oversampling*), à faire **après** le découpage.
+
+<Callout type="piege">
+D'autres fuites sont plus sournoises. Une variable connue seulement **après** l'événement à prédire (« montant remboursé » pour prédire une fraude). Un même patient ou client présent à la fois en train et en test : on découpe alors **par groupe**. Des séries temporelles mélangées au hasard, où le modèle voit le futur : on valide alors dans l'ordre chronologique.
+</Callout>
+
+<Callout type="entretien">
+Avec scikit-learn, la manière robuste est un `Pipeline` passé à `cross_val_score` ou `GridSearchCV` : chaque étape est réapprise automatiquement dans chaque pli. Et si l'on règle les hyperparamètres par validation croisée, l'estimation obtenue est elle-même légèrement optimiste : on garde un test set final, ou on fait une **validation croisée imbriquée** (*nested CV*).
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "En validation croisée à 5 plis, combien de modèles entraîne-t-on ?",
+      options: ["1", "5", "4", "10"],
+      answer: 1,
+      explain: "Un modèle par pli mis de côté : 5 entraînements, chacun sur 80 % des données.",
+    },
+    {
+      q: "On standardise toutes les données (moyenne, écart-type) puis on fait la validation croisée. Problème ?",
+      options: [
+        "Aucun",
+        "Fuite : les statistiques ont été calculées en incluant les plis de validation",
+        "La standardisation est inutile avant une CV",
+        "La CV ne fonctionne qu'avec des données brutes",
+      ],
+      answer: 1,
+      explain: "La moyenne et l'écart-type doivent être appris sur le train de chaque pli, puis appliqués au pli de validation.",
+    },
+    {
+      q: "Prédire les ventes du mois prochain. Comment valider ?",
+      options: [
+        "k-fold avec mélange aléatoire",
+        "Leave-one-out",
+        "En entraînant sur le passé et en validant sur la période qui suit",
+        "Sur les données d'entraînement",
+      ],
+      answer: 2,
+      explain: "Mélanger les dates laisserait le modèle voir le futur. On utilise une validation temporelle (time series split).",
+    },
+  ]}
+/>
+
+<LessonComplete />

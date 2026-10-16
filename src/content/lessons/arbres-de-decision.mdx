@@ -1,0 +1,86 @@
+<Predict
+  id="hook"
+  question="Un médecin aux urgences décide : « Plus de 65 ans ? Si oui, tension basse ? … » Ce raisonnement par questions successives est un modèle de ML. Lequel ?"
+  options={["Un k-NN", "Un arbre de décision", "Une régression logistique", "Un réseau de neurones"]}
+  answer={1}
+>
+Un **arbre de décision** enchaîne des questions simples, chacune portant sur une seule variable (« âge ≤ 65 ? »). Chaque réponse oriente vers une branche, jusqu'à une **feuille** qui donne la prédiction. C'est l'un des rares modèles qu'un humain peut lire et vérifier entièrement — et la brique de base des forêts aléatoires et du gradient boosting, qui dominent encore les données tabulaires.
+</Predict>
+
+## Comment l'arbre choisit ses questions
+
+L'algorithme CART construit l'arbre de haut en bas, de façon **gloutonne** : à chaque nœud, il essaie toutes les variables et tous les seuils possibles, et garde la question qui sépare le mieux les classes.
+
+« Mieux séparer » se mesure avec une **impureté**. La plus courante est l'indice de **Gini** d'un groupe :
+
+$$
+G = 1 - \sum_c p_c^2
+$$
+
+où $p_c$ est la proportion de la classe $c$ dans le groupe. Un groupe pur (une seule classe) a $G = 0$ ; un mélange 50/50 de deux classes a $G = 0{,}5$. L'arbre choisit la question qui minimise l'impureté moyenne des deux groupes créés, pondérée par leur taille.
+
+<Callout type="rappel">
+Exemple : 10 exemples, 5 de chaque classe : $G = 1 - 0{,}5^2 - 0{,}5^2 = 0{,}5$. Une question les sépare en un groupe (4 A, 1 B) et un groupe (1 A, 4 B) : chaque groupe a $G = 1 - 0{,}8^2 - 0{,}2^2 = 0{,}32$. L'impureté passe de 0,5 à 0,32 : c'est un bon découpage.
+</Callout>
+
+Chaque question coupe le plan par une droite verticale ou horizontale : les régions de décision sont donc toujours des **rectangles**. Augmente la profondeur et regarde le découpage s'affiner.
+
+<TreeLab id="decouverte" depth={1} challenge="tree-memorize" />
+
+<Predict
+  id="profondeur"
+  question="L'arbre atteint 100 % sur les données d'entraînement. Que vaut sa précision de test par rapport à un arbre de profondeur 2 ?"
+  options={["Elle est meilleure", "Elle est moins bonne", "Elle est identique", "Elle vaut aussi 100 %"]}
+  answer={1}
+>
+Sans limite, un arbre peut créer une feuille pour chaque point isolé, y compris les points bruités qui sont « du mauvais côté ». Il apprend le bruit par cœur. Sur ces données, un arbre de profondeur 2 généralise mieux qu'un arbre profond.
+</Predict>
+
+<TreeLab id="elagage" depth={10} challenge="tree-best" />
+
+## Contrôler la complexité
+
+Les arbres overfittent très facilement. On les régularise en limitant leur croissance :
+
+- **profondeur maximale** (`max_depth`) ;
+- **nombre minimal d'exemples par feuille** (`min_samples_leaf`) : interdit les feuilles d'un seul point ;
+- **élagage** (*pruning*) : faire pousser un grand arbre, puis couper les branches qui n'améliorent pas la validation.
+
+<Callout type="intuition">
+Un arbre seul a une **variance** énorme : changer quelques exemples peut modifier la première question et tout l'arbre en dessous. Les **forêts aléatoires** entraînent des centaines d'arbres sur des échantillons différents et font voter leurs prédictions ; la moyenne lisse la variance. Le **gradient boosting** construit au contraire des arbres peu profonds l'un après l'autre, chacun corrigeant les erreurs du précédent.
+</Callout>
+
+<Callout type="entretien">
+Points forts des arbres : aucune standardisation nécessaire (une question « x ≤ seuil » ne dépend pas de l'unité), variables catégorielles et interactions gérées naturellement, interprétabilité. Points faibles : frontières en escalier, instabilité, et extrapolation impossible (une feuille prédit une constante, même loin des données vues).
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Un groupe contient 8 exemples de la classe A et 2 de la classe B. Son indice de Gini vaut…",
+      options: ["0,2", "0,32", "0,5", "0,8"],
+      answer: 1,
+      explain: "G = 1 − 0,8² − 0,2² = 1 − 0,64 − 0,04 = 0,32.",
+    },
+    {
+      q: "Pourquoi n'a-t-on pas besoin de standardiser les variables pour un arbre ?",
+      options: [
+        "Les arbres standardisent automatiquement",
+        "Une question « x ≤ seuil » donne la même séparation quelle que soit l'unité de x",
+        "On en a besoin aussi",
+        "Les arbres n'utilisent que des variables catégorielles",
+      ],
+      answer: 1,
+      explain: "Changer l'échelle déplace le seuil, mais pas l'ordre des exemples : le découpage reste identique.",
+    },
+    {
+      q: "Quelle méthode réduit surtout la variance d'un arbre de décision ?",
+      options: ["Augmenter la profondeur", "La forêt aléatoire", "Retirer le critère de Gini", "Standardiser les variables"],
+      answer: 1,
+      explain: "Moyenner de nombreux arbres entraînés sur des échantillons différents (bagging) réduit fortement la variance.",
+    },
+  ]}
+/>
+
+<LessonComplete />

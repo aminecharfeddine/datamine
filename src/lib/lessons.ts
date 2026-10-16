@@ -1,5 +1,8 @@
 // Registre des contenus MDX (import dynamique → un chunk par leçon).
 export const LESSON_CONTENT: Record<string, () => Promise<{ default: React.ComponentType }>> = {
+  "validation-croisee": () => import("@/content/lessons/validation-croisee.mdx"),
+  knn: () => import("@/content/lessons/knn.mdx"),
+  "arbres-de-decision": () => import("@/content/lessons/arbres-de-decision.mdx"),
   "intervalles-de-confiance": () => import("@/content/lessons/intervalles-de-confiance.mdx"),
   "tests-et-p-values": () => import("@/content/lessons/tests-et-p-values.mdx"),
   regularisation: () => import("@/content/lessons/regularisation.mdx"),

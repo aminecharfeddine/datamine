@@ -132,6 +132,14 @@ export const MODULES: Module[] = [
         concepts: ["regularisation"],
         available: true,
       },
+      {
+        slug: "validation-croisee",
+        title: "Validation croisée et data leakage",
+        summary: "Mesurer honnêtement la performance, et le piège qui fausse tant d'études.",
+        minutes: 20,
+        concepts: ["cross-validation", "leakage"],
+        available: true,
+      },
     ],
   },
   {
@@ -149,7 +157,24 @@ export const MODULES: Module[] = [
       { id: "ensembles", title: "Random forest & boosting" },
       { id: "clustering", title: "k-means & PCA" },
     ],
-    lessons: [],
+    lessons: [
+      {
+        slug: "knn",
+        title: "Les k plus proches voisins",
+        summary: "Dis-moi qui sont tes voisins, je te dirai qui tu es — si tes unités sont cohérentes.",
+        minutes: 15,
+        concepts: ["knn"],
+        available: true,
+      },
+      {
+        slug: "arbres-de-decision",
+        title: "Arbres de décision",
+        summary: "Vingt questions pour classer le monde, et pourquoi il faut savoir s'arrêter.",
+        minutes: 15,
+        concepts: ["arbres"],
+        available: true,
+      },
+    ],
   },
   {
     id: "evaluation",

@@ -27,6 +27,10 @@ export type CltState = { dist: DistId; n: number; count: number };
 export type AbState = { n: number; effect: number; runs: number; significant: number };
 export type CiState = { n: number; level: number; count: number; hits: number };
 export type RidgeState = { logLambda: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
+export type CvState = { degree: number; k: number; cv: number[] };
+export type LeakState = { leakyAcc: number | null; cleanAcc: number | null };
+export type KnnState = { k: number; scaled: boolean; testAcc: number; bestAcc: number };
+export type TreeState = { depth: number; trainAcc: number; testAcc: number; bestAcc: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -218,4 +222,52 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Pousse λ vers la droite jusqu'au bout.",
     check: (s: RidgeState) => s.trainMse > 0.4,
   } satisfies Challenge<RidgeState>,
+
+  // ---------------------------------------------------------------- Validation croisée
+  "cv-select": {
+    id: "cv-select",
+    title: "Laisser la validation choisir",
+    goal: "Règle le degré sur celui qui minimise l'erreur de validation croisée.",
+    hint: "Cherche le point le plus bas de la courbe colorée : c'est le seul critère que tu as le droit d'utiliser.",
+    check: (s: CvState) => s.degree === s.cv.indexOf(Math.min(...s.cv)),
+  } satisfies Challenge<CvState>,
+  "leak-illusion": {
+    id: "leak-illusion",
+    title: "L'illusion",
+    goal: "Obtiens une précision d'au moins 75 % en sélectionnant les variables sur tout le dataset, puis relance avec la sélection dans chaque pli pour voir la vraie performance (65 % ou moins).",
+    hint: "Les deux modes se choisissent au-dessus du bouton. Si la version honnête dépasse 65 % par chance, tire un nouveau jeu de données.",
+    check: (s: LeakState) => s.leakyAcc !== null && s.leakyAcc >= 0.75 && s.cleanAcc !== null && s.cleanAcc <= 0.65,
+  } satisfies Challenge<LeakState>,
+
+  // ---------------------------------------------------------------- k-NN
+  "knn-best": {
+    id: "knn-best",
+    title: "Le bon nombre de voisins",
+    goal: "Trouve un k dont la précision de test est au plus à 0,5 point de la meilleure possible.",
+    hint: "k = 1 colle au bruit, k = 149 fait voter presque tout le monde. La réponse est entre les deux.",
+    check: (s: KnnState) => !s.scaled && s.testAcc >= s.bestAcc - 0.005,
+  } satisfies Challenge<KnnState>,
+  "knn-scale": {
+    id: "knn-scale",
+    title: "Unités piégées",
+    goal: "Active « y mesuré en centimètres » et constate une chute d'au moins 5 points de précision par rapport au meilleur modèle.",
+    hint: "Quand une variable a des valeurs 20 fois plus grandes, elle écrase l'autre dans le calcul des distances.",
+    check: (s: KnnState) => s.scaled && s.testAcc <= s.bestAcc - 0.05,
+  } satisfies Challenge<KnnState>,
+
+  // ---------------------------------------------------------------- Arbres
+  "tree-memorize": {
+    id: "tree-memorize",
+    title: "Par cœur, version arbre",
+    goal: "Fais pousser l'arbre jusqu'à classer parfaitement les données d'entraînement (100 %).",
+    hint: "Augmente la profondeur maximale : chaque niveau découpe les rectangles en plus petits.",
+    check: (s: TreeState) => s.trainAcc >= 0.9999,
+  } satisfies Challenge<TreeState>,
+  "tree-best": {
+    id: "tree-best",
+    title: "Élaguer juste",
+    goal: "Trouve la profondeur qui donne la meilleure précision de test (à 0,5 point près).",
+    hint: "Regarde où la courbe de test atteint son sommet, pas celle d'entraînement.",
+    check: (s: TreeState) => s.testAcc >= s.bestAcc - 0.005,
+  } satisfies Challenge<TreeState>,
 };
