@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { Eye } from "lucide-react";
 import { useLesson } from "./LessonContext";
@@ -25,7 +25,15 @@ export function Predict({
 }) {
   const { slug } = useLesson();
   const record = useProgress((s) => s.recordPrediction);
+  const remember = useProgress((s) => s.rememberAnswer);
+  const key = `${slug}:predict:${id}`;
+  const saved = useProgress((s) => s.answers[key]);
   const [choice, setChoice] = useState<number | null>(null);
+
+  // Réponse déjà donnée (sur cet appareil ou un autre) : on la réaffiche, avec l'explication.
+  useEffect(() => {
+    if (saved !== undefined && choice === null) setChoice(saved);
+  }, [saved, choice]);
   const done = choice !== null;
   const correct = choice === answer;
 
@@ -47,7 +55,8 @@ export function Predict({
               state={choiceState(i, answer, choice)}
               onClick={() => {
                 setChoice(i);
-                record(`${slug}:predict:${id}`, i === answer);
+                remember(key, i, "first");
+                record(key, i === answer);
               }}
             >
               {o}

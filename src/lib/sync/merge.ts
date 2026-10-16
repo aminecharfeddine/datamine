@@ -1,5 +1,5 @@
-import type { ProgressData, StoredCard } from "@/lib/store";
-import { EMPTY_DATA } from "@/lib/store";
+import type { ProgressData, ReviewLogEntry, StoredCard } from "@/lib/store";
+import { EMPTY_DATA, REVIEW_LOG_MAX } from "@/lib/store";
 
 // Fusion de deux états de progression (ex. mode invité + compte, ou deux appareils).
 // Propriétés : commutative, idempotente (merge(a, a) = a) et monotone — rien n'est jamais perdu,
@@ -23,6 +23,8 @@ const maxPerKey = (a: Record<string, number>, b: Record<string, number>) => {
 function newerCard(a: StoredCard | undefined, b: StoredCard | undefined) {
   if (!a) return b!;
   if (!b) return a;
+  // La modification la plus récente gagne (révision, remise en révision…).
+  if (a.u && b.u && a.u !== b.u) return a.u > b.u ? a : b;
   if (a.reps !== b.reps) return a.reps > b.reps ? a : b;
   const la = a.last_review ?? "", lb = b.last_review ?? "";
   if (la !== lb) return la > lb ? a : b;
@@ -54,7 +56,16 @@ export function mergeProgress(x: Partial<ProgressData> | null | undefined, y: Pa
     streak: { ...recent, best: Math.max(a.streak.best, b.streak.best, recent.current) },
     srs,
     badges: unionEarliest(a.badges, b.badges),
+    answers: maxPerKey(a.answers, b.answers),
+    reviewLog: mergeLog(a.reviewLog, b.reviewLog),
   };
+}
+
+/** Historique : union sans doublons, dans l'ordre chronologique, limité aux plus récentes. */
+function mergeLog(a: ReviewLogEntry[], b: ReviewLogEntry[]) {
+  const seen = new Map<string, ReviewLogEntry>();
+  for (const e of [...a, ...b]) seen.set(`${e.t}|${e.c}`, e);
+  return [...seen.values()].sort((x, y) => (x.t < y.t ? -1 : x.t > y.t ? 1 : x.c < y.c ? -1 : 1)).slice(-REVIEW_LOG_MAX);
 }
 
 /** JSON à clés triées : deux états égaux donnent la même chaîne, quel que soit l'ordre d'insertion. */

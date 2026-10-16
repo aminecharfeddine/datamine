@@ -267,6 +267,9 @@ export const ALL_LESSONS = MODULES.flatMap((m) => m.lessons.map((l) => ({ ...l, 
 
 export const moduleById = (id: string) => MODULES.find((m) => m.id === id);
 
+/** Module auquel appartient un concept. */
+export const moduleOfConcept = (concept: string) => MODULES.find((m) => m.concepts.some((c) => c.id === concept));
+
 /** Variables CSS qui colorent une zone aux couleurs d'un module. */
 export const modStyle = (m?: Pick<Module, "color" | "deep">) =>
   (m ? { "--mod": m.color, "--mod-deep": m.deep, "--btn-shadow": m.deep } : {}) as React.CSSProperties;

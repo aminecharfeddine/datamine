@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { Check, Lightbulb, PencilLine, X } from "lucide-react";
 import { useLesson } from "./LessonContext";
@@ -46,11 +46,22 @@ export function Exercise({
 }) {
   const { slug } = useLesson();
   const record = useProgress((s) => s.recordExercise);
+  const remember = useProgress((s) => s.rememberAnswer);
+  const key = `${slug}:exercise:${id}`;
+  const saved = useProgress((s) => s.answers[key]);
   const [value, setValue] = useState("");
   const [state, setState] = useState<"idle" | "right" | "wrong" | "shown">("idle");
   const [tries, setTries] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const tol = tolerance ?? Math.max(Math.abs(answer) * 0.01, 0.005);
+
+  // Exercice déjà réussi : on réaffiche la bonne réponse et la correction.
+  useEffect(() => {
+    if (saved !== undefined && state === "idle" && value === "") {
+      setValue(String(percent && Math.abs(saved) <= 1 ? `${+(saved * 100).toFixed(2)} %` : +saved.toFixed(4)).replace(".", ","));
+      setState("right");
+    }
+  }, [saved, state, value, percent]);
   const done = state === "right" || state === "shown";
 
   const check = (e: React.FormEvent) => {
@@ -59,7 +70,8 @@ export function Exercise({
     if (v === null) return;
     if (isClose(v, answer, tol)) {
       setState("right");
-      record(`${slug}:exercise:${id}`);
+      remember(key, v, "last");
+      record(key);
     } else {
       setState("wrong");
       setTries((t) => t + 1);

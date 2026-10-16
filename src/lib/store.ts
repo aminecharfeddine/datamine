@@ -8,7 +8,12 @@ import { cardsForConcepts, CARDS } from "./cards";
 
 // Stockage local (mode invité). La phase 2 synchronisera ce même état avec Supabase.
 
-export type StoredCard = Omit<Card, "due" | "last_review"> & { due: string; last_review?: string };
+/** Carte FSRS sérialisée. `u` = date de dernière modification (sert à départager deux appareils). */
+export type StoredCard = Omit<Card, "due" | "last_review"> & { due: string; last_review?: string; u?: string };
+
+/** Une révision effectuée : carte, note (1 à 4), date. */
+export type ReviewLogEntry = { c: string; g: number; t: string };
+export const REVIEW_LOG_MAX = 500;
 
 export type Toast = { id: number; text: string; tone: "xp" | "badge" | "info" };
 
@@ -25,11 +30,15 @@ export type ProgressData = {
   streak: Streak;
   srs: Record<string, StoredCard>;
   badges: Record<string, string>;
+  /** Réponses données dans les leçons (choix d'une prédiction, meilleur score d'un quiz, valeur d'un exercice). */
+  answers: Record<string, number>;
+  /** Historique chronologique des révisions. */
+  reviewLog: ReviewLogEntry[];
 };
 
 export const DATA_KEYS = [
   "xp", "dailyXp", "awarded", "discovered", "completedLessons", "challengesDone",
-  "predictionsCorrect", "reviewsDone", "streak", "srs", "badges",
+  "predictionsCorrect", "reviewsDone", "streak", "srs", "badges", "answers", "reviewLog",
 ] as const satisfies readonly (keyof ProgressData)[];
 
 export function pickData(s: ProgressData): ProgressData {
@@ -59,6 +68,10 @@ type ProgressState = ProgressData & {
   recordPrediction: (key: string, correct: boolean) => void;
   recordQuiz: (key: string, correct: boolean) => void;
   recordExercise: (key: string) => void;
+  /** Mémorise une réponse. mode "first" : garde la première ; "max" : garde la meilleure ; "last" : remplace. */
+  rememberAnswer: (key: string, value: number, mode?: "first" | "max" | "last") => void;
+  /** Remet une carte à réviser tout de suite. */
+  requeue: (cardId: string) => void;
   recordChallenge: (key: string) => void;
   markDiscovered: (concepts: string[]) => void;
   completeLesson: (slug: string, concepts: string[]) => void;
@@ -73,12 +86,20 @@ export const FIRST_REVIEW_DELAY_MS = 4 * 60 * 60 * 1000;
 // Étapes d'apprentissage espacées : 10 min puis 4 h avant de passer en jours (et 10 min après un oubli).
 const scheduler = fsrs(generatorParameters({ enable_fuzz: true, learning_steps: ["10m", "4h"], relearning_steps: ["10m"] }));
 
-const serialize = (c: Card): StoredCard => ({
-  ...c,
+const serialize = (c: Card, u = new Date()): StoredCard => ({
   due: c.due.toISOString(),
+  stability: c.stability,
+  difficulty: c.difficulty,
+  elapsed_days: c.elapsed_days,
+  scheduled_days: c.scheduled_days,
+  learning_steps: c.learning_steps,
+  reps: c.reps,
+  lapses: c.lapses,
+  state: c.state,
   last_review: c.last_review ? c.last_review.toISOString() : undefined,
+  u: u.toISOString(),
 });
-const deserialize = (c: StoredCard): Card => ({
+const deserialize = ({ u: _u, ...c }: StoredCard): Card => ({
   ...c,
   due: new Date(c.due),
   last_review: c.last_review ? new Date(c.last_review) : undefined,
@@ -98,6 +119,8 @@ export const EMPTY_DATA: ProgressData = {
   streak: { current: 0, best: 0, lastDay: null, freezes: 1 },
   srs: {},
   badges: {},
+  answers: {},
+  reviewLog: [],
 };
 
 const initial = {
@@ -113,6 +136,8 @@ const initial = {
   streak: { current: 0, best: 0, lastDay: null, freezes: 1 } as Streak,
   srs: {},
   badges: {},
+  answers: {} as Record<string, number>,
+  reviewLog: [] as ReviewLogEntry[],
   toasts: [] as Toast[],
 };
 
@@ -170,6 +195,21 @@ export const useProgress = create<ProgressState>()(
           get().award(key, XP.exercise, "Exercice réussi");
         },
 
+        rememberAnswer: (key, value, mode = "last") =>
+          set((s) => {
+            const prev = s.answers[key];
+            if (prev !== undefined && (mode === "first" || (mode === "max" && prev >= value) || prev === value)) return s;
+            return { answers: { ...s.answers, [key]: value } };
+          }),
+
+        requeue: (cardId) =>
+          set((s) => {
+            const c = s.srs[cardId];
+            if (!c) return s;
+            const now = new Date().toISOString();
+            return { srs: { ...s.srs, [cardId]: { ...c, due: now, u: now } } };
+          }),
+
         recordQuiz: (key, correct) => {
           if (!correct || get().awarded[key]) return;
           get().award(key, XP.quizCorrect, "Bonne réponse");
@@ -213,8 +253,13 @@ export const useProgress = create<ProgressState>()(
         review: (cardId, grade) => {
           const stored = get().srs[cardId];
           if (!stored) return;
-          const { card } = scheduler.next(deserialize(stored), new Date(), grade);
-          set((s) => ({ srs: { ...s.srs, [cardId]: serialize(card) }, reviewsDone: s.reviewsDone + 1 }));
+          const now = new Date();
+          const { card } = scheduler.next(deserialize(stored), now, grade);
+          set((s) => ({
+            srs: { ...s.srs, [cardId]: serialize(card, now) },
+            reviewsDone: s.reviewsDone + 1,
+            reviewLog: [...s.reviewLog, { c: cardId, g: grade, t: now.toISOString() }].slice(-REVIEW_LOG_MAX),
+          }));
           const amount =
             grade === Rating.Again ? XP.review.again
             : grade === Rating.Hard ? XP.review.hard

@@ -60,3 +60,27 @@ describe("mergeProgress", () => {
     expect(mergeProgress(null, { xp: 5 }).xp).toBe(5);
   });
 });
+
+describe("réponses, historique et remise en révision", () => {
+  const base = { ...EMPTY_DATA };
+  it("réponses : union, meilleure valeur gardée", () => {
+    const m = mergeProgress({ ...base, answers: { a: 1, q: 2 } }, { ...base, answers: { q: 3, b: 0 } });
+    expect(m.answers).toEqual({ a: 1, q: 3, b: 0 });
+  });
+  it("historique : union sans doublons, ordre chronologique", () => {
+    const e1 = { c: "x", g: 3, t: "2026-10-01T10:00:00Z" };
+    const e2 = { c: "y", g: 1, t: "2026-10-02T10:00:00Z" };
+    const e3 = { c: "x", g: 4, t: "2026-10-03T10:00:00Z" };
+    const m = mergeProgress({ ...base, reviewLog: [e1, e3] }, { ...base, reviewLog: [e1, e2] });
+    expect(m.reviewLog).toEqual([e1, e2, e3]);
+    expect(sameData(m, mergeProgress({ ...base, reviewLog: [e1, e2] }, { ...base, reviewLog: [e3, e1] }))).toBe(true);
+  });
+  it("une remise en révision (plus récente) l'emporte sur l'état d'un autre appareil", () => {
+    const old = { ...card(2, "2026-10-10"), due: "2026-10-20T00:00:00.000Z", u: "2026-10-10T00:00:00.000Z" };
+    const requeued = { ...old, due: "2026-10-16T12:00:00.000Z", u: "2026-10-16T12:00:00.000Z" };
+    const m1 = mergeProgress({ ...base, srs: { c: requeued } }, { ...base, srs: { c: old } });
+    const m2 = mergeProgress({ ...base, srs: { c: old } }, { ...base, srs: { c: requeued } });
+    expect(m1.srs.c.due).toBe(requeued.due);
+    expect(m2.srs.c.due).toBe(requeued.due);
+  });
+});

@@ -8,6 +8,7 @@ import { cardById } from "@/lib/cards";
 import { conceptTitle } from "@/lib/curriculum";
 import { useHydrated } from "@/components/ui/useHydrated";
 import { Choice, choiceState } from "@/components/pedago/Choice";
+import { DeckOverview } from "./DeckOverview";
 
 const GRADES: { g: Grade; label: string; key: string }[] = [
   { g: Rating.Again, label: "À revoir", key: "1" },
@@ -20,6 +21,7 @@ export function Review() {
   const hydrated = useHydrated();
   const srs = useProgress((s) => s.srs);
   const review = useProgress((s) => s.review);
+  const requeueCard = useProgress((s) => s.requeue);
   const [queue, setQueue] = useState<string[] | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [choice, setChoice] = useState<number | null>(null);
@@ -31,6 +33,13 @@ export function Review() {
   }, [hydrated, queue, srs]);
 
   const currentId = queue?.[0];
+
+  /** Remet une carte à réviser : elle est due tout de suite (synchronisé) et rejoint la session en cours. */
+  const requeue = (id: string) => {
+    requeueCard(id);
+    setQueue((q) => (q && !q.includes(id) ? [...q, id] : q));
+    setRevealed(false);
+  };
   const card = currentId ? cardById(currentId) : undefined;
 
   const grade = (g: Grade) => {
@@ -80,6 +89,7 @@ export function Review() {
             {total === 0 ? "Voir le parcours" : "Retour"}
           </Link>
         </div>
+        <DeckOverview queue={[]} onRequeue={requeue} defaultOpen={true} />
       </Shell>
     );
   }
@@ -137,6 +147,7 @@ export function Review() {
           </>
         )}
       </div>
+      <DeckOverview queue={queue} onRequeue={requeue} defaultOpen={false} />
     </Shell>
   );
 }

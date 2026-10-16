@@ -152,4 +152,26 @@ describe("synchronisation", () => {
     expect(b["challenges-5"]).toBeDefined();
     expect((db.get("dan") as { badges: Record<string, string> }).badges["challenges-5"]).toBeDefined();
   });
+
+  it("réponses de leçon, historique de révision et remise en révision survivent à la déconnexion", async () => {
+    await signOut({ force: true });
+    await login("emma");
+    const st = useProgress.getState();
+    st.completeLesson("bayes", ["proba"]);
+    st.rememberAnswer("bayes:predict:hook", 3, "first");
+    st.rememberAnswer("bayes:quizscore:fin", 3, "max");
+    const ids = Object.keys(useProgress.getState().srs);
+    useProgress.getState().review(ids[0], 3);
+    useProgress.getState().requeue(ids[1]);
+    const dueRequeued = useProgress.getState().srs[ids[1]].due;
+    const before = stableStringify(pickData(useProgress.getState()));
+    expect((await signOut()).saved).toBe(true);
+    expect(useProgress.getState().reviewLog).toHaveLength(0);
+    await login("emma");
+    const after = useProgress.getState();
+    expect(stableStringify(pickData(after))).toBe(before);
+    expect(after.answers["bayes:predict:hook"]).toBe(3);
+    expect(after.reviewLog).toHaveLength(1);
+    expect(after.srs[ids[1]].due).toBe(dueRequeued);
+  });
 });

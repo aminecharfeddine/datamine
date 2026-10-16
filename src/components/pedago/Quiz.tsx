@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ListChecks } from "lucide-react";
 import { useLesson } from "./LessonContext";
 import { useProgress } from "@/lib/store";
@@ -11,9 +11,22 @@ export type QuizQuestion = { q: string; options: string[]; answer: number; expla
 export function Quiz({ id, title = "Vérifie tes acquis", questions }: { id: string; title?: string; questions: QuizQuestion[] }) {
   const { slug } = useLesson();
   const record = useProgress((s) => s.recordQuiz);
+  const remember = useProgress((s) => s.rememberAnswer);
+  const scoreKey = `${slug}:quizscore:${id}`;
+  const best = useProgress((s) => s.answers[scoreKey]);
   const [idx, setIdx] = useState(0);
   const [choice, setChoice] = useState<number | null>(null);
   const [score, setScore] = useState(0);
+  const [restored, setRestored] = useState(false);
+
+  // Quiz déjà terminé : on affiche directement le meilleur score, avec la possibilité de recommencer.
+  useEffect(() => {
+    if (!restored && best !== undefined) {
+      setIdx(questions.length);
+      setScore(best);
+      setRestored(true);
+    }
+  }, [best, restored, questions.length]);
   const finished = idx >= questions.length;
   const q = questions[idx];
 
@@ -38,6 +51,7 @@ export function Quiz({ id, title = "Vérifie tes acquis", questions }: { id: str
         <div className="animate-rise">
           <p className="font-display text-2xl font-bold">
             {score}/{questions.length}{" "}
+            {best !== undefined && best > score && <span className="text-base font-semibold text-muted">(record : {best}/{questions.length}) </span>}
             <span className="text-muted">{score === questions.length ? "· parfait !" : "· tes erreurs reviendront en révision."}</span>
           </p>
           <button
@@ -76,6 +90,7 @@ export function Quiz({ id, title = "Vérifie tes acquis", questions }: { id: str
               <p className="text-[0.95rem] text-muted">{q.explain}</p>
               <button
                 onClick={() => {
+                  if (idx + 1 >= questions.length) remember(scoreKey, score, "max");
                   setIdx((i) => i + 1);
                   setChoice(null);
                 }}
