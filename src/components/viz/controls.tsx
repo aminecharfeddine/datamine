@@ -12,9 +12,11 @@ export function Slider(props: {
 }) {
   return (
     <label className="block">
-      <div className="mb-1.5 flex items-baseline justify-between text-sm">
-        <span className="text-muted">{props.label}</span>
-        <span className="num font-semibold">{props.display}</span>
+      <div className="mb-2 flex items-baseline justify-between gap-3 text-sm">
+        <span className="font-semibold text-muted">{props.label}</span>
+        <span className="num rounded-lg px-2 py-0.5 font-bold" style={{ background: "color-mix(in srgb, var(--mod) 12%, white)", color: "var(--mod-deep)" }}>
+          {props.display}
+        </span>
       </div>
       <input
         type="range"
@@ -42,7 +44,7 @@ export function Segmented<T extends string>({
 }) {
   return (
     <div>
-      <div className="mb-1.5 text-sm text-muted">{label}</div>
+      <div className="mb-2 text-sm font-semibold text-muted">{label}</div>
       <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={label}>
         {options.map((o) => (
           <button
@@ -51,8 +53,8 @@ export function Segmented<T extends string>({
             aria-checked={o.value === value}
             onClick={() => onChange(o.value)}
             className={clsx(
-              "rounded-full border px-3 py-1 text-sm transition-colors",
-              o.value === value ? "border-ink bg-ink text-paper" : "border-line hover:border-ink",
+              "rounded-xl border-2 px-3 py-1.5 text-sm font-semibold transition-colors",
+              o.value === value ? "border-mod bg-mod text-white" : "border-line bg-surface hover:border-mod",
             )}
           >
             {o.label}
@@ -68,10 +70,8 @@ export function LabButton({ children, onClick, primary, disabled }: { children: 
     <button
       onClick={onClick}
       disabled={disabled}
-      className={clsx(
-        "rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-40",
-        primary ? "bg-ink text-paper hover:bg-ink/85" : "border border-line hover:border-ink",
-      )}
+      className={clsx("px-4 py-2 text-sm", primary ? "btn-3d text-white" : "btn-ghost")}
+      style={primary ? { background: "var(--mod)", ["--btn-shadow" as string]: "var(--mod-deep)" } : undefined}
     >
       {children}
     </button>
@@ -81,7 +81,7 @@ export function LabButton({ children, onClick, primary, disabled }: { children: 
 /** Cadre commun des labos. */
 export function LabFrame({ children }: { children: React.ReactNode }) {
   return (
-    <figure className="not-prose my-10 -mx-4 border-y border-line bg-surface px-4 py-6 sm:mx-0 sm:rounded-2xl sm:border sm:p-6">
+    <figure className="not-prose card my-10 -mx-4 rounded-none border-x-0 px-4 py-6 sm:mx-0 sm:rounded-3xl sm:border-x sm:p-7">
       {children}
     </figure>
   );

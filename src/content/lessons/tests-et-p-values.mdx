@@ -1,0 +1,96 @@
+<Predict
+  id="hook"
+  question="Tu testes une nouvelle page d'inscription (B) contre l'ancienne (A). Résultat : p-value = 0,03. Que peux-tu affirmer ?"
+  options={[
+    "Il y a 97 % de chances que B soit meilleure",
+    "Il y a 3 % de chances que B ne fasse aucune différence",
+    "Si B ne changeait rien, un écart au moins aussi grand n'arriverait que 3 % du temps",
+    "B augmente les inscriptions de 3 %",
+  ]}
+  answer={2}
+>
+La p-value ne dit **pas** la probabilité que l'hypothèse soit vraie. Elle répond à une question plus étrange : *en supposant qu'il n'y a aucun effet*, à quel point le résultat observé serait-il surprenant ? Une petite p-value signifie « ce résultat serait rare dans un monde sans effet ». Les deux premières réponses sont les contresens les plus fréquents — en entretien comme dans les rapports d'A/B tests.
+</Predict>
+
+## La logique du test
+
+Un test d'hypothèse raisonne comme un procès :
+
+1. On suppose l'**hypothèse nulle** $H_0$ : « B ne change rien » (présomption d'innocence).
+2. On calcule à quoi ressembleraient les résultats **si $H_0$ était vraie**.
+3. On regarde si ce qu'on a observé est très improbable dans ce monde-là. Si oui, on **rejette** $H_0$.
+
+La **p-value** est la probabilité, sous $H_0$, d'observer un écart au moins aussi extrême que celui mesuré :
+
+$$
+p = P\big(|\text{écart}| \ge |\text{écart observé}| \;\big|\; H_0\big)
+$$
+
+Par convention, on parle de résultat **significatif** quand $p < \alpha$, avec souvent $\alpha = 0{,}05$.
+
+Dans le labo, la version A convertit 10 % des visiteurs. Commence avec **aucun effet réel** et lance des expériences une par une : regarde où tombe l'écart observé et l'aire orange.
+
+<AbLab id="decouverte" n={1000} effect={0} challenge="pv-false" />
+
+## Les faux positifs sont garantis
+
+Tu viens de le voir : même quand B ne change **strictement rien**, environ une expérience sur vingt sort « significative ». C'est exactement ce que veut dire $\alpha = 0{,}05$ : on accepte 5 % de **faux positifs** (erreur de type I).
+
+<Callout type="piege">
+Tester 20 variantes d'un bouton et célébrer celle qui a $p < 0{,}05$, c'est presque garantir une fausse découverte. Idem pour regarder les résultats chaque jour et s'arrêter dès que ça devient significatif (*peeking*). Quand on fait plusieurs tests, il faut corriger le seuil (Bonferroni, contrôle du FDR) ou fixer la durée à l'avance.
+</Callout>
+
+## La puissance : détecter un vrai effet
+
+Le problème inverse existe aussi : B est réellement meilleure, mais l'expérience ne le voit pas (**faux négatif**, erreur de type II). La probabilité de détecter un effet qui existe s'appelle la **puissance** du test.
+
+<Predict
+  id="puissance"
+  question="B convertit vraiment à 12 % au lieu de 10 %. Avec 500 visiteurs par version, quelle part des expériences sera significative ?"
+  options={["Presque toutes", "Environ la moitié", "Moins d'un tiers", "Exactement 95 %"]}
+  answer={2}
+>
+Avec 500 visiteurs, la différence de 2 points est noyée dans le bruit : l'écart-type de la différence vaut environ 2 points lui aussi. La puissance tourne autour de 20 %. Conclure « pas significatif, donc B ne sert à rien » serait une erreur : **absence de preuve n'est pas preuve d'absence**.
+</Predict>
+
+<AbLab id="puissance" n={500} effect={0.02} controls={["n"]} challenge="pv-power" />
+
+<Callout type="entretien">
+On dimensionne un A/B test **avant** de le lancer : on fixe l'effet minimal qui aurait un intérêt business, le seuil $\alpha$ (souvent 5 %) et la puissance voulue (souvent 80 %). On en déduit le nombre de visiteurs nécessaire. Et on rappelle qu'avec assez de données, même un effet minuscule et sans intérêt devient significatif : **significatif ne veut pas dire important**. Il faut toujours regarder la taille de l'effet, idéalement avec son intervalle de confiance.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que mesure la p-value ?",
+      options: [
+        "La probabilité que H₀ soit vraie",
+        "La probabilité d'un résultat au moins aussi extrême si H₀ est vraie",
+        "La taille de l'effet",
+        "La probabilité que l'expérience soit reproductible",
+      ],
+      answer: 1,
+      explain: "La p-value est calculée en supposant H₀ vraie. Elle ne donne pas la probabilité de H₀.",
+    },
+    {
+      q: "Une équipe lance 40 A/B tests où rien ne change vraiment. Combien de « victoires » significatives à 5 % attendre ?",
+      options: ["0", "Environ 2", "Environ 20", "Environ 38"],
+      answer: 1,
+      explain: "40 × 0,05 = 2 faux positifs attendus, par pur hasard.",
+    },
+    {
+      q: "Un test n'est pas significatif. Que peut-on conclure ?",
+      options: [
+        "Qu'il n'y a aucun effet",
+        "Que l'effet est négatif",
+        "Que les données ne permettent pas d'écarter H₀, peut-être faute de puissance",
+        "Qu'il faut baisser α jusqu'à obtenir un résultat",
+      ],
+      answer: 2,
+      explain: "Un test peu puissant rate souvent les vrais effets. Absence de preuve n'est pas preuve d'absence.",
+    },
+  ]}
+/>
+
+<LessonComplete />

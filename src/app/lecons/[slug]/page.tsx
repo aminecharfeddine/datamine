@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { findLesson, MODULES, conceptTitle } from "@/lib/curriculum";
+import { ChevronLeft, Clock } from "lucide-react";
+import { findLesson, conceptTitle, modStyle, moduleById } from "@/lib/curriculum";
 import { LESSON_CONTENT } from "@/lib/lessons";
 import { LessonProvider } from "@/components/pedago/LessonContext";
+import { ModuleIcon } from "@/components/ui/ModuleIcon";
 
 export function generateStaticParams() {
   return Object.keys(LESSON_CONTENT).map((slug) => ({ slug }));
@@ -20,28 +22,38 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
   const load = LESSON_CONTENT[slug];
   if (!meta || !load) notFound();
   const { default: Content } = await load();
-  const mod = MODULES.find((m) => m.id === meta.moduleId)!;
+  const mod = moduleById(meta.moduleId)!;
 
   return (
     <LessonProvider slug={slug} concepts={meta.concepts}>
-      <article className="mx-auto max-w-3xl px-4 pt-12">
-        <Link href="/parcours" className="text-sm text-muted hover:text-ink">
-          ← Module {mod.index} · {mod.title}
-        </Link>
-        <h1 className="mt-4 font-serif text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">{meta.title}</h1>
-        <p className="mt-4 text-lg text-muted">{meta.summary}</p>
-        <div className="mt-5 flex flex-wrap gap-2 text-xs">
-          <span className="num rounded-full border border-line px-2.5 py-1">{meta.minutes} min</span>
-          {meta.concepts.map((c) => (
-            <span key={c} className="rounded-full bg-sunken px-2.5 py-1">
-              {conceptTitle(c)}
-            </span>
-          ))}
-        </div>
-        <div className="lesson-prose mt-10">
-          <Content />
-        </div>
-      </article>
+      <div style={modStyle(mod)}>
+        <header className="relative overflow-hidden text-white" style={{ background: mod.color }}>
+          <ModuleIcon id={mod.id} size={260} className="pointer-events-none absolute -right-10 -top-10 opacity-15" />
+          <div className="relative mx-auto max-w-3xl px-4 pb-10 pt-8">
+            <Link href={`/parcours#${mod.id}`} className="inline-flex items-center gap-1 rounded-lg py-1 text-sm font-semibold text-white/85 hover:text-white">
+              <ChevronLeft size={16} strokeWidth={2.6} />
+              Module {mod.index}, {mod.title}
+            </Link>
+            <h1 className="mt-4 font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl">{meta.title}</h1>
+            <p className="mt-4 max-w-xl text-lg text-white/90">{meta.summary}</p>
+            <div className="mt-6 flex flex-wrap gap-2 text-sm font-semibold">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1">
+                <Clock size={14} strokeWidth={2.6} /> {meta.minutes} min
+              </span>
+              {meta.concepts.map((c) => (
+                <span key={c} className="rounded-full bg-white px-3 py-1" style={{ color: mod.deep }}>
+                  {conceptTitle(c)}
+                </span>
+              ))}
+            </div>
+          </div>
+        </header>
+        <article className="mx-auto max-w-3xl px-4">
+          <div className="lesson-prose mt-10">
+            <Content />
+          </div>
+        </article>
+      </div>
     </LessonProvider>
   );
 }

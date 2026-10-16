@@ -15,6 +15,97 @@ export type McqCard = {
 export type ReviewCard = FlashCard | McqCard;
 
 export const CARDS: ReviewCard[] = [
+  // --- ic
+  {
+    id: "ic-1",
+    concept: "ic",
+    kind: "mcq",
+    front: "Que signifie « intervalle de confiance à 95 % » ?",
+    options: [
+      "95 % de chances que μ soit dans cet intervalle précis",
+      "La méthode produit des intervalles qui contiennent μ dans 95 % des échantillons",
+      "95 % des données sont dans l'intervalle",
+      "L'estimation est juste à 95 %",
+    ],
+    answer: 1,
+    explain: "μ est fixe ; c'est l'intervalle qui varie d'un échantillon à l'autre. Le 95 % décrit la procédure.",
+  },
+  {
+    id: "ic-2",
+    concept: "ic",
+    kind: "flash",
+    front: "Formule d'un intervalle de confiance pour une moyenne (σ connu) ?",
+    back: "x̄ ± z · σ/√n, avec z = 1,96 à 95 % et 2,58 à 99 %. Si σ est estimé par s, on utilise le quantile de Student t(n−1).",
+  },
+  {
+    id: "ic-3",
+    concept: "ic",
+    kind: "mcq",
+    front: "Pour diviser par 2 la marge d'un intervalle de confiance, à niveau égal, il faut…",
+    options: ["2 fois plus de données", "4 fois plus de données", "Passer de 95 % à 90 %", "8 fois plus de données"],
+    answer: 1,
+    explain: "La marge est proportionnelle à 1/√n. Baisser le niveau réduit aussi la marge, mais on perd en confiance.",
+  },
+  // --- tests
+  {
+    id: "test-1",
+    concept: "tests",
+    kind: "flash",
+    front: "Définition exacte de la p-value ?",
+    back: "La probabilité, en supposant H₀ vraie, d'observer un résultat au moins aussi extrême que celui mesuré. Ce n'est pas la probabilité que H₀ soit vraie.",
+  },
+  {
+    id: "test-2",
+    concept: "tests",
+    kind: "mcq",
+    front: "Erreur de type I et erreur de type II ?",
+    options: [
+      "I : rater un vrai effet ; II : voir un effet inexistant",
+      "I : voir un effet inexistant (faux positif) ; II : rater un vrai effet (faux négatif)",
+      "Ce sont deux noms de la p-value",
+      "I : mauvais seuil ; II : mauvais échantillon",
+    ],
+    answer: 1,
+    explain: "α contrôle le taux d'erreur de type I ; la puissance vaut 1 − taux d'erreur de type II.",
+  },
+  {
+    id: "test-3",
+    concept: "tests",
+    kind: "flash",
+    front: "Qu'est-ce que la puissance d'un test, et comment l'augmenter ?",
+    back: "La probabilité de détecter un effet qui existe vraiment. Elle augmente avec la taille d'échantillon, la taille de l'effet et un α plus permissif.",
+  },
+  // --- regularisation
+  {
+    id: "reg-1",
+    concept: "regularisation",
+    kind: "flash",
+    front: "Fonction objectif de la régression ridge ?",
+    back: "Σ (yᵢ − ŷᵢ)² + λ Σ wⱼ². Le second terme pénalise les grands coefficients ; λ règle l'arbitrage entre ajustement et simplicité.",
+  },
+  {
+    id: "reg-2",
+    concept: "regularisation",
+    kind: "mcq",
+    front: "Quelle régularisation met des coefficients exactement à zéro ?",
+    options: ["L2 (ridge)", "L1 (lasso)", "Dropout", "Aucune"],
+    answer: 1,
+    explain: "La pénalité |w| de L1 crée de la parcimonie : sélection de variables automatique.",
+  },
+  {
+    id: "reg-3",
+    concept: "regularisation",
+    kind: "mcq",
+    front: "Pourquoi standardiser les variables avant une régression ridge ?",
+    options: [
+      "Pour accélérer le calcul",
+      "Parce que la pénalité dépend de l'échelle des coefficients, donc des variables",
+      "Pour éviter les valeurs négatives",
+      "Ce n'est pas nécessaire",
+    ],
+    answer: 1,
+    explain: "Sans standardisation, une variable exprimée en petites unités est injustement pénalisée.",
+  },
   // --- proba (Bayes)
   {
     id: "proba-1",

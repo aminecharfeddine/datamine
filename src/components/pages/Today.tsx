@@ -1,116 +1,162 @@
 "use client";
 import Link from "next/link";
+import clsx from "clsx";
+import { Flame, Lock, Repeat, Zap } from "lucide-react";
 import { useProgress, dueCardIds, conceptLevel } from "@/lib/store";
-import { ALL_LESSONS, MODULES } from "@/lib/curriculum";
+import { ALL_LESSONS, MODULES, modStyle, moduleById, type Module } from "@/lib/curriculum";
 import { dayKey, displayedStreak, levelInfo } from "@/lib/gamification";
 import { useHydrated } from "@/components/ui/useHydrated";
+import { ModuleIcon } from "@/components/ui/ModuleIcon";
 
 export function Today() {
   const hydrated = useHydrated();
   const s = useProgress();
   const due = hydrated ? dueCardIds(s.srs).length : 0;
-  const next = ALL_LESSONS.find((l) => l.available && !s.completedLessons[l.slug]);
+  const next = hydrated ? ALL_LESSONS.find((l) => l.available && !s.completedLessons[l.slug]) : ALL_LESSONS[0];
+  const nextMod = next ? moduleById(next.moduleId) : undefined;
   const lvl = levelInfo(s.xp);
   const streak = hydrated ? displayedStreak(s.streak, dayKey()) : 0;
   const isNew = hydrated && s.xp === 0;
 
-  // XP des 7 derniers jours
   const week = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
-    return { day: d.toLocaleDateString("fr-FR", { weekday: "narrow" }), xp: hydrated ? (s.dailyXp[dayKey(d)] ?? 0) : 0 };
+    return { day: d.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", ""), xp: hydrated ? (s.dailyXp[dayKey(d)] ?? 0) : 0 };
   });
   const maxXp = Math.max(30, ...week.map((w) => w.xp));
+  const weekTotal = week.reduce((a, w) => a + w.xp, 0);
 
-  // Module en cours : celui de la prochaine leçon (ou le dernier disponible si tout est terminé).
-  const currentModule =
-    MODULES.find((m) => m.id === next?.moduleId) ??
-    [...MODULES].reverse().find((m) => m.lessons.some((l) => l.available))!;
+  const mastery = (m: Module) => {
+    if (!hydrated) return 0;
+    const lv: number[] = m.concepts.map((c) => conceptLevel(s, c.id));
+    return lv.reduce((a, b) => a + b, 0) / (lv.length * 4);
+  };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-12">
-      <section className="grid gap-10 lg:grid-cols-[1.3fr_1fr] lg:items-end">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">Laboratoire de data science</p>
-          <h1 className="mt-3 font-serif text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
-            Comprendre en manipulant,
-            <br />
-            <span className="italic text-muted">retenir en révisant.</span>
-          </h1>
-          <p className="mt-5 max-w-xl text-lg text-muted">
-            Statistiques, Machine Learning, Deep Learning, LLM. Chaque notion se découvre par une prédiction, se
-            manipule dans une visualisation, se gagne par un défi — puis revient au bon moment pour ne pas s'oublier.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-line bg-surface p-5">
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <Stat label="Niveau" value={hydrated ? lvl.level : "–"} />
-            <Stat label="Série" value={hydrated ? `${streak} j` : "–"} />
-            <Stat label="XP" value={hydrated ? s.xp : "–"} />
-          </div>
-          <div className="mt-5 flex h-20 items-end gap-2" aria-label="XP gagnée sur les 7 derniers jours">
-            {week.map((w, i) => (
-              <div key={i} className="flex flex-1 flex-col items-center gap-1" title={`${w.xp} XP`}>
-                <div
-                  className={i === 6 ? "w-full rounded-t-[4px] bg-accent" : "w-full rounded-t-[4px] bg-ink/70"}
-                  style={{ height: `${Math.max(2, (w.xp / maxXp) * 56)}px` }}
-                />
-                <span className="text-[11px] text-muted">{w.day}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="mx-auto max-w-6xl px-4 pt-10">
+      <section>
+        <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
+          {isNew ? "La data science, en manipulant." : "On continue ?"}
+        </h1>
+        <p className="mt-3 max-w-2xl text-lg text-muted">
+          {isNew
+            ? "Statistiques, machine learning, deep learning, LLM. Tu prédis, tu manipules, tu relèves des défis, puis tes révisions reviennent juste avant que tu oublies."
+            : "Une leçon ou quelques révisions : quinze minutes suffisent pour garder ta série."}
+        </p>
       </section>
 
-      <section className="mt-14 grid gap-4 md:grid-cols-2">
-        <Link
-          href={due > 0 ? "/revisions" : "/parcours"}
-          className="group rounded-2xl border border-line bg-surface p-6 transition-colors hover:border-ink"
-        >
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Révisions du jour</div>
-          <div className="num mt-2 text-4xl font-semibold">{due}</div>
-          <p className="mt-1 text-muted">
-            {due > 0
-              ? "cartes à revoir avant qu'elles ne s'effacent."
-              : isNew
-                ? "Termine une leçon : ses cartes rejoindront ton deck."
-                : "Rien à réviser pour l'instant. Reviens demain."}
-          </p>
-          {due > 0 && <span className="mt-4 inline-block text-sm font-semibold group-hover:underline">Commencer →</span>}
-        </Link>
-
-        {next ? (
-          <Link href={`/lecons/${next.slug}`} className="group rounded-2xl bg-ink p-6 text-paper transition-transform hover:-translate-y-0.5">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] opacity-60">
-              {isNew ? "Commence ici" : "Prochaine leçon"}
+      <section className="mt-8 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+        {next && nextMod ? (
+          <Link
+            href={`/lecons/${next.slug}`}
+            style={{ ...modStyle(nextMod), background: nextMod.color }}
+            className="group relative overflow-hidden rounded-3xl p-6 text-white sm:p-8"
+          >
+            <ModuleIcon id={nextMod.id} size={180} className="pointer-events-none absolute -bottom-8 -right-6 opacity-15" />
+            <div className="flex items-center gap-2 text-sm font-semibold text-white/80">
+              <ModuleIcon id={nextMod.id} size={16} />
+              {isNew ? "Commence ici" : "Ta prochaine leçon"} · Module {nextMod.index}, {nextMod.title}
             </div>
-            <div className="mt-2 font-serif text-2xl leading-tight">{next.title}</div>
-            <p className="mt-2 opacity-70">{next.summary}</p>
-            <span className="num mt-4 inline-block text-sm font-semibold">{next.minutes} min →</span>
+            <h2 className="mt-3 max-w-lg font-display text-3xl font-bold leading-tight sm:text-4xl">{next.title}</h2>
+            <p className="mt-2 max-w-md text-white/85">{next.summary}</p>
+            <span
+              className="btn-3d mt-6 inline-flex items-center gap-2 bg-white px-5 py-3 text-ink"
+              style={{ ["--btn-shadow" as string]: "rgb(0 0 0 / 0.25)" }}
+            >
+              Commencer · {next.minutes} min
+            </span>
           </Link>
         ) : (
-          <div className="rounded-2xl border border-dashed border-line p-6">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Prochaine leçon</div>
-            <p className="mt-2 font-serif text-xl">Tu as terminé toutes les leçons disponibles.</p>
-            <p className="mt-1 text-muted">De nouveaux modules arrivent. En attendant, tes révisions consolident l'acquis.</p>
+          <div className="card p-8">
+            <h2 className="font-display text-2xl font-bold">Tu as terminé toutes les leçons disponibles</h2>
+            <p className="mt-2 text-muted">De nouveaux modules arrivent. En attendant, tes révisions consolident ce que tu as appris.</p>
           </div>
         )}
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          <Link href={due > 0 ? "/revisions" : "/parcours"} className="card flex items-center gap-4 p-5 transition-colors hover:border-muted">
+            <span className={clsx("flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl", due > 0 ? "bg-flame text-white" : "bg-sunken text-muted")}>
+              <Repeat size={22} strokeWidth={2.6} />
+            </span>
+            <span>
+              <span className="block font-display text-2xl font-bold">
+                {due} carte{due > 1 ? "s" : ""} à réviser
+              </span>
+              <span className="text-sm text-muted">
+                {due > 0 ? "Elles sont sur le point de s'effacer." : isNew ? "Termine une leçon pour remplir ton deck." : "Rien pour l'instant. Reviens demain."}
+              </span>
+            </span>
+          </Link>
+
+          <div className="card p-5">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-semibold">
+                <Flame size={18} className={streak > 0 ? "text-flame" : "text-muted"} fill={streak > 0 ? "currentColor" : "none"} />
+                {streak} jour{streak > 1 ? "s" : ""} de suite
+              </span>
+              <span className="flex items-center gap-1 text-sm font-semibold text-[#b45309]">
+                <Zap size={15} fill="currentColor" className="text-xp" />
+                <span className="num">{weekTotal}</span> XP cette semaine
+              </span>
+            </div>
+            <div className="mt-4 flex h-20 items-end gap-2" aria-label="XP gagnée sur les 7 derniers jours">
+              {week.map((w, i) => (
+                <div key={i} className="flex flex-1 flex-col items-center gap-1" title={`${w.xp} XP`}>
+                  <div
+                    className={clsx("w-full rounded-lg", w.xp === 0 ? "bg-sunken" : i === 6 ? "bg-xp" : "bg-accent")}
+                    style={{ height: `${Math.max(6, (w.xp / maxXp) * 56)}px` }}
+                  />
+                  <span className={clsx("text-[11px] capitalize", i === 6 ? "font-bold text-ink" : "text-muted")}>{w.day}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 text-xs text-muted">
+              Niveau {lvl.level} · encore {lvl.needed - lvl.current} XP pour le niveau {lvl.level + 1}
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="mt-14">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-serif text-2xl font-semibold">Module {currentModule.index} · {currentModule.title}</h2>
-          <Link href="/parcours" className="text-sm text-muted hover:text-ink">Tout le parcours →</Link>
+          <h2 className="font-display text-2xl font-bold">Les modules</h2>
+          <Link href="/parcours" className="text-sm font-semibold text-accent hover:underline">
+            Voir le parcours détaillé
+          </Link>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {currentModule.concepts.map((c) => {
-            const lv = hydrated ? conceptLevel(s, c.id) : 0;
-            return (
-              <div key={c.id} className="rounded-xl border border-line bg-surface p-3">
-                <div className="text-sm font-medium leading-tight">{c.title}</div>
-                <MasteryPips level={lv} />
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {MODULES.map((m) => {
+            const available = m.lessons.some((l) => l.available);
+            const v = mastery(m);
+            const first = m.lessons.find((l) => l.available);
+            const Tile = (
+              <div
+                className={clsx("relative h-full rounded-2xl border-2 p-4 transition-transform", available ? "hover:-translate-y-0.5" : "opacity-60")}
+                style={{ borderColor: available ? `${m.color}33` : "var(--line)", background: available ? `${m.color}0d` : "var(--surface)" }}
+              >
+                <span
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-white"
+                  style={{ background: available ? m.color : "var(--neg)" }}
+                >
+                  {available ? <ModuleIcon id={m.id} /> : <Lock size={18} strokeWidth={2.6} />}
+                </span>
+                <div className="mt-3 text-xs font-semibold text-muted">Module {m.index}</div>
+                <div className="font-display text-lg font-bold leading-tight">{m.title}</div>
+                {available ? (
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                    <div className="h-full rounded-full" style={{ width: `${Math.max(4, v * 100)}%`, background: m.color }} />
+                  </div>
+                ) : (
+                  <div className="mt-3 text-xs font-semibold text-muted">Bientôt</div>
+                )}
               </div>
+            );
+            return available && first ? (
+              <Link key={m.id} href={`/parcours#${m.id}`}>
+                {Tile}
+              </Link>
+            ) : (
+              <div key={m.id}>{Tile}</div>
             );
           })}
         </div>
@@ -119,23 +165,18 @@ export function Today() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <div className="num text-2xl font-semibold">{value}</div>
-      <div className="text-xs text-muted">{label}</div>
-    </div>
-  );
-}
-
-export function MasteryPips({ level }: { level: number }) {
+export function MasteryPips({ level, color }: { level: number; color?: string }) {
   const labels = ["Non vu", "Découvert", "Pratiqué", "Maîtrisé", "Consolidé"];
   return (
-    <div className="mt-2.5 flex items-center gap-1" title={labels[level]}>
+    <div className="mt-2 flex items-center gap-1" title={labels[level]}>
       {[1, 2, 3, 4].map((i) => (
-        <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= level ? "bg-accent" : "bg-sunken"}`} />
+        <span
+          key={i}
+          className="h-2 flex-1 rounded-full"
+          style={{ background: i <= level ? (color ?? "var(--mod)") : "var(--sunken)" }}
+        />
       ))}
-      <span className="ml-1.5 text-[11px] text-muted">{labels[level]}</span>
+      <span className="ml-2 w-16 text-[11px] font-medium text-muted">{labels[level]}</span>
     </div>
   );
 }

@@ -8,9 +8,12 @@ import { BayesLab } from "@/components/viz/BayesLab";
 import { GradientLab } from "@/components/viz/GradientLab";
 import { CltLab } from "@/components/viz/CltLab";
 import { PolyFitLab } from "@/components/viz/PolyFitLab";
+import { AbLab } from "@/components/viz/AbLab";
+import { CiLab } from "@/components/viz/CiLab";
+import { RidgeLab } from "@/components/viz/RidgeLab";
 
 // Composants disponibles dans toutes les leçons MDX, sans import.
-const components: MDXComponents = { Predict, Quiz, Callout, LessonComplete, ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab };
+const components: MDXComponents = { Predict, Quiz, Callout, LessonComplete, ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab, AbLab, CiLab, RidgeLab };
 
 export function useMDXComponents(): MDXComponents {
   return components;

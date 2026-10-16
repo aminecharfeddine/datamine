@@ -1,6 +1,7 @@
 "use client";
-import { useProgress } from "@/lib/store";
 import clsx from "clsx";
+import { Trophy, Zap } from "lucide-react";
+import { useProgress } from "@/lib/store";
 
 export function Toaster() {
   const toasts = useProgress((s) => s.toasts);
@@ -10,12 +11,14 @@ export function Toaster() {
         <div
           key={t.id}
           className={clsx(
-            "animate-rise rounded-full border px-4 py-2 text-sm font-medium shadow-sm",
-            t.tone === "xp" && "border-accent/30 bg-surface text-accent",
-            t.tone === "badge" && "border-pos/40 bg-pos text-paper",
-            t.tone === "info" && "border-line bg-surface text-ink",
+            "animate-pop flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold shadow-lg",
+            t.tone === "xp" && "bg-ink text-white",
+            t.tone === "badge" && "bg-xp text-ink",
+            t.tone === "info" && "bg-surface text-ink",
           )}
         >
+          {t.tone === "xp" && <Zap size={16} className="text-xp" fill="currentColor" />}
+          {t.tone === "badge" && <Trophy size={16} />}
           {t.text}
         </div>
       ))}

@@ -1,5 +1,5 @@
 import { metricsAt, type Metrics, type Sample } from "./metrics";
-import { bayes, errorCurve, W_GLOBAL, W_PEAK, type BayesParams, type DistId, type GdPath, type Pt } from "./sims";
+import { bayes, ciHalfWidth, errorCurve, ridgeCurve, W_GLOBAL, W_PEAK, type BayesParams, type DistId, type GdPath, type Pt } from "./sims";
 
 // Défis de manipulation : validés automatiquement à partir de l'état de la viz.
 // Définis côté client (les fonctions ne peuvent pas transiter depuis un MDX serveur).
@@ -24,6 +24,9 @@ export type Challenge<S = any> = {
 export type BayesState = BayesParams;
 export type GdState = { w0: number; lr: number; path: GdPath };
 export type CltState = { dist: DistId; n: number; count: number };
+export type AbState = { n: number; effect: number; runs: number; significant: number };
+export type CiState = { n: number; level: number; count: number; hits: number };
+export type RidgeState = { logLambda: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -32,6 +35,11 @@ const bestTest = (train: Pt[], test: Pt[]) => {
   return bestTestCache.get(train)!;
 };
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
+const ridgeBestCache = new WeakMap<Pt[], number>();
+const ridgeBest = (train: Pt[], test: Pt[]) => {
+  if (!ridgeBestCache.has(train)) ridgeBestCache.set(train, Math.min(...ridgeCurve(train, test).map((e) => e.test)));
+  return ridgeBestCache.get(train)!;
+};
 
 function maxF1(data: Sample[]) {
   let best = 0;
@@ -162,4 +170,52 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Un modèle complexe a besoin de beaucoup d'exemples pour ne pas apprendre le bruit.",
     check: (s: BvState) => s.degree >= 10 && s.testMse < 0.12,
   } satisfies Challenge<BvState>,
+
+  // ---------------------------------------------------------------- Tests A/B
+  "pv-false": {
+    id: "pv-false",
+    title: "Des découvertes qui n'existent pas",
+    goal: "Sans aucun effet réel (écart réglé sur 0), lance au moins 40 expériences et obtiens au moins un résultat « significatif ».",
+    hint: "Avec un seuil à 0,05, environ une expérience sur vingt sort significative par pur hasard.",
+    check: (s: AbState) => near(s.effect, 0) && s.runs >= 40 && s.significant >= 1,
+  } satisfies Challenge<AbState>,
+  "pv-power": {
+    id: "pv-power",
+    title: "Assez de visiteurs",
+    goal: "La version B convertit vraiment 2 points de plus. Trouve une taille d'échantillon qui détecte cet effet dans au moins 80 % de 30 expériences ou plus.",
+    hint: "L'écart-type de la différence diminue en 1/√n : il faut plusieurs milliers de visiteurs par groupe.",
+    check: (s: AbState) => near(s.effect, 0.02) && s.runs >= 30 && s.significant / s.runs >= 0.8,
+  } satisfies Challenge<AbState>,
+
+  // ---------------------------------------------------------------- Intervalles de confiance
+  "ci-coverage": {
+    id: "ci-coverage",
+    title: "Vérifier la promesse",
+    goal: "Au niveau 95 %, trace au moins 100 intervalles et compare la part qui contient la vraie moyenne.",
+    hint: "Utilise le bouton « +100 sondages ».",
+    check: (s: CiState) => near(s.level, 0.95) && s.count >= 100,
+  } satisfies Challenge<CiState>,
+  "ci-narrow": {
+    id: "ci-narrow",
+    title: "Précis et sûr",
+    goal: "Obtiens des intervalles à 99 % dont la marge est d'au plus ±2, puis trace-en au moins 20.",
+    hint: "La marge vaut z × σ / √n : pour la réduire sans baisser le niveau, il faut augmenter n.",
+    check: (s: CiState) => near(s.level, 0.99) && ciHalfWidth(s.n, s.level) <= 2 && s.count >= 20,
+  } satisfies Challenge<CiState>,
+
+  // ---------------------------------------------------------------- Régularisation
+  "ridge-best": {
+    id: "ridge-best",
+    title: "Dompter le degré 15",
+    goal: "Trouve une force de régularisation λ qui donne une erreur de test à moins de 5 % de la meilleure possible.",
+    hint: "Cherche le creux de la courbe orange : ni trop peu de régularisation, ni trop.",
+    check: (s: RidgeState) => s.testMse <= ridgeBest(s.train, s.test) * 1.05,
+  } satisfies Challenge<RidgeState>,
+  "ridge-under": {
+    id: "ridge-under",
+    title: "Trop serré",
+    goal: "Régularise tellement que le modèle devient presque plat : erreur d'entraînement supérieure à 0,4.",
+    hint: "Pousse λ vers la droite jusqu'au bout.",
+    check: (s: RidgeState) => s.trainMse > 0.4,
+  } satisfies Challenge<RidgeState>,
 };

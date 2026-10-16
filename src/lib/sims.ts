@@ -192,7 +192,8 @@ export function polyFit(pts: Pt[], degree: number, ridge = 1e-6) {
     for (let k = r + 1; k < p; k++) s -= A[r][k] * coef[k];
     coef[r] = s / A[r][r];
   }
-  return (x: number) => cheb(x, degree).reduce((s, t, i) => s + t * coef[i], 0);
+  const f = (x: number) => cheb(x, degree).reduce((s, t, i) => s + t * coef[i], 0);
+  return Object.assign(f, { coef });
 }
 
 export const mse = (f: (x: number) => number, pts: Pt[]) =>
@@ -212,3 +213,71 @@ export function errorCurve(train: Pt[], test: Pt[]) {
 export function makeBvData(n: number, noise: number, seed = 11) {
   return { train: makePoints(n, noise, seed), test: makePoints(400, noise, 9001) };
 }
+
+// ============================================================ Régularisation (ridge)
+
+export const RIDGE_DEGREE = 15;
+/** Grille de λ en puissances de 10 (le curseur se déplace sur log10 λ). */
+export const LOG_LAMBDAS = Array.from({ length: 33 }, (_, i) => -6 + i * 0.25);
+
+export function ridgeCurve(train: Pt[], test: Pt[]) {
+  return LOG_LAMBDAS.map((l) => {
+    const f = polyFit(train, RIDGE_DEGREE, 10 ** l);
+    return { logLambda: l, train: mse(f, train), test: mse(f, test) };
+  });
+}
+
+// ============================================================ Tests A/B et p-values
+
+/** Fonction de répartition de la loi normale centrée réduite (approximation d'Abramowitz-Stegun, erreur < 1e-7). */
+export function normCdf(z: number) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989422804014327 * Math.exp((-z * z) / 2);
+  const p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return z > 0 ? 1 - p : p;
+}
+
+export type AbResult = { convA: number; convB: number; diff: number; se: number; z: number; p: number };
+
+/** Test z bilatéral de différence de deux proportions. */
+export function twoPropTest(xA: number, xB: number, n: number): AbResult {
+  const convA = xA / n, convB = xB / n;
+  const pool = (xA + xB) / (2 * n);
+  const se = Math.sqrt(Math.max(pool * (1 - pool) * (2 / n), 1e-12));
+  const z = (convB - convA) / se;
+  return { convA, convB, diff: convB - convA, se, z, p: 2 * (1 - normCdf(Math.abs(z))) };
+}
+
+/** Une expérience A/B simulée : n visiteurs par groupe, taux de conversion réels pA et pB. */
+export function runAb(n: number, pA: number, pB: number, rand: () => number): AbResult {
+  let xA = 0, xB = 0;
+  for (let i = 0; i < n; i++) {
+    if (rand() < pA) xA++;
+    if (rand() < pB) xB++;
+  }
+  return twoPropTest(xA, xB, n);
+}
+
+export const AB_BASE = 0.1; // taux de conversion de la version A
+
+// ============================================================ Intervalles de confiance
+
+export const CI_MU = 50;
+export const CI_SIGMA = 10;
+export const Z_LEVEL: Record<string, number> = { "0.8": 1.2816, "0.9": 1.6449, "0.95": 1.96, "0.99": 2.5758 };
+
+export type Interval = { mean: number; lo: number; hi: number; hit: boolean };
+
+/** Un sondage de n mesures et son intervalle de confiance (σ connu, pour rester simple). */
+export function drawInterval(n: number, level: number, rand: () => number): Interval {
+  let s = 0;
+  for (let i = 0; i < n; i++) {
+    const u = Math.max(rand(), 1e-12);
+    s += CI_MU + CI_SIGMA * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rand());
+  }
+  const mean = s / n;
+  const half = (Z_LEVEL[String(level)] * CI_SIGMA) / Math.sqrt(n);
+  return { mean, lo: mean - half, hi: mean + half, hit: mean - half <= CI_MU && CI_MU <= mean + half };
+}
+
+export const ciHalfWidth = (n: number, level: number) => (Z_LEVEL[String(level)] * CI_SIGMA) / Math.sqrt(n);

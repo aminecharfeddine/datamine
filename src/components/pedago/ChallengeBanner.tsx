@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import clsx from "clsx";
+import { Lightbulb, Trophy } from "lucide-react";
 import { CHALLENGES } from "@/lib/challenges";
 import { useProgress } from "@/lib/store";
 import { useLesson } from "./LessonContext";
@@ -28,22 +29,37 @@ export function ChallengeBanner({ labId, challengeId, solved }: { labId: string;
   return (
     <div
       className={clsx(
-        "mb-6 rounded-xl border p-4 transition-colors",
-        done ? "border-pos bg-pos-soft" : "border-dashed border-ink/40",
+        "mb-6 flex gap-4 rounded-2xl p-4 transition-colors sm:p-5",
+        done ? "bg-[#ecfdf3]" : "bg-[#fffaeb]",
       )}
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Défi · {ch.title}</div>
-        <div className={clsx("num text-xs font-semibold", done ? "text-good" : "text-muted")}>
-          {done ? (solved ? "✓ réussi" : "✓ déjà réussi") : "+25 XP"}
+      <span
+        className={clsx(
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white transition-colors",
+          done ? "bg-good-bg" : "bg-xp",
+        )}
+      >
+        <Trophy size={22} strokeWidth={2.4} />
+      </span>
+      <div className="flex-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div className={clsx("text-sm font-bold", done ? "text-good" : "text-[#93370d]")}>Défi : {ch.title}</div>
+          <div className={clsx("rounded-full px-2.5 py-0.5 text-xs font-bold", done ? "bg-good-bg text-white" : "bg-xp/20 text-[#93370d]")}>
+            {done ? (solved ? "Réussi !" : "Déjà réussi") : "+25 XP"}
+          </div>
         </div>
+        <p className="mt-1 font-display text-lg font-bold leading-snug">{ch.goal}</p>
+        {!done &&
+          (hint ? (
+            <p className="mt-2 flex gap-1.5 text-sm text-[#93370d]">
+              <Lightbulb size={16} className="mt-0.5 shrink-0" /> {ch.hint}
+            </p>
+          ) : (
+            <button onClick={() => setHint(true)} className="mt-2 text-sm font-semibold text-[#b54708] underline underline-offset-4">
+              Afficher un indice
+            </button>
+          ))}
       </div>
-      <p className="mt-1 font-serif text-lg leading-snug">{ch.goal}</p>
-      {!done && (
-        <button onClick={() => setHint((h) => !h)} className="mt-2 text-xs text-muted underline underline-offset-4 hover:text-ink">
-          {hint ? ch.hint : "Un indice ?"}
-        </button>
-      )}
     </div>
   );
 }

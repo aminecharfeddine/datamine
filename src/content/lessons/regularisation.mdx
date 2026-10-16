@@ -1,0 +1,104 @@
+<Predict
+  id="hook"
+  question="Un polynôme de degré 15 overfitte 20 points. Sans retirer de degré ni ajouter de données, que peut-on encore faire ?"
+  options={[
+    "Rien : le modèle est trop complexe",
+    "L'empêcher d'utiliser des coefficients trop grands",
+    "Entraîner plus longtemps",
+    "Multiplier ses prédictions par 0,5",
+  ]}
+  answer={1}
+>
+Un modèle qui overfitte a souvent besoin de **coefficients énormes** qui se compensent entre eux pour serpenter entre les points. Si on pénalise les grands coefficients, on garde toute la flexibilité du modèle, mais on l'oblige à s'en servir avec modération. C'est la **régularisation**.
+</Predict>
+
+## Pénaliser la complexité
+
+D'habitude, on minimise l'erreur sur les données d'entraînement. Avec la régularisation, on ajoute un terme qui coûte d'autant plus cher que les coefficients $w_j$ sont grands :
+
+$$
+\min_{w} \;\; \underbrace{\sum_i \big(y_i - \hat f_w(x_i)\big)^2}_{\text{coller aux données}} \;+\; \lambda \underbrace{\sum_j w_j^2}_{\text{rester simple}}
+$$
+
+C'est la régularisation **L2**, ou *ridge*. L'hyperparamètre $\lambda$ règle l'arbitrage :
+
+- $\lambda \approx 0$ : aucune contrainte, on retrouve l'overfitting.
+- $\lambda$ très grand : les coefficients sont écrasés vers zéro, le modèle devient plat (underfitting).
+- Entre les deux : un modèle flexible mais sage.
+
+Le labo part d'un polynôme de degré 15 avec une régularisation quasi nulle. Fais glisser λ vers la droite et observe les trois graphiques en même temps.
+
+<RidgeLab id="decouverte" logLambda={-6} challenge="ridge-best" />
+
+<Callout type="intuition">
+Tu retrouves la courbe en U de la leçon précédente, mais **à l'envers** : ici, augmenter λ réduit la complexité effective du modèle. Le degré du polynôme ne change jamais ; c'est la liberté de ses coefficients qui diminue. λ est un bouton de bias-variance continu.
+</Callout>
+
+<RidgeLab id="trop" logLambda={-2} challenge="ridge-under" />
+
+## L1, L2 et les autres
+
+<Predict
+  id="l1"
+  question="La régularisation L1 (lasso) pénalise la somme des |wⱼ| au lieu des wⱼ². Quelle conséquence particulière ?"
+  options={[
+    "Elle met beaucoup de coefficients exactement à zéro",
+    "Elle rend tous les coefficients égaux",
+    "Elle empêche les coefficients négatifs",
+    "Aucune différence avec L2",
+  ]}
+  answer={0}
+>
+La pénalité L1 pousse les petits coefficients **exactement à zéro** : le modèle fait lui-même une sélection de variables. L2, elle, réduit tous les coefficients sans en annuler aucun. L'*elastic net* combine les deux.
+</Predict>
+
+La même idée prend d'autres formes selon les modèles :
+
+- **Weight decay** : c'est la pénalité L2 appliquée aux poids d'un réseau de neurones.
+- **Dropout** : désactiver des neurones au hasard pendant l'entraînement, pour qu'aucun ne devienne indispensable.
+- **Early stopping** : arrêter l'entraînement quand l'erreur de validation remonte.
+- **Profondeur maximale** d'un arbre, nombre minimal d'exemples par feuille : de la régularisation par contrainte de structure.
+
+<Callout type="piege">
+La pénalité dépend de la taille des coefficients, donc de **l'échelle des variables**. Une variable mesurée en euros et une autre en milliers d'euros ne sont pas pénalisées pareil. Avant ridge ou lasso, on standardise les variables (moyenne 0, écart-type 1). Et on choisit λ par validation croisée, jamais sur le test set.
+</Callout>
+
+<Callout type="entretien">
+« Pourquoi la régularisation réduit-elle l'overfitting ? » Parce qu'elle réduit la **variance** du modèle : des coefficients contraints réagissent moins aux particularités d'un échantillon. On accepte un peu de biais en échange. En version bayésienne, ridge revient à placer un prior gaussien centré en zéro sur les coefficients, et lasso un prior de Laplace.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "On augmente λ dans une régression ridge. En général…",
+      options: [
+        "L'erreur d'entraînement baisse",
+        "L'erreur d'entraînement augmente",
+        "Le nombre de paramètres diminue",
+        "Rien ne change si les données sont standardisées",
+      ],
+      answer: 1,
+      explain: "Le modèle est contraint de moins coller aux données : l'erreur d'entraînement monte, la variance baisse.",
+    },
+    {
+      q: "Tu veux un modèle qui ne garde que quelques variables parmi 500. Quelle régularisation ?",
+      options: ["L2 (ridge)", "L1 (lasso)", "Aucune", "Dropout"],
+      answer: 1,
+      explain: "La pénalité L1 annule exactement les coefficients peu utiles : sélection de variables intégrée.",
+    },
+    {
+      q: "Comment choisir λ ?",
+      options: [
+        "Le plus grand possible",
+        "Celui qui minimise l'erreur de test",
+        "Par validation croisée sur les données d'entraînement",
+        "λ = 1 par convention",
+      ],
+      answer: 2,
+      explain: "λ est un hyperparamètre : on le règle sur des données de validation, pour garder le test set intact.",
+    },
+  ]}
+/>
+
+<LessonComplete />

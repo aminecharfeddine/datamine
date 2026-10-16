@@ -40,10 +40,10 @@ export function Account() {
           Un compte garde ta progression — XP, séries, badges et révisions — et la synchronise entre tous tes appareils.
         </p>
 
-        <div className="mt-8 max-w-md rounded-2xl border border-line bg-surface p-6">
+        <div className="mt-8 max-w-md card p-6">
           {sent ? (
             <div className="animate-rise">
-              <p className="font-serif text-xl">Vérifie ta boîte mail</p>
+              <p className="font-display text-xl">Vérifie ta boîte mail</p>
               <p className="mt-2 text-muted">
                 Un lien de connexion a été envoyé à <span className="font-semibold text-ink">{sent}</span>. Ouvre-le dans ce
                 navigateur. Pense à regarder dans les spams.
@@ -80,12 +80,12 @@ export function Account() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="toi@exemple.com"
-                className="mt-2 w-full rounded-lg border border-line bg-paper px-4 py-2.5 outline-none focus:border-ink"
+                className="mt-2 w-full rounded-xl border-2 border-line bg-surface px-4 py-2.5 outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 disabled={busy}
-                className="mt-4 w-full rounded-lg bg-ink py-2.5 text-sm font-semibold text-paper disabled:opacity-50"
+                className="btn-3d mt-4 w-full bg-accent py-3 text-white"
               >
                 {busy ? "Envoi…" : "Recevoir un lien de connexion"}
               </button>
@@ -105,17 +105,17 @@ export function Account() {
 
   return (
     <Shell>
-      <div className="max-w-md rounded-2xl border border-line bg-surface p-6">
+      <div className="max-w-md card p-6">
         <div className="text-xs text-muted">Connecté en tant que</div>
-        <div className="mt-1 break-all font-serif text-xl">{auth.email}</div>
+        <div className="mt-1 break-all font-display text-xl">{auth.email}</div>
 
         <div className="mt-5 flex items-center gap-2 text-sm">
           <span
             className={clsx(
               "inline-block h-2.5 w-2.5 rounded-full",
-              auth.status === "synced" && "bg-good",
+              auth.status === "synced" && "bg-good-bg",
               auth.status === "syncing" && "animate-pulse bg-fn",
-              auth.status === "error" && "bg-accent",
+              auth.status === "error" && "bg-flame",
             )}
           />
           <span className="font-medium">{STATUS[auth.status]}</span>
@@ -128,7 +128,7 @@ export function Account() {
         {auth.error && <p className="mt-2 text-sm text-accent">{auth.error}</p>}
 
         <div className="mt-6 flex flex-wrap gap-2">
-          <button onClick={() => void syncNow()} className="rounded-lg border border-line px-4 py-2 text-sm hover:border-ink">
+          <button onClick={() => void syncNow()} className="btn-ghost px-4 py-2 text-sm">
             Synchroniser maintenant
           </button>
           <button
@@ -138,7 +138,7 @@ export function Account() {
               setBusy(false);
             }}
             disabled={busy}
-            className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
+            className="btn-3d bg-accent px-4 py-2 text-sm text-white"
           >
             Se déconnecter
           </button>
@@ -154,7 +154,7 @@ export function Account() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-4xl px-4 pt-12">
-      <h1 className="mb-6 font-serif text-4xl font-semibold tracking-tight">Compte</h1>
+      <h1 className="mb-6 font-display text-4xl font-extrabold tracking-tight">Compte</h1>
       {children}
     </div>
   );

@@ -15,6 +15,9 @@ export type LessonMeta = {
 export type Module = {
   id: string;
   index: number;
+  /** Couleur d'identité du module (et sa variante foncée pour les ombres de bouton). */
+  color: string;
+  deep: string;
   title: string;
   tagline: string;
   prereqs: string[]; // ids de modules
@@ -25,6 +28,8 @@ export type Module = {
 export const MODULES: Module[] = [
   {
     id: "maths",
+    color: "#4f46e5",
+    deep: "#3730a3",
     index: 0,
     title: "Rappels maths",
     tagline: "Les outils minimaux, revus au moment où on en a besoin.",
@@ -56,6 +61,8 @@ export const MODULES: Module[] = [
   },
   {
     id: "stats",
+    color: "#7c3aed",
+    deep: "#5b21b6",
     index: 1,
     title: "Statistiques",
     tagline: "Distributions, échantillonnage, incertitude.",
@@ -75,10 +82,28 @@ export const MODULES: Module[] = [
         concepts: ["distributions", "tcl"],
         available: true,
       },
+      {
+        slug: "intervalles-de-confiance",
+        title: "Intervalles de confiance",
+        summary: "Ce que « 95 % » promet vraiment, et pourquoi la précision coûte cher.",
+        minutes: 15,
+        concepts: ["ic"],
+        available: true,
+      },
+      {
+        slug: "tests-et-p-values",
+        title: "Tests A/B et p-values",
+        summary: "Faux positifs garantis, puissance, et ce qu'une p-value ne dit pas.",
+        minutes: 20,
+        concepts: ["tests"],
+        available: true,
+      },
     ],
   },
   {
     id: "fondamentaux",
+    color: "#0d9488",
+    deep: "#0f766e",
     index: 2,
     title: "Fondamentaux ML",
     tagline: "Pourquoi un modèle généralise (ou pas).",
@@ -99,10 +124,20 @@ export const MODULES: Module[] = [
         concepts: ["generalisation", "biais-variance"],
         available: true,
       },
+      {
+        slug: "regularisation",
+        title: "Régularisation : ridge, lasso et compagnie",
+        summary: "Garder un modèle flexible, mais l'obliger à rester sage.",
+        minutes: 15,
+        concepts: ["regularisation"],
+        available: true,
+      },
     ],
   },
   {
     id: "modeles",
+    color: "#0284c7",
+    deep: "#075985",
     index: 3,
     title: "Modèles classiques",
     tagline: "Régressions, arbres, ensembles, clustering.",
@@ -118,6 +153,8 @@ export const MODULES: Module[] = [
   },
   {
     id: "evaluation",
+    color: "#f43f5e",
+    deep: "#be123c",
     index: 4,
     title: "Évaluation",
     tagline: "Mesurer ce qui compte vraiment.",
@@ -151,6 +188,8 @@ export const MODULES: Module[] = [
   },
   {
     id: "deep-learning",
+    color: "#db2777",
+    deep: "#9d174d",
     index: 5,
     title: "Deep learning",
     tagline: "Neurones, backprop, CNN, embeddings.",
@@ -166,6 +205,8 @@ export const MODULES: Module[] = [
   },
   {
     id: "transformers",
+    color: "#d97706",
+    deep: "#92400e",
     index: 6,
     title: "Transformers & LLM",
     tagline: "Attention, pré-entraînement, sampling, RAG.",
@@ -181,6 +222,8 @@ export const MODULES: Module[] = [
   },
   {
     id: "agents",
+    color: "#16a34a",
+    deep: "#166534",
     index: 7,
     title: "IA agentique",
     tagline: "Tool use, boucles, planification, évaluation.",
@@ -196,6 +239,12 @@ export const MODULES: Module[] = [
 ];
 
 export const ALL_LESSONS = MODULES.flatMap((m) => m.lessons.map((l) => ({ ...l, moduleId: m.id })));
+
+export const moduleById = (id: string) => MODULES.find((m) => m.id === id);
+
+/** Variables CSS qui colorent une zone aux couleurs d'un module. */
+export const modStyle = (m?: Pick<Module, "color" | "deep">) =>
+  (m ? { "--mod": m.color, "--mod-deep": m.deep, "--btn-shadow": m.deep } : {}) as React.CSSProperties;
 
 export function findLesson(slug: string) {
   return ALL_LESSONS.find((l) => l.slug === slug);

@@ -3,40 +3,31 @@
 
 /* ---------- Tokens : un carnet de labo, papier chaud + encre ---------- */
 :root {
-  --paper: #f6f3ec;
-  --surface: #fffdf8;
-  --sunken: #efebe1;
-  --ink: #1b1a17;
-  --muted: #6b675e;
-  --line: #e2ddd1;
-  --accent: #d2492a; /* marque, XP */
+  /* Base claire, légèrement froide */
+  --paper: #f4f5fa;
+  --surface: #ffffff;
+  --sunken: #eceef6;
+  --ink: #141627;
+  --muted: #5d6283;
+  --line: #dfe2ee;
+  /* Action principale */
+  --accent: #4f46e5;
+  --accent-deep: #3730a3;
+  --accent-soft: #4f46e51a;
+  /* Gamification */
+  --xp: #f59e0b;
+  --flame: #f97316;
+  --good: #067647;
+  --good-bg: #12b76a;
   /* Issues de classification — palette validée (CVD, tous les couples) */
-  --pos: #1baf7a; /* TP */
-  --fp: #eb6834; /* FP */
-  --fn: #2a78d6; /* FN */
-  --neg: #a29d90; /* TN : neutre, toujours étiqueté */
-  --good: #0f7a55; /* texte « correct » (contraste AA) */
+  --pos: #1baf7a;
+  --fp: #eb6834;
+  --fn: #2a78d6;
+  --neg: #a8adc4;
   --pos-soft: #1baf7a1f;
-  --accent-soft: #d2492a1a;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #14130f;
-    --surface: #1c1b17;
-    --sunken: #23211c;
-    --ink: #ede9df;
-    --muted: #9c978b;
-    --line: #2e2c26;
-    --accent: #f06a4a;
-    --pos: #199e70;
-    --fp: #d95926;
-    --fn: #3987e5;
-    --neg: #6f6b62;
-    --good: #4cc79a;
-    --pos-soft: #199e7029;
-    --accent-soft: #f06a4a22;
-  }
+  /* Couleur du module courant (surchargée par la page) */
+  --mod: var(--accent);
+  --mod-deep: var(--accent-deep);
 }
 
 @theme inline {
@@ -47,15 +38,21 @@
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-soft: var(--accent-soft);
+  --color-xp: var(--xp);
+  --color-flame: var(--flame);
+  --color-good: var(--good);
+  --color-good-bg: var(--good-bg);
   --color-pos: var(--pos);
   --color-neg: var(--neg);
   --color-fp: var(--fp);
   --color-fn: var(--fn);
   --color-pos-soft: var(--pos-soft);
-  --color-good: var(--good);
-  --color-accent-soft: var(--accent-soft);
-  --font-serif: "Fraunces", Georgia, serif;
-  --font-sans: "Instrument Sans", system-ui, sans-serif;
+  --color-mod: var(--mod);
+  --color-mod-deep: var(--mod-deep);
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-sans: "Figtree", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
@@ -69,17 +66,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Grain de papier très léger */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.035;
-  background-image: radial-gradient(var(--ink) 0.5px, transparent 0.5px);
-  background-size: 3px 3px;
-  z-index: 0;
-}
 
 .num {
   font-family: var(--font-mono);
@@ -95,15 +81,24 @@ body::before {
   margin-top: 1.1em;
 }
 .lesson-prose h2 {
-  font-family: var(--font-serif);
-  font-size: 1.75rem;
-  line-height: 1.2;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  line-height: 1.15;
+  font-weight: 700;
   margin-top: 2.6em;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+}
+.lesson-prose h2::before {
+  content: "";
+  display: block;
+  width: 2.2rem;
+  height: 0.35rem;
+  border-radius: 99px;
+  background: var(--mod);
+  margin-bottom: 0.7rem;
 }
 .lesson-prose h3 {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 600;
   margin-top: 1.8em;
@@ -126,10 +121,14 @@ body::before {
   margin-top: 0.35em;
 }
 .lesson-prose ul > li::before {
-  content: "—";
+  content: "";
   position: absolute;
-  left: 0;
-  color: var(--muted);
+  left: 0.2em;
+  top: 0.68em;
+  width: 0.42em;
+  height: 0.42em;
+  border-radius: 99px;
+  background: var(--mod);
 }
 .lesson-prose ol {
   list-style: decimal;
@@ -143,7 +142,7 @@ body::before {
   border-radius: 4px;
 }
 .lesson-prose a {
-  color: var(--accent);
+  color: var(--mod-deep);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -170,8 +169,50 @@ body::before {
 
 /* Curseurs */
 input[type="range"] {
-  accent-color: var(--ink);
+  accent-color: var(--mod);
   width: 100%;
+}
+
+/* Boutons « 3D » : la marque visuelle du site, réservée aux actions principales */
+.btn-3d {
+  position: relative;
+  border-radius: 14px;
+  font-weight: 700;
+  transition: transform 80ms ease, box-shadow 80ms ease, filter 120ms ease;
+  box-shadow: 0 4px 0 0 var(--btn-shadow, var(--accent-deep));
+}
+.btn-3d:hover { filter: brightness(1.06); }
+.btn-3d:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 0 var(--btn-shadow, var(--accent-deep)); }
+.btn-3d:disabled { opacity: 0.45; }
+
+.btn-ghost {
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  font-weight: 600;
+  background: var(--surface);
+  box-shadow: 0 3px 0 0 var(--line);
+  transition: transform 80ms ease, box-shadow 80ms ease, border-color 120ms ease;
+}
+.btn-ghost:hover { border-color: var(--muted); }
+.btn-ghost:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 0 var(--line); }
+.btn-ghost:disabled { opacity: 0.45; }
+
+/* Carte de base */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgb(20 22 39 / 0.04), 0 8px 24px -12px rgb(20 22 39 / 0.08);
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
 @keyframes rise {
@@ -181,3 +222,10 @@ input[type="range"] {
 .animate-rise {
   animation: rise 0.35s ease-out both;
 }
+
+@keyframes pop {
+  0% { opacity: 0; transform: translateY(10px) scale(0.92); }
+  60% { opacity: 1; transform: translateY(0) scale(1.04); }
+  100% { transform: scale(1); }
+}
+.animate-pop { animation: pop 0.32s ease-out both; }

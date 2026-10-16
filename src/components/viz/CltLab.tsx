@@ -118,7 +118,7 @@ export function CltLab({
 
       {/* Population */}
       <div className="mb-1 flex items-baseline justify-between">
-        <h4 className="font-serif text-lg">Population · {dist.label.toLowerCase()}</h4>
+        <h4 className="font-display text-lg">Population · {dist.label.toLowerCase()}</h4>
         <span className="num text-xs text-muted">μ = {fmt(dist.mean)} · σ = {fmt(dist.sd)}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${Hp}`} className="w-full" role="img" aria-label={`Distribution de départ : ${dist.label}`}>
@@ -151,7 +151,7 @@ export function CltLab({
 
       {/* Moyennes */}
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-serif text-lg">Distribution des moyennes</h4>
+        <h4 className="font-display text-lg">Distribution des moyennes</h4>
         <span className="num text-xs text-muted">{means.length} moyennes</span>
       </div>
       <svg viewBox={`0 0 ${W} ${Hm}`} className="w-full" role="img" aria-label={`Histogramme de ${means.length} moyennes d'échantillons de taille ${n}`}>

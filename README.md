@@ -31,7 +31,8 @@ Fonctionnement : la progression reste locale pour une interface instantanée ; �
 
 - **Next.js 16** (App Router, Turbopack) + TypeScript
 - **MDX** pour les leçons, formules en **KaTeX** (`$...$` et `$$...$$`)
-- **Tailwind CSS 4** (tokens de couleur dans `src/app/globals.css`, clair/sombre)
+- **Tailwind CSS 4** (tokens dans `src/app/globals.css`, une couleur d'identité par module dans `curriculum.ts`)
+- **Bricolage Grotesque** (titres) + **Figtree** (texte), icônes **lucide-react**
 - **d3-scale / d3-shape** pour les visualisations SVG
 - **ts-fsrs** pour la répétition espacée (algorithme FSRS)
 - **zustand** pour la progression (localStorage en mode invité)
@@ -46,7 +47,7 @@ src/
   content/lessons/*.mdx   contenu des leçons
   components/
     pedago/               Predict, Quiz, Callout, LessonComplete (utilisables dans le MDX)
-    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab)
+    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab)
     pages/                écrans client (Today, SkillTree, Review, Profile)
   lib/
     curriculum.ts         modules → concepts → leçons (source de vérité du parcours)
@@ -75,8 +76,8 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 - [x] Phase 0 — fondations, composants pédagogiques, design system
 - [x] Phase 1 — module Évaluation : confusion matrix, precision/recall/F1, ROC/AUC, PR curve
 - [x] Phase 2 — comptes Supabase (lien magique), synchronisation multi-appareils, migration du mode invité
-- [x] Phase 3 (en cours) — Bayes, descente de gradient, théorème central limite, bias-variance
-- [ ] Phase 3 (suite) — tests & p-values, intervalles de confiance, cross-validation, data leakage, régularisation
+- [x] Phase 3 — Bayes, descente de gradient, TCL, intervalles de confiance, tests A/B et p-values, bias-variance, régularisation
+- [ ] Phase 3 (suite) — cross-validation, data leakage
 - [ ] Phase 4 — Modèles classiques, Deep learning (playground TensorFlow.js)
 - [ ] Phase 5 — Transformers, LLM, IA agentique
 - [ ] Phase 6 — vitrine publique : landing, SEO, images de partage, accessibilité, version anglaise

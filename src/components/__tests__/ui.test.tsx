@@ -28,7 +28,7 @@ describe("ThresholdLab", () => {
     let ok = false;
     for (let t = 0.3; t <= 0.5 && !ok; t += 0.01) {
       fireEvent.change(slider, { target: { value: t.toFixed(2) } });
-      ok = !!screen.queryByText("✓ réussi");
+      ok = !!screen.queryByText("Réussi !");
     }
     expect(ok).toBe(true);
     await act(async () => vi.advanceTimersByTime(600));

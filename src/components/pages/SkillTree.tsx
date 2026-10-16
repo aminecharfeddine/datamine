@@ -1,108 +1,110 @@
 "use client";
 import Link from "next/link";
 import clsx from "clsx";
-import { MODULES, type Module } from "@/lib/curriculum";
+import { Check, Lock, Play } from "lucide-react";
+import { MODULES, modStyle, type Module } from "@/lib/curriculum";
 import { useProgress, conceptLevel } from "@/lib/store";
 import { useHydrated } from "@/components/ui/useHydrated";
+import { ModuleIcon } from "@/components/ui/ModuleIcon";
 import { MasteryPips } from "./Today";
-
-// Profondeur dans le graphe de prérequis → rangée de l'arbre.
-function depth(m: Module, seen = new Map<string, number>()): number {
-  if (seen.has(m.id)) return seen.get(m.id)!;
-  const d = m.prereqs.length === 0 ? 0 : 1 + Math.max(...m.prereqs.map((p) => depth(MODULES.find((x) => x.id === p)!, seen)));
-  seen.set(m.id, d);
-  return d;
-}
 
 export function SkillTree() {
   const hydrated = useHydrated();
   const s = useProgress();
-  const rows: Module[][] = [];
-  for (const m of MODULES) (rows[depth(m)] ??= []).push(m);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pt-12">
-      <h1 className="font-serif text-4xl font-semibold tracking-tight sm:text-5xl">Parcours</h1>
+    <div className="mx-auto max-w-4xl px-4 pt-10">
+      <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Parcours</h1>
       <p className="mt-3 max-w-2xl text-lg text-muted">
-        Huit modules, des bases mathématiques aux agents. Chaque concept passe par quatre niveaux : découvert, pratiqué,
-        maîtrisé, puis consolidé quand ta mémoire tient sur la durée.
+        Huit modules, des bases mathématiques jusqu'aux agents. Chaque concept passe par quatre niveaux : découvert,
+        pratiqué, maîtrisé, puis consolidé quand ta mémoire tient sur la durée.
       </p>
 
-      <div className="relative mt-12">
-        <div className="absolute bottom-6 left-1/2 top-6 hidden w-px -translate-x-1/2 bg-line sm:block" />
-        <div className="space-y-6">
-          {rows.map((row, i) => (
-            <div key={i} className={clsx("relative grid gap-6", row.length > 1 && "sm:grid-cols-2")}>
-              {row.map((m) => (
-                <ModuleCard key={m.id} m={m} levels={m.concepts.map((c) => (hydrated ? conceptLevel(s, c.id) : 0))} done={s.completedLessons} />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
+      <ol className="relative mt-10 space-y-5">
+        {/* Le fil du parcours */}
+        <span className="absolute bottom-8 left-[27px] top-8 w-1 rounded-full bg-line" aria-hidden />
+        {MODULES.map((m) => (
+          <ModuleRow
+            key={m.id}
+            m={m}
+            levels={m.concepts.map((c) => (hydrated ? conceptLevel(s, c.id) : 0))}
+            done={hydrated ? s.completedLessons : {}}
+          />
+        ))}
+      </ol>
     </div>
   );
 }
 
-function ModuleCard({ m, levels, done }: { m: Module; levels: number[]; done: Record<string, string> }) {
+function ModuleRow({ m, levels, done }: { m: Module; levels: number[]; done: Record<string, string> }) {
   const available = m.lessons.some((l) => l.available);
   const mastery = levels.reduce((a, b) => a + b, 0) / (levels.length * 4);
+  const allDone = available && m.lessons.every((l) => done[l.slug]);
+
   return (
-    <section
-      className={clsx(
-        "relative mx-auto w-full max-w-xl rounded-2xl border bg-surface p-5",
-        available ? "border-ink/70" : "border-line",
-      )}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="num text-xs text-muted">Module {m.index}</div>
-          <h2 className="font-serif text-2xl font-semibold leading-tight">{m.title}</h2>
-          <p className="mt-1 text-sm text-muted">{m.tagline}</p>
+    <li id={m.id} className="relative flex scroll-mt-24 gap-4" style={modStyle(m)}>
+      <span
+        className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm"
+        style={{ background: available ? m.color : "var(--neg)", boxShadow: available ? `0 4px 0 0 ${m.deep}` : undefined }}
+      >
+        {available ? <ModuleIcon id={m.id} size={26} /> : <Lock size={22} strokeWidth={2.6} />}
+        {allDone && (
+          <span className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-good-bg ring-2 ring-paper">
+            <Check size={14} strokeWidth={3.5} />
+          </span>
+        )}
+      </span>
+
+      <section className={clsx("card flex-1 overflow-hidden", !available && "opacity-70")}>
+        <div className="flex items-start justify-between gap-4 p-5">
+          <div>
+            <div className="text-sm font-semibold" style={{ color: available ? m.deep : "var(--muted)" }}>
+              Module {m.index}
+            </div>
+            <h2 className="font-display text-2xl font-bold leading-tight">{m.title}</h2>
+            <p className="mt-1 text-muted">{m.tagline}</p>
+          </div>
+          {available && (
+            <div className="text-right">
+              <div className="num font-display text-2xl font-bold" style={{ color: m.deep }}>
+                {Math.round(mastery * 100)}%
+              </div>
+              <div className="text-xs text-muted">maîtrise</div>
+            </div>
+          )}
         </div>
-        <Ring value={mastery} dim={!available} />
-      </div>
 
-      <ul className="mt-4 grid gap-x-4 gap-y-1 sm:grid-cols-2">
-        {m.concepts.map((c, i) => (
-          <li key={c.id} className="text-sm">
-            <span className={clsx(levels[i] === 0 && !available && "text-muted")}>{c.title}</span>
-            {available && <MasteryPips level={levels[i]} />}
-          </li>
-        ))}
-      </ul>
+        {available && (
+          <div className="border-t border-line bg-paper/60 px-3 py-2">
+            {m.lessons.map((l) => (
+              <Link
+                key={l.slug}
+                href={`/lecons/${l.slug}`}
+                className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-surface"
+              >
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                  style={done[l.slug] ? { background: m.color, color: "white" } : { background: `${m.color}1a`, color: m.deep }}
+                >
+                  {done[l.slug] ? <Check size={16} strokeWidth={3} /> : <Play size={14} strokeWidth={3} fill="currentColor" />}
+                </span>
+                <span className="flex-1 font-semibold">{l.title}</span>
+                <span className="num text-xs text-muted">{l.minutes} min</span>
+              </Link>
+            ))}
+          </div>
+        )}
 
-      {available ? (
-        <div className="mt-5 space-y-2 border-t border-line pt-4">
-          {m.lessons.map((l) => (
-            <Link key={l.slug} href={`/lecons/${l.slug}`} className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-sunken">
-              <span className="text-sm font-medium">
-                <span className={clsx("mr-2", done[l.slug] ? "text-good" : "text-muted")}>{done[l.slug] ? "✓" : "○"}</span>
-                {l.title}
-              </span>
-              <span className="num text-xs text-muted">{l.minutes} min</span>
-            </Link>
+        <ul className="grid gap-x-6 gap-y-2 px-5 py-4 sm:grid-cols-2">
+          {m.concepts.map((c, i) => (
+            <li key={c.id} className="text-sm">
+              <span className={clsx("font-medium", !available && "text-muted")}>{c.title}</span>
+              {available && <MasteryPips level={levels[i]} color={m.color} />}
+            </li>
           ))}
-        </div>
-      ) : (
-        <div className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Bientôt</div>
-      )}
-    </section>
-  );
-}
-
-function Ring({ value, dim }: { value: number; dim: boolean }) {
-  const r = 18, c = 2 * Math.PI * r;
-  return (
-    <svg width="48" height="48" viewBox="0 0 48 48" className={clsx("shrink-0", dim && "opacity-40")} aria-label={`Maîtrise ${Math.round(value * 100)} %`}>
-      <circle cx="24" cy="24" r={r} fill="none" stroke="var(--sunken)" strokeWidth="4" />
-      <circle
-        cx="24" cy="24" r={r} fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinecap="round"
-        strokeDasharray={`${c * value} ${c}`} transform="rotate(-90 24 24)"
-      />
-      <text x="24" y="28" textAnchor="middle" fontSize="11" fill="var(--ink)" className="num">
-        {Math.round(value * 100)}
-      </text>
-    </svg>
+        </ul>
+        {!available && <div className="border-t border-line px-5 py-3 text-sm font-semibold text-muted">Bientôt disponible</div>}
+      </section>
+    </li>
   );
 }

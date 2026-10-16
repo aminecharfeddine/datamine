@@ -7,7 +7,7 @@ import { line } from "d3-shape";
 import { auc, histogram, makeDataset, metricsAt, prCurve, rocCurve, type Metrics } from "@/lib/metrics";
 import { CHALLENGES } from "@/lib/challenges";
 import { ChallengeBanner } from "@/components/pedago/ChallengeBanner";
-import { Slider } from "./controls";
+import { LabFrame, Slider } from "./controls";
 
 type Panel = "dist" | "matrix" | "metrics" | "roc" | "pr";
 type Control = "threshold" | "separation" | "prevalence";
@@ -56,7 +56,7 @@ export function ThresholdLab({
   };
 
   return (
-    <figure className="not-prose my-10 -mx-4 border-y border-line bg-surface px-4 py-6 sm:mx-0 sm:rounded-2xl sm:border sm:p-6">
+    <LabFrame>
       {ch && <ChallengeBanner labId={id} challengeId={ch.id} solved={solved} />}
 
       <div className="mb-6 grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -120,11 +120,11 @@ export function ThresholdLab({
       </div>
 
       <div className="mt-5 flex justify-end">
-        <button onClick={reset} className="text-xs text-muted underline underline-offset-4 hover:text-ink">
+        <button onClick={reset} className="btn-ghost px-3 py-1.5 text-xs">
           Réinitialiser
         </button>
       </div>
-    </figure>
+    </LabFrame>
   );
 }
 
@@ -163,7 +163,7 @@ function ScoreHistogram({
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-serif text-lg">Scores du modèle</h4>
+        <h4 className="font-display text-lg">Scores du modèle</h4>
         <Legend />
       </div>
       <svg
@@ -306,7 +306,7 @@ function ConfusionGrid({ m }: { m: Metrics }) {
   );
   return (
     <div>
-      <h4 className="mb-3 font-serif text-lg">Confusion matrix</h4>
+      <h4 className="mb-3 font-display text-lg">Confusion matrix</h4>
       <div className="grid grid-cols-[auto_1fr_1fr] gap-2 text-sm">
         <div />
         <div className="pb-1 text-center text-xs text-muted">prédit positif</div>
@@ -333,7 +333,7 @@ function MetricBars({ m }: { m: Metrics }) {
   ];
   return (
     <div>
-      <h4 className="mb-3 font-serif text-lg">Métriques</h4>
+      <h4 className="mb-3 font-display text-lg">Métriques</h4>
       <div className="space-y-3.5">
         {rows.map(([name, v, formula]) => (
           <div key={name}>
@@ -346,7 +346,7 @@ function MetricBars({ m }: { m: Metrics }) {
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-sunken">
               <div
-                className={clsx("h-full rounded-full transition-[width] duration-150", name === "Accuracy" ? "bg-muted" : "bg-ink")}
+                className={clsx("h-full rounded-full transition-[width] duration-150", name === "Accuracy" ? "bg-neg" : "bg-mod")}
                 style={{ width: `${v * 100}%` }}
               />
             </div>
@@ -387,7 +387,7 @@ function CurveChart({
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between">
-        <h4 className="font-serif text-lg">{title}</h4>
+        <h4 className="font-display text-lg">{title}</h4>
         <span className="num rounded-full bg-sunken px-2.5 py-0.5 text-xs font-semibold">{badge}</span>
       </div>
       <svg viewBox={`0 0 ${S} ${S}`} className="mx-auto w-full max-w-[380px]" role="img" aria-label={`${title}, point courant x ${fmt(current.x)}, y ${fmt(current.y)}`}>

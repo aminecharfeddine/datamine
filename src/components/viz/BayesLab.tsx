@@ -85,9 +85,9 @@ export function BayesLab({
             <Count color="var(--fp)" label="Sains alarmés" sub="FP" v={fp} />
             <Count color="var(--neg)" label="Sains rassurés" sub="TN" v={tn} />
           </div>
-          <div className="rounded-xl border border-ink/70 bg-paper p-4">
+          <div className="rounded-2xl p-4" style={{ background: "color-mix(in srgb, var(--mod) 10%, white)" }}>
             <div className="text-sm text-muted">Mon test est positif. Probabilité d'être malade :</div>
-            <div className="num mt-1 text-4xl font-semibold">{pct(r.ppv)}</div>
+            <div className="num mt-1 font-display text-4xl font-bold" style={{ color: "var(--mod-deep)" }}>{pct(r.ppv)}</div>
             <div className="num mt-1 text-xs text-muted">
               = TP / (TP + FP) = {tp} / {tp + fp}
             </div>

@@ -80,7 +80,7 @@ export function PolyFitLab({
             footer={
               ensemble ? (
                 <label className="mt-2 flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={showMany} onChange={(e) => setShowMany(e.target.checked)} className="accent-[var(--ink)]" />
+                  <input type="checkbox" checked={showMany} onChange={(e) => setShowMany(e.target.checked)} className="h-4 w-4 accent-[var(--mod)]" />
                   Montrer 20 modèles entraînés sur 20 jeux de données différents
                 </label>
               ) : null
@@ -95,7 +95,7 @@ export function PolyFitLab({
           <div className="text-xs text-muted">Erreur d'entraînement (MSE)</div>
           <div className="num mt-0.5 text-xl font-semibold">{fmt(trainMse)}</div>
         </div>
-        <div className="rounded-lg border border-ink/70 bg-paper p-3">
+        <div className="rounded-lg p-3" style={{ background: "color-mix(in srgb, var(--mod) 10%, white)" }}>
           <div className="text-xs text-muted">Erreur de test (MSE)</div>
           <div className="num mt-0.5 text-xl font-semibold">{fmt(testMse)}</div>
         </div>
@@ -125,7 +125,7 @@ function FitChart({
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-serif text-lg">Le modèle et les données</h4>
+        <h4 className="font-display text-lg">Le modèle et les données</h4>
         <div className="flex gap-3 text-xs text-muted">
           <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-ink" /> entraînement</span>
           <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-accent" /> modèle</span>
@@ -170,7 +170,7 @@ function ErrorChart({ curve, degree }: { curve: { degree: number; train: number;
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-serif text-lg">Erreur selon la complexité</h4>
+        <h4 className="font-display text-lg">Erreur selon la complexité</h4>
         <div className="flex gap-3 text-xs text-muted">
           <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-ink" /> entraînement</span>
           <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-accent" /> test</span>

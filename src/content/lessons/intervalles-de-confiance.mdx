@@ -1,0 +1,85 @@
+<Predict
+  id="hook"
+  question="Un sondage annonce : « temps de livraison moyen 48 min, intervalle de confiance à 95 % : [45 ; 51] ». Que signifie ce 95 % ?"
+  options={[
+    "Il y a 95 % de chances que la vraie moyenne soit entre 45 et 51",
+    "95 % des livraisons durent entre 45 et 51 minutes",
+    "La méthode utilisée produit des intervalles qui contiennent la vraie moyenne 95 fois sur 100",
+    "Le sondage est fiable à 95 %",
+  ]}
+  answer={2}
+>
+C'est l'une des notions les plus mal comprises des statistiques — y compris dans des articles scientifiques. La vraie moyenne est un nombre **fixe** : elle est dans [45 ; 51] ou elle n'y est pas. Le hasard est dans le **sondage**. Le 95 % est une propriété de la **méthode** : si on refaisait le sondage un grand nombre de fois, 95 % des intervalles obtenus contiendraient la vraie valeur. La réponse 2, elle, confond la moyenne avec les valeurs individuelles.
+</Predict>
+
+## De l'erreur standard à l'intervalle
+
+Tu as vu avec le théorème central limite que la moyenne d'un échantillon suit approximativement $\mathcal N(\mu, \sigma/\sqrt n)$. Pour une loi normale, 95 % des valeurs tombent à moins de 1,96 écart-type du centre. Donc dans 95 % des sondages :
+
+$$
+|\bar x - \mu| \le 1{,}96 \, \frac{\sigma}{\sqrt n}
+$$
+
+On retourne la phrase : la vraie moyenne est à moins de cette marge de $\bar x$. D'où l'intervalle :
+
+$$
+\bar x \;\pm\; z \cdot \frac{\sigma}{\sqrt n}
+\qquad z = 1{,}96 \text{ pour } 95\ \%,\ \ 2{,}58 \text{ pour } 99\ \%
+$$
+
+Dans le labo, la vraie moyenne vaut 50. Chaque sondage tire $n$ mesures et trace son intervalle. Fais-en quelques-uns un par un, puis par paquets.
+
+<CiLab id="decouverte" n={20} level={0.95} challenge="ci-coverage" />
+
+<Callout type="intuition">
+Imagine un lanceur d'anneaux autour d'un piquet invisible. Le piquet (μ) ne bouge jamais ; ce sont les anneaux (les intervalles) qui tombent à des endroits différents. « 95 % » décrit l'adresse du lanceur, pas la position du piquet.
+</Callout>
+
+## Confiance contre précision
+
+<Predict
+  id="niveau"
+  question="On passe d'un intervalle à 95 % à un intervalle à 99 %, avec les mêmes données. L'intervalle devient…"
+  options={["Plus étroit", "Plus large", "Identique", "Ça dépend des données"]}
+  answer={1}
+>
+Pour être plus sûr d'attraper μ, il faut un filet plus large : $z$ passe de 1,96 à 2,58. Un intervalle à 100 % existe… il va de $-\infty$ à $+\infty$, et ne sert à rien. Le seul moyen d'être à la fois **sûr et précis**, c'est d'avoir plus de données.
+</Predict>
+
+<CiLab id="precision" n={20} level={0.99} challenge="ci-narrow" />
+
+La marge suit la loi du $\sqrt n$ : pour la diviser par deux, il faut **quatre fois** plus de mesures.
+
+<Callout type="rappel">
+Ici, on suppose $\sigma$ connu pour garder la formule simple. En pratique on l'estime avec l'écart-type de l'échantillon $s$, et on remplace $z$ par un quantile de la **loi de Student** $t_{n-1}$, un peu plus grand quand $n$ est petit. Pour $n \ge 30$, la différence devient négligeable.
+</Callout>
+
+<Callout type="entretien">
+« Deux intervalles à 95 % se chevauchent, donc la différence n'est pas significative ? » Faux en général : deux intervalles peuvent se chevaucher légèrement alors que la différence est significative. Pour comparer deux groupes, on calcule l'intervalle **de la différence**, ou on fait un test — c'est l'objet de la leçon suivante.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "σ = 12, n = 36, x̄ = 100. Intervalle de confiance à 95 % ?",
+      options: ["[98,04 ; 101,96]", "[96,08 ; 103,92]", "[76,48 ; 123,52]", "[99,67 ; 100,33]"],
+      answer: 1,
+      explain: "Marge = 1,96 × 12 / √36 = 1,96 × 2 = 3,92. D'où [96,08 ; 103,92].",
+    },
+    {
+      q: "On trace 200 intervalles à 90 %. Combien, environ, manquent la vraie moyenne ?",
+      options: ["0", "10", "20", "90"],
+      answer: 2,
+      explain: "Un intervalle à 90 % rate la cible 10 % du temps : environ 20 sur 200.",
+    },
+    {
+      q: "Pour diviser par 3 la largeur d'un intervalle, à niveau constant, il faut…",
+      options: ["3 fois plus de données", "6 fois plus de données", "9 fois plus de données", "Baisser σ"],
+      answer: 2,
+      explain: "La largeur est proportionnelle à 1/√n : la diviser par 3 demande n × 9.",
+    },
+  ]}
+/>
+
+<LessonComplete />
