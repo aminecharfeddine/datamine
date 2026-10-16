@@ -17,6 +17,11 @@ type AuthState = {
   status: SyncStatus;
   userId: string | null;
   email: string | null;
+  /** Profil public, stocké dans les métadonnées de l'utilisateur Supabase. */
+  pseudo: string | null;
+  color: string | null;
+  /** Vrai après un clic sur le lien « mot de passe oublié » : on affiche le formulaire de nouveau mot de passe. */
+  recovery: boolean;
   error: string | null;
   lastSync: string | null;
 };
@@ -25,6 +30,9 @@ export const useAuth = create<AuthState>(() => ({
   status: "loading",
   userId: null,
   email: null,
+  pseudo: null,
+  color: null,
+  recovery: false,
   error: null,
   lastSync: null,
 }));
@@ -100,12 +108,14 @@ function handleSession(session: Session | null) {
   const user = session?.user;
   const current = useAuth.getState();
   if (user) {
+    const meta = (user.user_metadata ?? {}) as { pseudo?: string; color?: string };
+    useAuth.setState({ email: user.email ?? null, pseudo: meta.pseudo ?? null, color: meta.color ?? null });
     if (current.userId !== user.id) {
-      useAuth.setState({ userId: user.id, email: user.email ?? null, status: "syncing", error: null });
+      useAuth.setState({ userId: user.id, status: "syncing", error: null });
       void syncNow();
     }
   } else if (current.status === "loading" || current.userId) {
-    useAuth.setState({ userId: null, email: null, status: "anon", error: null });
+    useAuth.setState({ userId: null, email: null, pseudo: null, color: null, status: "anon", error: null });
   }
 }
 
@@ -121,7 +131,8 @@ export function startSync() {
     .catch(() => useAuth.setState({ status: "anon" }));
 
   // Ne pas appeler Supabase directement dans ce callback (recommandation de supabase-js) : on diffère.
-  sb.auth.onAuthStateChange((_event, session) => {
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY") useAuth.setState({ recovery: true });
     setTimeout(() => handleSession(session), 0);
   });
 
@@ -153,7 +164,7 @@ export async function signOut() {
   await queue;
   await supabase().auth.signOut();
   useProgress.getState().reset(); // l'appareil repasse en mode invité, vierge
-  useAuth.setState({ userId: null, email: null, status: "anon", error: null, lastSync: null });
+  useAuth.setState({ userId: null, email: null, pseudo: null, color: null, recovery: false, status: "anon", error: null, lastSync: null });
 }
 
 /** Réinitialise la progression, y compris dans le cloud si on est connecté (sinon la fusion la ferait revenir). */

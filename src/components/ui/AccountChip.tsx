@@ -10,7 +10,7 @@ const DOT: Record<string, string> = {
 };
 
 export function AccountChip() {
-  const { status, email } = useAuth();
+  const { status, email, pseudo, color } = useAuth();
   if (status === "loading") return <span className="h-9 w-9" />;
   if (!email)
     return (
@@ -21,11 +21,12 @@ export function AccountChip() {
   return (
     <Link
       href="/compte"
-      className="relative flex h-9 w-9 items-center justify-center rounded-full bg-accent text-sm font-bold uppercase text-white"
-      title={email}
-      aria-label={`Compte ${email}`}
+      className="relative flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold uppercase text-white"
+      style={{ background: color ?? "var(--accent)" }}
+      title={pseudo ?? email}
+      aria-label={`Compte de ${pseudo ?? email}`}
     >
-      {email[0]}
+      {(pseudo ?? email)[0]}
       <span className={clsx("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-surface", DOT[status] ?? "bg-muted")} />
     </Link>
   );
