@@ -40,6 +40,31 @@ export const BADGES: Badge[] = [
   { id: "streak-7", title: "Inarrêtable", description: "Série de 7 jours", icon: "☼", earned: (s) => s.streakBest >= 7 },
 ];
 
+/** Ajoute les badges mérités mais absents (ex. après la fusion de deux appareils). Ne retire jamais rien. */
+export function withEarnedBadges<T extends BadgeStatsSource>(d: T, now = new Date().toISOString()): T {
+  const stats: BadgeStats = {
+    lessonsCompleted: Object.keys(d.completedLessons).length,
+    challengesDone: d.challengesDone,
+    reviewsDone: d.reviewsDone,
+    streakBest: d.streak.best,
+    predictionsCorrect: d.predictionsCorrect,
+  };
+  const missing = BADGES.filter((b) => !d.badges[b.id] && b.earned(stats));
+  if (!missing.length) return d;
+  const badges = { ...d.badges };
+  missing.forEach((b) => (badges[b.id] = now));
+  return { ...d, badges };
+}
+
+type BadgeStatsSource = {
+  completedLessons: Record<string, string>;
+  challengesDone: number;
+  reviewsDone: number;
+  predictionsCorrect: number;
+  streak: { best: number };
+  badges: Record<string, string>;
+};
+
 /** Date locale au format YYYY-MM-DD. */
 export const dayKey = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

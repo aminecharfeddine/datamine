@@ -9,14 +9,14 @@ Si seulement 1 % des transactions sont frauduleuses, un « modèle » qui répon
 
 ## Du score à la décision
 
-Un classifieur ne répond presque jamais directement « oui » ou « non ». Il produit un **score** entre 0 et 1 — une sorte de degré de confiance. La décision vient ensuite, en comparant ce score à un **seuil** (threshold) : au-dessus, on prédit *positif* ; en dessous, *négatif*.
+Un classifieur ne répond presque jamais directement « oui » ou « non ». Il produit un **score** entre 0 et 1, une sorte de degré de confiance. La décision vient ensuite, en comparant ce score à un **seuil** (threshold) : au-dessus, on prédit *positif* ; en dessous, *négatif*.
 
 Chaque exemple tombe alors dans l'une de quatre cases, selon ce qu'il est **réellement** et ce que le modèle a **prédit** :
 
-- <span className="t-tp">TP</span> **true positive** — positif réel, prédit positif. Le modèle a vu juste.
-- <span className="t-fn">FN</span> **false negative** — positif réel, prédit négatif. Un cas raté.
-- <span className="t-fp">FP</span> **false positive** — négatif réel, prédit positif. Une fausse alerte.
-- <span className="t-tn">TN</span> **true negative** — négatif réel, prédit négatif.
+- <span className="t-tp">TP</span> **true positive** : positif réel, prédit positif. Le modèle a vu juste.
+- <span className="t-fn">FN</span> **false negative** : positif réel, prédit négatif. Un cas raté.
+- <span className="t-fp">FP</span> **false positive** : négatif réel, prédit positif. Une fausse alerte.
+- <span className="t-tn">TN</span> **true negative** : négatif réel, prédit négatif.
 
 Le nom se lit en deux temps : *True/False* dit si la prédiction est correcte, *Positive/Negative* dit ce qui a été prédit.
 
@@ -50,7 +50,7 @@ $$
 $$
 
 <Callout type="rappel">
-En probabilités, la precision est $P(\text{réel} = 1 \mid \text{prédit} = 1)$ et le recall est $P(\text{prédit} = 1 \mid \text{réel} = 1)$. Même événements, conditionnement inversé — exactement le piège qu'on retrouve avec le théorème de Bayes.
+En probabilités, la precision est $P(\text{réel} = 1 \mid \text{prédit} = 1)$ et le recall est $P(\text{prédit} = 1 \mid \text{réel} = 1)$. Même événements, conditionnement inversé : c'est exactement le piège qu'on retrouve avec le théorème de Bayes.
 </Callout>
 
 Le dénominateur de la precision regarde la **colonne** « prédit positif » de la matrice. Celui du recall regarde la **ligne** « réel positif ». C'est tout.
@@ -103,7 +103,7 @@ Le F1 suppose que FP et FN coûtent **autant** l'un que l'autre. C'est rarement 
 
 ## Choisir son seuil
 
-Le seuil ne fait pas partie du modèle : c'est une **décision métier**, prise après l'entraînement. Changer de seuil ne demande aucun ré-entraînement — seulement de savoir quelle erreur coûte le plus cher.
+Le seuil ne fait pas partie du modèle : c'est une **décision métier**, prise après l'entraînement. Changer de seuil ne demande aucun ré-entraînement, seulement de savoir quelle erreur coûte le plus cher.
 
 - **Dépistage d'une maladie grave** : un FN est dramatique, un FP coûte un examen de plus → seuil bas, recall élevé.
 - **Filtre anti-spam** : un FP (vrai mail jeté) est très gênant, un FN (spam qui passe) est bénin → seuil haut, precision élevée.

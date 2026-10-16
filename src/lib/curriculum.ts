@@ -161,7 +161,7 @@ export const MODULES: Module[] = [
       {
         slug: "knn",
         title: "Les k plus proches voisins",
-        summary: "Dis-moi qui sont tes voisins, je te dirai qui tu es — si tes unités sont cohérentes.",
+        summary: "Dis-moi qui sont tes voisins, je te dirai qui tu es. À condition que tes unités soient cohérentes.",
         minutes: 15,
         concepts: ["knn"],
         available: true,
@@ -204,7 +204,7 @@ export const MODULES: Module[] = [
       {
         slug: "roc-et-pr",
         title: "ROC, AUC et PR curve",
-        summary: "Évaluer un modèle sur tous les seuils à la fois — et le piège des classes rares.",
+        summary: "Évaluer un modèle sur tous les seuils à la fois, et le piège des classes rares.",
         minutes: 15,
         concepts: ["roc-auc", "pr-curve"],
         available: true,

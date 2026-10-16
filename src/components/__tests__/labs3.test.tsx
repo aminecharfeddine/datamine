@@ -30,10 +30,10 @@ describe("labos modèles", () => {
   it("LeakLab : les deux modes donnent l'illusion puis la vérité", async () => {
     wrap(<LeakLab id="l" challenge="leak-illusion" />);
     fireEvent.click(screen.getByText("Lancer la validation croisée"));
-    expect(screen.getByText(/trop beau pour être vrai/)).toBeTruthy();
+    expect(screen.getByText(/Trop beau pour être vrai/)).toBeTruthy();
     fireEvent.click(screen.getByText("Dans chaque pli, sur le train seulement"));
     fireEvent.click(screen.getByText("Lancer la validation croisée"));
-    expect(screen.getByText(/la vérité/)).toBeTruthy();
+    expect(screen.getByText(/La vérité/)).toBeTruthy();
     await flush();
     expect(useProgress.getState().challengesDone).toBe(1);
   });

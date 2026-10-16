@@ -4,7 +4,7 @@
   options={["Environ 90 %", "Environ 95 %", "Environ 50 %", "Environ 15 %"]}
   answer={3}
 >
-Environ **15 %**. La plupart des gens — médecins compris, dans les études sur le sujet — répondent 90 %. L'erreur vient d'un oubli : comme il y a **99 fois plus de personnes saines que malades**, même un petit taux de fausses alertes chez les sains finit par produire plus de positifs que la maladie elle-même.
+Environ **15 %**. La plupart des gens répondent 90 %, médecins compris, d'après les études sur le sujet. L'erreur vient d'un oubli : comme il y a **99 fois plus de personnes saines que malades**, même un petit taux de fausses alertes chez les sains finit par produire plus de positifs que la maladie elle-même.
 </Predict>
 
 ## Penser en effectifs, pas en pourcentages
@@ -68,7 +68,7 @@ Le même test change aussi complètement de valeur selon **la population où on 
 <BayesLab id="prevalence" prevalence={0.01} sensitivity={0.9} specificity={0.95} controls={["prevalence"]} challenge="ppv-50" />
 
 <Callout type="entretien">
-C'est la même raison pour laquelle un détecteur de fraude excellent sur le papier noie les analystes sous les fausses alertes : la fraude est rare. Dès qu'un problème a une faible prévalence, pense Bayes — et pense precision.
+C'est la même raison pour laquelle un détecteur de fraude excellent sur le papier noie les analystes sous les fausses alertes : la fraude est rare. Dès qu'un problème a une faible prévalence, pense Bayes, et pense precision.
 </Callout>
 
 <Quiz
@@ -78,7 +78,7 @@ C'est la même raison pour laquelle un détecteur de fraude excellent sur le pap
       q: "Dans P(A | B), que représente P(A) ?",
       options: ["La vraisemblance", "La probabilité a priori", "La probabilité a posteriori", "La probabilité totale"],
       answer: 1,
-      explain: "P(A) est ce qu'on croit avant d'observer B — ici, la prévalence de la maladie.",
+      explain: "P(A) est ce qu'on croit avant d'observer B : ici, la prévalence de la maladie.",
     },
     {
       q: "Un test a une sensitivity de 99 %. Peut-on en conclure qu'un positif est malade à 99 % ?",

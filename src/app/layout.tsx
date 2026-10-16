@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/Toaster";
 import { SyncProvider } from "@/components/ui/SyncProvider";
 
 export const metadata: Metadata = {
-  title: { default: "Datamine — apprendre la data science en manipulant", template: "%s · Datamine" },
+  title: { default: "Datamine · Apprendre la data science en manipulant", template: "%s · Datamine" },
   description:
     "Statistiques, Machine Learning, Deep Learning, LLM : des visualisations interactives, des défis et de la répétition espacée pour vraiment comprendre.",
 };

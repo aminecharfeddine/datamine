@@ -5,6 +5,8 @@ import { describe, expect, it, vi, beforeAll } from "vitest";
 const db = new Map<string, unknown>();
 let session: { user: { id: string; email: string } } | null = null;
 let authCb: ((e: string, s: typeof session) => void) | null = null;
+let failing = false;
+const fail = { data: null, error: { message: "fetch failed" } };
 
 vi.mock("@/lib/supabase/client", () => ({
   supabase: () => ({
@@ -24,10 +26,12 @@ vi.mock("@/lib/supabase/client", () => ({
     from: () => ({
       select: () => ({
         eq: (_c: string, id: string) => ({
-          maybeSingle: async () => ({ data: db.has(id) ? { state: structuredClone(db.get(id)) } : null, error: null }),
+          maybeSingle: async () =>
+            failing ? fail : { data: db.has(id) ? { state: structuredClone(db.get(id)) } : null, error: null },
         }),
       }),
       upsert: async (row: { user_id: string; state: unknown }) => {
+        if (failing) return fail;
         db.set(row.user_id, structuredClone(row.state));
         return { error: null };
       },
@@ -35,7 +39,8 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
-import { useProgress, EMPTY_DATA } from "@/lib/store";
+import { useProgress, EMPTY_DATA, pickData } from "@/lib/store";
+import { stableStringify } from "./merge";
 import { startSync, useAuth, syncNow, signOut, resetProgress } from "./sync";
 
 const login = async (id: string) => {
@@ -104,5 +109,47 @@ describe("synchronisation", () => {
     expect((db.get("alice") as { xp: number }).xp).toBe(0);
     await syncNow();
     expect(useProgress.getState().xp).toBe(0);
+  });
+
+  it("cycle complet : leçons, défis, badges, révisions et série reviennent intacts après déconnexion / reconnexion", async () => {
+    await signOut();
+    await login("carla");
+    const st = useProgress.getState();
+    st.recordChallenge("lecon:challenge:a");
+    st.recordPrediction("lecon:predict:b", true);
+    st.completeLesson("matrice-de-confusion", ["f1", "threshold"]);
+    const cardId = Object.keys(useProgress.getState().srs)[0];
+    useProgress.getState().review(cardId, 3);
+    const before = stableStringify(pickData(useProgress.getState()));
+    expect(Object.keys(useProgress.getState().badges)).toEqual(expect.arrayContaining(["first-lesson", "first-challenge"]));
+    const r = await signOut();
+    expect(r.saved).toBe(true);
+    expect(useProgress.getState().xp).toBe(0);
+    await login("carla");
+    expect(stableStringify(pickData(useProgress.getState()))).toBe(before);
+  });
+
+  it("si la sauvegarde échoue, la déconnexion ne vide rien sans confirmation", async () => {
+    useProgress.getState().award("offline:1", 10, "test");
+    const xp = useProgress.getState().xp;
+    failing = true;
+    const r = await signOut();
+    expect(r.saved).toBe(false);
+    expect(useProgress.getState().xp).toBe(xp);
+    expect(useAuth.getState().userId).toBe("carla");
+    failing = false;
+    expect((await signOut()).saved).toBe(true);
+    await login("carla");
+    expect(useProgress.getState().awarded["offline:1"]).toBe(true);
+  });
+
+  it("les badges mérités sont recalculés après une fusion", async () => {
+    await signOut();
+    db.set("dan", { ...EMPTY_DATA, completedLessons: { bayes: "2026-10-10T00:00:00Z" }, challengesDone: 5 });
+    await login("dan");
+    const b = useProgress.getState().badges;
+    expect(b["first-lesson"]).toBeDefined();
+    expect(b["challenges-5"]).toBeDefined();
+    expect((db.get("dan") as { badges: Record<string, string> }).badges["challenges-5"]).toBeDefined();
   });
 });

@@ -43,7 +43,7 @@ k-NN repose entièrement sur les distances. Que se passe-t-il si une variable es
 
 <KnnLab id="echelle" k={15} allowScale={true} challenge="knn-scale" />
 
-Avec $y$ multiplié par 20, la moindre différence verticale écrase toute différence horizontale : le modèle ne « voit » presque plus $x$. Les régions de décision deviennent des bandes horizontales. La solution : **standardiser** chaque variable (moyenne 0, écart-type 1) avant tout algorithme fondé sur des distances — k-NN, k-means, SVM, et aussi les régularisations L1/L2.
+Avec $y$ multiplié par 20, la moindre différence verticale écrase toute différence horizontale : le modèle ne « voit » presque plus $x$. Les régions de décision deviennent des bandes horizontales. La solution : **standardiser** chaque variable (moyenne 0, écart-type 1) avant tout algorithme fondé sur des distances : k-NN, k-means, SVM, et aussi les régularisations L1/L2.
 
 <Callout type="piege">
 k-NN souffre de la **malédiction de la dimension** : en très grande dimension, tous les points deviennent presque aussi éloignés les uns des autres, et la notion de « plus proche voisin » perd son sens. Au-delà de quelques dizaines de variables, on réduit d'abord la dimension (ACP, embeddings) ou on choisit un autre modèle.

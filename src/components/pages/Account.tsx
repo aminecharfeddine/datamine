@@ -479,7 +479,19 @@ function Profile() {
           )}
         </section>
 
-        <button onClick={() => void signOut()} className="btn-ghost inline-flex items-center gap-2 px-4 py-2 text-sm text-[#b42318]">
+        <button
+          onClick={async () => {
+            const r = await signOut();
+            if (
+              !r.saved &&
+              confirm(
+                "Ta progression récente n'a pas pu être sauvegardée dans ton compte (connexion impossible). Si tu te déconnectes maintenant, elle sera perdue. Se déconnecter quand même ?",
+              )
+            )
+              await signOut({ force: true });
+          }}
+          className="btn-ghost inline-flex items-center gap-2 px-4 py-2 text-sm text-[#b42318]"
+        >
           <LogOut size={15} /> Se déconnecter
         </button>
         <p className="text-xs text-muted">La déconnexion efface la progression de cet appareil ; elle reste en sécurité dans ton compte.</p>

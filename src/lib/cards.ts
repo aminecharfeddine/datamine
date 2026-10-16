@@ -331,7 +331,7 @@ export const CARDS: ReviewCard[] = [
     concept: "confusion-matrix",
     kind: "flash",
     front: "Un modèle prédit « positif » pour un exemple réellement négatif. Quelle case de la confusion matrix ?",
-    back: "False Positive (FP) — une fausse alerte. « False » = la prédiction est fausse, « Positive » = ce qui a été prédit.",
+    back: "False Positive (FP) : une fausse alerte. « False » = la prédiction est fausse, « Positive » = ce qui a été prédit.",
   },
   {
     id: "cm-2",

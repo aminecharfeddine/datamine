@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { EMPTY_DATA, pickData, useProgress, DATA_KEYS, type ProgressData } from "@/lib/store";
 import { mergeProgress, sameData } from "./merge";
+import { withEarnedBadges } from "@/lib/gamification";
 
 // Synchronisation de la progression avec Supabase.
 // Principe : l'état local reste la source immédiate (l'interface ne bloque jamais) ; à la connexion,
@@ -85,7 +86,7 @@ export function syncNow(): Promise<void> {
       const local = pickData(st);
       // L'état local appartient à un autre compte : on ne le mélange pas.
       const base = st.ownerId && st.ownerId !== userId ? null : local;
-      const merged = mergeProgress(base, remote);
+      const merged = withEarnedBadges(mergeProgress(base, remote));
       if (st.ownerId !== userId || !sameData(merged, local)) apply(merged, userId);
       if (!remote || !sameData(merged, mergeProgress(remote, null))) await writeRemote(userId, merged);
       useAuth.setState({ status: "synced", error: null, lastSync: new Date().toISOString() });
@@ -144,7 +145,9 @@ export function startSync() {
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && useAuth.getState().userId) void syncNow();
+    flushOnHide();
   });
+  window.addEventListener("pagehide", flushOnHide);
 }
 
 export async function signInWithEmail(email: string) {
@@ -155,16 +158,32 @@ export async function signInWithEmail(email: string) {
   if (error) throw error;
 }
 
-export async function signOut() {
+/**
+ * Déconnexion. On sauvegarde d'abord tout ce qui est local ; si cette sauvegarde échoue,
+ * on ne vide rien et on renvoie { saved: false } pour que l'interface demande confirmation
+ * (sinon les progrès non synchronisés seraient perdus). `force` déconnecte quand même.
+ */
+export async function signOut({ force = false } = {}): Promise<{ saved: boolean }> {
   if (pushTimer) {
     clearTimeout(pushTimer);
     pushTimer = null;
-    await syncNow(); // dernière sauvegarde avant de partir
   }
-  await queue;
+  await syncNow(); // dernière sauvegarde avant de partir
+  const saved = useAuth.getState().status === "synced";
+  if (!saved && !force) return { saved: false };
   await supabase().auth.signOut();
   useProgress.getState().reset(); // l'appareil repasse en mode invité, vierge
   useAuth.setState({ userId: null, email: null, pseudo: null, color: null, recovery: false, status: "anon", error: null, lastSync: null });
+  return { saved };
+}
+
+/** Sauvegarde rapide quand l'onglet passe en arrière-plan ou se ferme (si une écriture était en attente). */
+function flushOnHide() {
+  if (document.visibilityState === "hidden" && pushTimer) {
+    clearTimeout(pushTimer);
+    pushTimer = null;
+    void syncNow();
+  }
 }
 
 /** Réinitialise la progression, y compris dans le cloud si on est connecté (sinon la fusion la ferait revenir). */

@@ -100,7 +100,7 @@ export function LeakLab({ id = "leak", challenge }: { id?: string; challenge?: s
               </svg>
               <p className="text-sm font-semibold" style={{ color: mode === "avant" ? "#9c2a10" : "var(--mod-deep)" }}>
                 Moyenne : {pct(mean(folds))}
-                {mode === "avant" ? " — trop beau pour être vrai." : " — la vérité : du hasard."}
+                {mode === "avant" ? ". Trop beau pour être vrai." : ". La vérité : du hasard."}
               </p>
             </>
           ) : (
