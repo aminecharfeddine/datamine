@@ -25,7 +25,7 @@ export function Review() {
   const [choice, setChoice] = useState<number | null>(null);
   const [done, setDone] = useState(0);
 
-  // La file est figée au début de la session ; les cartes « À revoir » reviennent en fin de file.
+  // La file est figée au début de la session ; une carte ratée revient lors d'une prochaine session.
   useEffect(() => {
     if (hydrated && queue === null) setQueue(dueCardIds(srs));
   }, [hydrated, queue, srs]);
@@ -36,10 +36,8 @@ export function Review() {
   const grade = (g: Grade) => {
     if (!currentId) return;
     review(currentId, g);
-    setQueue((q) => {
-      const rest = q!.slice(1);
-      return g === Rating.Again ? [...rest, currentId] : rest;
-    });
+    // Une carte ratée revient dans 10 minutes, pas immédiatement dans la même session.
+    setQueue((q) => q!.slice(1));
     setDone((d) => d + 1);
     setRevealed(false);
     setChoice(null);
@@ -54,6 +52,10 @@ export function Review() {
         setRevealed(true);
       } else if (card.kind === "flash" && revealed) {
         const g = GRADES.find((x) => x.key === e.key);
+        if (g) grade(g.g);
+      } else if (card.kind === "mcq" && choice !== null) {
+        const allowed = choice === card.answer ? GRADES.slice(1) : GRADES.slice(0, 1);
+        const g = allowed.find((x) => x.key === e.key);
         if (g) grade(g.g);
       }
     };
@@ -103,21 +105,8 @@ export function Review() {
           ) : (
             <>
               <p className="animate-rise mt-6 border-t border-line pt-6 text-lg leading-relaxed">{card.back}</p>
-              <p className="mt-8 text-xs text-muted">Avais-tu la réponse en tête ?</p>
-              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {GRADES.map(({ g, label, key }) => (
-                  <button
-                    key={g}
-                    onClick={() => grade(g)}
-                    className={clsx("px-3 py-2.5 text-sm", g === Rating.Good ? "btn-3d bg-accent text-white" : "btn-ghost")}
-                  >
-                    <div className="font-semibold">{label}</div>
-                    <div className="num text-xs opacity-60">
-                      {previews ? humanDelay(previews[g]) : ""} · {key}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <p className="mt-8 text-sm text-muted">Avais-tu la réponse en tête ? Le délai indique quand la carte reviendra.</p>
+              <GradeButtons grades={GRADES} previews={previews} onGrade={grade} />
             </>
           )
         ) : (
@@ -132,12 +121,17 @@ export function Review() {
             {choice !== null && (
               <div className="animate-rise mt-6 border-t border-line pt-5">
                 <p className="text-muted">{card.explain}</p>
-                <button
-                  onClick={() => grade(choice === card.answer ? Rating.Good : Rating.Again)}
-                  className="btn-3d mt-5 bg-accent px-5 py-2.5 text-sm text-white"
-                >
-                  {choice === card.answer ? "Continuer" : "Compris, je la reverrai"}
-                </button>
+                {choice === card.answer ? (
+                  <>
+                    <p className="mt-6 text-sm text-muted">Bonne réponse. Était-ce facile ? Le délai indique quand la carte reviendra.</p>
+                    <GradeButtons grades={GRADES.slice(1)} previews={previews} onGrade={grade} />
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-6 text-sm text-muted">Pas grave : la carte revient bientôt pour ancrer la bonne réponse.</p>
+                    <GradeButtons grades={GRADES.slice(0, 1)} previews={previews} onGrade={grade} />
+                  </>
+                )}
               </div>
             )}
           </>
@@ -152,6 +146,33 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="mx-auto max-w-2xl px-4 pt-12">
       <h1 className="mb-8 font-display text-4xl font-extrabold tracking-tight">Révisions</h1>
       {children}
+    </div>
+  );
+}
+
+function GradeButtons({
+  grades,
+  previews,
+  onGrade,
+}: {
+  grades: { g: Grade; label: string; key: string }[];
+  previews: Record<Grade, Date> | null;
+  onGrade: (g: Grade) => void;
+}) {
+  return (
+    <div className={clsx("mt-2 grid gap-2", grades.length === 4 ? "grid-cols-2 sm:grid-cols-4" : grades.length === 3 ? "grid-cols-3" : "grid-cols-1 sm:max-w-xs")}>
+      {grades.map(({ g, label, key }) => (
+        <button
+          key={g}
+          onClick={() => onGrade(g)}
+          className={clsx("px-3 py-2.5 text-sm", g === Rating.Good || grades.length === 1 ? "btn-3d bg-accent text-white" : "btn-ghost")}
+        >
+          <div className="font-semibold">{label}</div>
+          <div className="num text-xs opacity-70">
+            {previews ? `dans ${humanDelay(previews[g])}` : ""} · touche {key}
+          </div>
+        </button>
+      ))}
     </div>
   );
 }

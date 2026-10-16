@@ -67,7 +67,11 @@ type ProgressState = ProgressData & {
   reset: () => void;
 };
 
-const scheduler = fsrs(generatorParameters({ enable_fuzz: true }));
+/** Délai avant la première révision des cartes d'une leçon terminée. */
+export const FIRST_REVIEW_DELAY_MS = 4 * 60 * 60 * 1000;
+
+// Étapes d'apprentissage espacées : 10 min puis 4 h avant de passer en jours (et 10 min après un oubli).
+const scheduler = fsrs(generatorParameters({ enable_fuzz: true, learning_steps: ["10m", "4h"], relearning_steps: ["10m"] }));
 
 const serialize = (c: Card): StoredCard => ({
   ...c,
@@ -189,8 +193,10 @@ export const useProgress = create<ProgressState>()(
           const s = get();
           const srs = { ...s.srs };
           const now = new Date();
+          // Première révision quelques heures après la leçon : la revoir juste après n'apporte rien.
+          const firstReview = new Date(now.getTime() + FIRST_REVIEW_DELAY_MS);
           for (const card of cardsForConcepts(concepts)) {
-            if (!srs[card.id]) srs[card.id] = serialize(createEmptyCard(now));
+            if (!srs[card.id]) srs[card.id] = serialize({ ...createEmptyCard(now), due: firstReview });
           }
           set({
             srs,
@@ -277,6 +283,8 @@ export function humanDelay(due: Date, now = new Date()) {
   const h = Math.round(min / 60);
   if (h < 24) return `${h} h`;
   const d = Math.round(h / 24);
-  if (d < 31) return `${d} j`;
-  return `${Math.round(d / 30)} mois`;
+  if (d < 7) return `${d} j`;
+  if (d < 30) return `${Math.round(d / 7)} sem.`;
+  if (d < 365) return `${Math.round(d / 30)} mois`;
+  return `${Math.round(d / 365)} an${d >= 730 ? "s" : ""}`;
 }
