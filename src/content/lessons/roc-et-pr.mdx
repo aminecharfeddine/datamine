@@ -49,6 +49,19 @@ c'est-à-dire la probabilité qu'un positif tiré au hasard reçoive un score pl
 Question fréquente : *« Une AUC de 0,3, c'est grave ? »* Pas vraiment : le modèle classe à l'envers de façon systématique. Inverser ses scores donne une AUC de 0,7. Le vrai mauvais modèle, c'est 0,5.
 </Callout>
 
+<Exercise
+  id="fpr"
+  question="À un seuil donné : TP = 40, FN = 10, FP = 30, TN = 920. Quel est le false positive rate ?"
+  answer={0.0316}
+  tolerance={0.001}
+  percent={true}
+  hint="FPR = FP / (FP + TN) : la part des négatifs qui déclenchent une alerte."
+>
+$FPR = \frac{30}{30 + 920} = \frac{30}{950} \approx 3{,}2\ \%$, et $TPR = \frac{40}{50} = 80\ \%$.
+
+Sur une ROC curve, ce point a l'air excellent. Pourtant la precision vaut $\frac{40}{40 + 30} \approx 57\ \%$ : presque une alerte sur deux est fausse. La section suivante explique pourquoi.
+</Exercise>
+
 ## Le piège des classes déséquilibrées
 
 Dans la vraie vie, les positifs sont souvent rares : fraudes, maladies, pannes, clics. Que devient la ROC curve quand la prévalence s'effondre ?
@@ -78,6 +91,20 @@ C'est là qu'intervient la **Precision-Recall curve** : on trace la precision en
 Une AUC ROC de 0,95 sur un problème à 1 % de positifs peut cacher un modèle inutilisable en production : pour retrouver la moitié des fraudes, il faudrait peut-être examiner dix fausses alertes pour une vraie. Sur des données déséquilibrées, regarde **toujours** la PR curve (et son aire, l'*average precision*).
 </Callout>
 
+## Choisir un seuil, et faire confiance aux scores
+
+Les courbes résument tous les seuils, mais en production il faut en choisir **un**. Trois approches courantes :
+
+- **Une contrainte métier** : « au moins 90 % de recall », puis le seuil qui maximise la precision sous cette contrainte.
+- **Un coût** : si une fraude ratée coûte 500 € et une vérification 5 €, on choisit le seuil qui minimise le coût total attendu.
+- **L'indice de Youden** : le point de la ROC qui maximise $TPR - FPR$, à défaut d'information sur les coûts.
+
+Une autre question se pose dès qu'on veut utiliser le score comme une **probabilité** (« 80 % de risque de churn ») : le modèle est-il **calibré** ? Un modèle bien calibré a raison 80 % du temps parmi les exemples auxquels il donne 0,8. Beaucoup de modèles (boosting, SVM, réseaux) classent bien mais sont mal calibrés.
+
+<Callout type="astuce">
+On vérifie la calibration avec une **courbe de calibration** (score moyen prédit contre fréquence observée, par tranches) et on la mesure avec la **log loss** ou le **score de Brier**. Si elle est mauvaise, on recalibre sur un jeu de validation : régression logistique sur les scores (méthode de Platt) ou régression isotone. Le classement, donc l'AUC, ne change pas.
+</Callout>
+
 <Quiz
   id="fin"
   questions={[
@@ -99,7 +126,37 @@ Une AUC ROC de 0,95 sur un problème à 1 % de positifs peut cacher un modèle i
       answer: 0,
       explain: "Au hasard, la part de vrais positifs parmi les alertes est égale à la prévalence : c'est la baseline de la PR curve.",
     },
+    {
+      q: "Un modèle a une excellente AUC mais ses scores sont mal calibrés. Que peut-on en dire ?",
+      options: [
+        "Il classe mal les exemples",
+        "Il classe bien, mais ses scores ne doivent pas être lus comme des probabilités sans recalibration",
+        "Son AUC est forcément fausse",
+        "Il faut changer de seuil pour améliorer l'AUC",
+      ],
+      answer: 1,
+      explain: "L'AUC ne mesure que l'ordre des scores. La calibration concerne leur valeur : on peut la corriger sans toucher au classement.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="AUC ROC ou AUC PR pour un problème de fraude ?">
+Pour une fraude rare, la **PR** est plus informative. La ROC utilise le FPR, dont le dénominateur est l'énorme masse des transactions normales : même un grand nombre de fausses alertes donne un FPR minuscule, et l'AUC ROC paraît excellente. La PR curve montre directement la precision, c'est-à-dire la charge réelle pour les analystes. Je rapporterais l'average precision avec son intervalle de confiance, et surtout la precision et le recall au seuil opérationnel, choisi selon le nombre d'alertes que l'équipe peut traiter.
+</Interview>
+
+<Interview q="Ton modèle a une AUC de 0,99 du premier coup. Qu'est-ce qui pourrait clocher ?">
+D'abord une **fuite de données** : une variable qui encode la cible ou n'est connue qu'après l'événement, des doublons entre train et test, un même client des deux côtés, un découpage aléatoire sur des données temporelles. Ensuite, un test set pas représentatif ou trop facile. Je regarderais l'importance des variables (une seule qui domine est suspecte), je referais un découpage par groupe ou dans le temps, et je comparerais à une baseline simple. Une AUC de 0,99 n'est pas impossible, mais elle doit être expliquée.
+</Interview>
+
+<Recap>
+- ROC : TPR (recall) en fonction du FPR, un point par seuil. Hasard = diagonale.
+- AUC ROC = probabilité qu'un positif soit mieux classé qu'un négatif ; 0,5 = hasard.
+- La ROC est insensible à la prévalence : flatteuse quand les positifs sont rares.
+- PR curve : precision en fonction du recall ; baseline = prévalence. À privilégier en déséquilibre.
+- Seuil choisi par contrainte métier, coût des erreurs ou Youden.
+- Calibration : scores lisibles comme probabilités ; vérifier (courbe, Brier) et recalibrer (Platt, isotone).
+</Recap>
 
 <LessonComplete />

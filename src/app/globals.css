@@ -229,3 +229,26 @@ input[type="range"] {
   100% { transform: scale(1); }
 }
 .animate-pop { animation: pop 0.32s ease-out both; }
+
+/* Tableaux des leçons */
+.lesson-prose table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.lesson-prose th {
+  text-align: left;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--mod) 8%, white);
+  padding: 0.6em 0.9em;
+}
+.lesson-prose td {
+  padding: 0.55em 0.9em;
+  border-top: 1px solid var(--line);
+  vertical-align: top;
+}

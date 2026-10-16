@@ -32,6 +32,18 @@ Dans le labo, la version A convertit 10 % des visiteurs. Commence avec **aucun e
 
 <AbLab id="decouverte" n={1000} effect={0} challenge="pv-false" />
 
+<Exercise
+  id="z"
+  question="Un A/B test montre un écart de conversion de +1,5 point, avec une erreur standard de 0,6 point. Quelle est la statistique de test z ?"
+  answer={2.5}
+  tolerance={0.01}
+  hint="z = écart observé / erreur standard."
+>
+$z = 1{,}5 / 0{,}6 = 2{,}5$.
+
+Sous $H_0$, $z$ suit à peu près une loi normale centrée réduite. $|z| = 2{,}5 > 1{,}96$ : le résultat est significatif au seuil de 5 % (en bilatéral, $p \approx 0{,}012$).
+</Exercise>
+
 ## Les faux positifs sont garantis
 
 Tu viens de le voir : même quand B ne change **strictement rien**, environ une expérience sur vingt sort « significative ». C'est exactement ce que veut dire $\alpha = 0{,}05$ : on accepte 5 % de **faux positifs** (erreur de type I).
@@ -57,6 +69,23 @@ Avec 500 visiteurs, la différence de 2 points est noyée dans le bruit : l'éca
 
 <Callout type="entretien">
 On dimensionne un A/B test **avant** de le lancer : on fixe l'effet minimal qui aurait un intérêt business, le seuil $\alpha$ (souvent 5 %) et la puissance voulue (souvent 80 %). On en déduit le nombre de visiteurs nécessaire. Et on rappelle qu'avec assez de données, même un effet minuscule et sans intérêt devient significatif : **significatif ne veut pas dire important**. Il faut toujours regarder la taille de l'effet, idéalement avec son intervalle de confiance.
+</Callout>
+
+## Unilatéral ou bilatéral, et quel test choisir ?
+
+Un test **bilatéral** compte comme extrêmes les écarts dans les deux sens (B meilleure **ou** moins bonne) : c'est le choix par défaut. Un test **unilatéral** ne regarde qu'un sens ; sa p-value est deux fois plus petite, d'où la tentation… Il n'est légitime que si le sens a été fixé **avant** de voir les données et qu'un effet dans l'autre sens ne changerait aucune décision.
+
+| Situation | Test courant |
+|---|---|
+| Comparer deux taux (conversion, clic) | test z de deux proportions, ou χ² |
+| Comparer deux moyennes | test t de Student (Welch si variances différentes) |
+| Mêmes individus avant / après | test t apparié |
+| Plus de deux groupes | ANOVA, puis comparaisons corrigées |
+| Lien entre deux variables catégorielles | χ² d'indépendance |
+| Petits échantillons, données très asymétriques | Mann-Whitney (non paramétrique) |
+
+<Callout type="astuce">
+Dans un rapport, donne toujours **la taille de l'effet avec son intervalle de confiance** en plus de la p-value. « +1,2 point de conversion, IC 95 % [0,3 ; 2,1] » dit tout ce qu'un décideur veut savoir ; « p = 0,01 » seul ne dit rien de l'importance du gain.
 </Callout>
 
 <Quiz
@@ -90,7 +119,37 @@ On dimensionne un A/B test **avant** de le lancer : on fixe l'effet minimal qui 
       answer: 2,
       explain: "Un test peu puissant rate souvent les vrais effets. Absence de preuve n'est pas preuve d'absence.",
     },
+    {
+      q: "Pourquoi le test bilatéral est-il le choix par défaut ?",
+      options: [
+        "Il est plus puissant",
+        "Il ne suppose pas à l'avance le sens de l'effet, et ne réduit pas artificiellement la p-value",
+        "Il donne toujours des p-values plus petites",
+        "Le test unilatéral est interdit",
+      ],
+      answer: 1,
+      explain: "Choisir l'unilatéral après avoir vu le sens de l'écart divise la p-value par deux de façon injustifiée.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="Explique ce qu'est une p-value à un manager non technique.">
+« On part du principe que la nouvelle version ne change rien. La p-value mesure à quel point le résultat observé serait surprenant dans ce cas. Une p-value de 0,02 veut dire : si la nouvelle version ne changeait rien, on verrait un écart aussi grand seulement 2 fois sur 100 par hasard. C'est donc un indice qu'il y a un vrai effet, mais ça ne dit ni la probabilité que la version marche, ni la taille du gain. Pour décider, je te donne aussi l'effet estimé et sa fourchette. »
+</Interview>
+
+<Interview q="Ton équipe regarde l'A/B test chaque jour et l'arrête dès que p < 0,05. Problème ?">
+Oui : c'est du **peeking**. Chaque consultation est une occasion supplémentaire de tomber sur un faux positif ; en regardant tous les jours, le taux réel d'erreur peut dépasser 20 % au lieu de 5 %. Solutions : fixer la taille d'échantillon à l'avance par un calcul de puissance et ne conclure qu'à la fin, ou utiliser des méthodes conçues pour la surveillance continue (tests séquentiels, approche bayésienne) qui corrigent le seuil.
+</Interview>
+
+<Recap>
+- $H_0$ = « aucun effet ». p-value = probabilité, **si $H_0$ est vraie**, d'un résultat au moins aussi extrême.
+- La p-value n'est ni la probabilité que $H_0$ soit vraie, ni la taille de l'effet.
+- α = 5 % : 1 test sur 20 sans effet sort significatif (erreur de type I).
+- Puissance = probabilité de détecter un vrai effet ; elle dépend de n, de l'effet et de α.
+- Tests multiples et peeking gonflent les faux positifs : corriger ou planifier.
+- Bilatéral par défaut ; toujours rapporter l'effet et son intervalle de confiance.
+</Recap>
 
 <LessonComplete />

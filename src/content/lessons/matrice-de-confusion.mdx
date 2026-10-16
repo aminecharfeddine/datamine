@@ -55,6 +55,18 @@ En probabilités, la precision est $P(\text{réel} = 1 \mid \text{prédit} = 1)$
 
 Le dénominateur de la precision regarde la **colonne** « prédit positif » de la matrice. Celui du recall regarde la **ligne** « réel positif ». C'est tout.
 
+<Exercise
+  id="recall"
+  question="Un modèle de détection de fraude obtient TP = 30, FP = 10 et FN = 20. Quel est son recall ?"
+  answer={0.6}
+  tolerance={0.005}
+  hint="Le recall ne regarde que les fraudes réelles : celles trouvées et celles ratées."
+>
+$\text{Recall} = \frac{TP}{TP + FN} = \frac{30}{30 + 20} = 0{,}6$ : le modèle retrouve 60 % des fraudes.
+
+Sa precision vaut $\frac{30}{30 + 10} = 0{,}75$ : quand il lève une alerte, il a raison 3 fois sur 4.
+</Exercise>
+
 <ThresholdLab
   id="depistage"
   panels={["dist", "matrix", "metrics"]}
@@ -95,6 +107,18 @@ $$
 $F_1 = \frac{2 \times 1 \times 0{,}02}{1{,}02} \approx 0{,}039$. La moyenne arithmétique aurait donné 0,51, ce qui serait absurde pour un modèle qui rate 98 % des cas. La moyenne harmonique est **dominée par la plus petite valeur** : impossible d'obtenir un bon F1 en sacrifiant l'une des deux métriques.
 </Predict>
 
+<Exercise
+  id="f1"
+  question="Reprends le modèle précédent : precision 0,75 et recall 0,6. Que vaut son F1-score ?"
+  answer={0.6667}
+  tolerance={0.003}
+  hint="F1 = 2 × P × R / (P + R)."
+>
+$F_1 = \frac{2 \times 0{,}75 \times 0{,}6}{0{,}75 + 0{,}6} = \frac{0{,}9}{1{,}35} \approx 0{,}667$.
+
+Le F1 est plus proche de la plus petite des deux valeurs (0,6) que ne le serait la moyenne arithmétique (0,675).
+</Exercise>
+
 <ThresholdLab id="f1" panels={["dist", "metrics"]} separation={2} prevalence={0.4} threshold={0.85} challenge="best-f1" />
 
 <Callout type="piege">
@@ -108,6 +132,31 @@ Le seuil ne fait pas partie du modèle : c'est une **décision métier**, prise 
 - **Dépistage d'une maladie grave** : un FN est dramatique, un FP coûte un examen de plus → seuil bas, recall élevé.
 - **Filtre anti-spam** : un FP (vrai mail jeté) est très gênant, un FN (spam qui passe) est bénin → seuil haut, precision élevée.
 - **Détection de fraude** : compromis selon le coût d'une fraude ratée face au coût d'un client bloqué à tort.
+
+## Le vocabulaire complet
+
+Les mêmes quatre cases donnent d'autres métriques, avec des noms qui changent selon les domaines :
+
+| Métrique | Formule | Autres noms |
+|---|---|---|
+| Recall | TP / (TP + FN) | sensitivity, true positive rate (TPR) |
+| Specificity | TN / (TN + FP) | true negative rate |
+| False positive rate | FP / (FP + TN) | 1 − specificity |
+| Precision | TP / (TP + FP) | positive predictive value (PPV) |
+| Negative predictive value | TN / (TN + FN) | NPV |
+| Accuracy | (TP + TN) / total | |
+
+## Et avec plus de deux classes ?
+
+Avec $K$ classes, la confusion matrix devient un tableau $K \times K$, et on calcule precision et recall **classe par classe** (chaque classe contre toutes les autres). Reste à les résumer en un chiffre :
+
+- **macro** : moyenne simple des scores de chaque classe. Toutes les classes comptent autant, même les rares.
+- **weighted** : moyenne pondérée par le nombre d'exemples de chaque classe. Les classes fréquentes dominent.
+- **micro** : on additionne TP, FP et FN de toutes les classes avant de calculer. En classification à une seule étiquette, le micro-F1 est égal à l'accuracy.
+
+<Callout type="astuce">
+Sur des classes déséquilibrées, regarde toujours le **macro-F1** et le rapport par classe (`classification_report` en scikit-learn). Un très bon micro-F1 peut cacher une classe rare complètement ignorée.
+</Callout>
 
 <Quiz
   id="fin"
@@ -130,7 +179,32 @@ Le seuil ne fait pas partie du modèle : c'est une **décision métier**, prise 
       answer: 1,
       explain: "Rater un vrai incendie (FN) est inacceptable ; une fausse alerte (FP) est un désagrément. On maximise le recall.",
     },
+    {
+      q: "Classes très déséquilibrées : laquelle de ces moyennes révèle le mieux une classe rare mal prédite ?",
+      options: ["Micro-F1", "Macro-F1", "Accuracy", "Weighted-F1"],
+      answer: 1,
+      explain: "Le macro-F1 donne le même poids à chaque classe : une classe rare ratée fait chuter la moyenne. Micro, accuracy et weighted sont dominés par les classes fréquentes.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="Precision ou recall : donne un exemple où chacune est prioritaire.">
+Le **recall** prime quand rater un positif coûte très cher : dépistage d'une maladie grave, détection d'intrusion, fraude de gros montant. On accepte des fausses alertes, vérifiées ensuite par un humain. La **precision** prime quand une fausse alerte coûte cher ou dégrade l'expérience : filtre anti-spam (un vrai mail perdu est grave), recommandation affichée à l'utilisateur, blocage automatique d'une carte bancaire. Dans les deux cas, je fixe le seuil à partir du coût métier de chaque erreur plutôt que de garder 0,5 par défaut.
+</Interview>
+
+<Interview q="Ton modèle a 98 % d'accuracy sur un problème de churn. C'est bien ?">
+Impossible à dire sans le taux de base : si 2 % des clients partent, prédire « reste » pour tout le monde donne déjà 98 %. Je regarderais la confusion matrix, la precision et le recall sur la classe « part », la PR curve, et je comparerais à une baseline naïve. Je demanderais aussi ce que l'équipe fera des prédictions (budget de rétention, nombre de clients contactables), car c'est ce qui fixe le compromis precision/recall et le seuil.
+</Interview>
+
+<Recap>
+- Confusion matrix : TP, FP, FN, TN. Le nom se lit « exact ou non » + « ce qui a été prédit ».
+- Precision = TP / (TP + FP) : qualité des alertes. Recall = TP / (TP + FN) : couverture.
+- F1 = moyenne harmonique de P et R, dominée par la plus faible.
+- Accuracy trompeuse sur des classes déséquilibrées.
+- Monter le seuil : precision ↑ en tendance, recall ↓. Le seuil est une décision métier.
+- Multiclasse : macro (classes égales), weighted (par effectif), micro (= accuracy en mono-étiquette).
+</Recap>
 
 <LessonComplete />

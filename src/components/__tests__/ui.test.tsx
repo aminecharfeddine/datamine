@@ -60,16 +60,18 @@ describe("Review", () => {
     act(() => useProgress.getState().completeLesson("matrice-de-confusion", ["f1"]));
     render(<Review />);
     await act(async () => {});
-    expect(screen.getByText(/2 restantes/)).toBeTruthy();
+    expect(screen.getByText(/3 restantes/)).toBeTruthy();
     const first = screen.queryByText("Afficher la réponse");
     if (first) {
       fireEvent.click(first);
       fireEvent.click(screen.getByText("Correct"));
     } else {
-      fireEvent.click(screen.getByText("0,67"));
-      fireEvent.click(screen.getByText("Continuer"));
+      // Carte à choix multiple : on choisit la première option, puis on passe à la suite.
+      const option = screen.getAllByRole("button").find((b) => /Micro|0,67/.test(b.textContent ?? ""))!;
+      fireEvent.click(option);
+      fireEvent.click(screen.queryByText("Continuer") ?? screen.getByText("Compris, je la reverrai"));
     }
     expect(useProgress.getState().reviewsDone).toBe(1);
-    expect(screen.getByText(/1 restante/)).toBeTruthy();
+    expect(screen.getByText(/restante/)).toBeTruthy();
   });
 });

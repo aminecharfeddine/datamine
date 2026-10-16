@@ -4,6 +4,7 @@ export const XP = {
   predictCorrect: 10,
   predictWrong: 3, // s'engager sur une prédiction, même fausse, est utile
   quizCorrect: 5,
+  exercise: 15,
   challenge: 25,
   lessonComplete: 50,
   review: { again: 1, hard: 3, good: 5, easy: 6 },

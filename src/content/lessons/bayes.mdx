@@ -24,6 +24,24 @@ La grille ci-dessous représente ces 2 000 personnes. Joue avec les curseurs et 
 Tu as déjà vu ces couleurs : ce sont exactement les quatre cases de la confusion matrix. La probabilité d'être malade sachant un test positif, c'est la **precision** du test. Le recall, ici, s'appelle *sensitivity*.
 </Callout>
 
+## Probabilité conditionnelle et indépendance
+
+Une probabilité **conditionnelle** restreint l'univers aux seuls cas où un événement est vrai :
+
+$$
+P(A \mid B) = \frac{P(A \cap B)}{P(B)}
+$$
+
+Dans la grille, $P(\text{malade} \mid +)$ revient à ne regarder **que les carrés positifs** (18 + 99 = 117) et à compter la part de malades parmi eux : 18 / 117.
+
+Deux événements sont **indépendants** quand savoir l'un ne change rien à la probabilité de l'autre :
+
+$$
+P(A \cap B) = P(A)\,P(B) \quad \Longleftrightarrow \quad P(A \mid B) = P(A)
+$$
+
+Le résultat d'un test et l'état de santé ne sont évidemment pas indépendants, sinon le test ne servirait à rien.
+
 ## Le théorème de Bayes
 
 Ce raisonnement a une forme générale. Pour deux événements A (« être malade ») et B (« test positif ») :
@@ -45,6 +63,25 @@ $$
 <Callout type="rappel">
 $P(A \mid B)$ se lit « probabilité de A **sachant** B ». Et en général $P(A \mid B) \neq P(B \mid A)$ : la probabilité d'être positif quand on est malade (90 %) n'a rien à voir avec celle d'être malade quand on est positif (15 %). Confondre les deux porte un nom : le *base rate fallacy*.
 </Callout>
+
+<Callout type="intuition">
+Le théorème vient d'une seule observation : on peut écrire $P(A \cap B)$ de deux façons, $P(A \mid B)\,P(B)$ ou $P(B \mid A)\,P(A)$. Il suffit de les égaler et de diviser par $P(B)$.
+</Callout>
+
+<Exercise
+  id="ppv"
+  question="Une maladie touche 2 % de la population. Le test a une sensitivity de 95 % et une specificity de 90 %. Quelle est la probabilité d'être malade si le test est positif ?"
+  answer={0.1624}
+  tolerance={0.005}
+  percent={true}
+  hint="Raisonne sur 1 000 personnes : combien de malades détectés, combien de sains alarmés ?"
+>
+Sur 1 000 personnes : 20 malades, dont 95 % détectés, soit **19** vrais positifs. 980 sains, dont 10 % alarmés à tort, soit **98** faux positifs.
+
+$P(\text{malade} \mid +) = \frac{19}{19 + 98} \approx 16{,}2\ \%$.
+
+Malgré un test « fiable à 95 % », moins d'un positif sur six est réellement malade.
+</Exercise>
 
 <Predict
   id="second-test"
@@ -71,6 +108,20 @@ Le même test change aussi complètement de valeur selon **la population où on 
 C'est la même raison pour laquelle un détecteur de fraude excellent sur le papier noie les analystes sous les fausses alertes : la fraude est rare. Dès qu'un problème a une faible prévalence, pense Bayes, et pense precision.
 </Callout>
 
+## Bayes au cœur du machine learning
+
+Le classifieur **Naive Bayes** applique directement le théorème. Pour classer un e-mail, il compare $P(\text{spam} \mid \text{mots})$ et $P(\text{normal} \mid \text{mots})$ :
+
+$$
+P(\text{spam} \mid w_1, \dots, w_n) \;\propto\; P(\text{spam}) \prod_{i} P(w_i \mid \text{spam})
+$$
+
+Il est « naïf » parce qu'il suppose les mots **indépendants** entre eux, sachant la classe. C'est faux (« carte » et « bancaire » vont ensemble), mais le classement reste souvent bon, et le modèle est extrêmement rapide à entraîner.
+
+<Callout type="astuce">
+Naive Bayes est une excellente **baseline** pour le texte : quelques lignes de code, entraînement instantané, et un score de référence à battre avant de sortir un modèle plus lourd. Pense au lissage de Laplace (ajouter 1 à chaque compte) pour qu'un mot jamais vu dans une classe ne mette pas toute la probabilité à zéro.
+</Callout>
+
 <Quiz
   id="fin"
   questions={[
@@ -92,7 +143,32 @@ C'est la même raison pour laquelle un détecteur de fraude excellent sur le pap
       answer: 1,
       explain: "80 / (80 + 495) ≈ 0,139. Les effectifs rendent le calcul immédiat.",
     },
+    {
+      q: "A et B sont indépendants si…",
+      options: ["P(A | B) = P(B | A)", "P(A ∩ B) = P(A) × P(B)", "P(A) + P(B) = 1", "P(A ∩ B) = 0"],
+      answer: 1,
+      explain: "Indépendance : connaître B ne change pas la probabilité de A, ce qui équivaut à P(A ∩ B) = P(A)·P(B). P(A ∩ B) = 0 décrit au contraire des événements incompatibles.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="Explique le théorème de Bayes avec un exemple concret.">
+Le théorème permet de **retourner** une probabilité conditionnelle : à partir de $P(\text{positif} \mid \text{malade})$, que l'on connaît (la sensitivity du test), on obtient $P(\text{malade} \mid \text{positif})$, qui intéresse le patient. La formule est $P(A \mid B) = P(B \mid A)\,P(A) / P(B)$. L'exemple du test médical montre l'essentiel : si la maladie est rare, la plupart des positifs sont des faux positifs, même avec un bon test, parce que le prior $P(A)$ est faible. J'ajoute souvent que je raisonne en effectifs (« sur 1 000 personnes… ») pour éviter les erreurs.
+</Interview>
+
+<Interview q="Qu'est-ce que Naive Bayes, et pourquoi dit-on qu'il est naïf ?">
+C'est un classifieur probabiliste qui applique Bayes en supposant les variables **conditionnellement indépendantes** sachant la classe. Cette hypothèse rend le calcul trivial : le produit des $P(x_i \mid y)$. Elle est presque toujours fausse, mais le modèle classe bien car seul l'ordre des probabilités compte, pas leur valeur exacte. Ses probabilités sont en revanche mal calibrées. Il est rapide, marche avec peu de données et en grande dimension : une bonne baseline en classification de texte.
+</Interview>
+
+<Recap>
+- $P(A \mid B) = P(A \cap B) / P(B)$ : on se restreint aux cas où B est vrai.
+- Bayes : $P(A \mid B) = P(B \mid A)\,P(A)\,/\,P(B)$. Prior × vraisemblance, normalisé.
+- $P(\text{malade} \mid +)$ est la **precision** du test ; elle s'effondre quand la prévalence est faible.
+- Pour ne pas se tromper : raisonner en **effectifs** sur une population fictive.
+- Le posterior d'une observation devient le prior de la suivante.
+- Naive Bayes suppose l'indépendance des variables sachant la classe : faux mais efficace.
+</Recap>
 
 <LessonComplete />

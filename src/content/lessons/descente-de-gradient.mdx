@@ -33,6 +33,20 @@ Le coefficient $\eta$ (*eta*) est le **learning rate**. Déplace le point de dé
 
 Remarque que les pas **rétrécissent tout seuls** en approchant du fond : la pente diminue, donc le pas aussi. Pas besoin de savoir où est le minimum pour s'en approcher.
 
+<Exercise
+  id="deux-pas"
+  question="L(w) = w², point de départ w = 3, learning rate η = 0,1. Que vaut w après deux pas de descente de gradient ?"
+  answer={1.92}
+  tolerance={0.005}
+  hint="La dérivée de w² est 2w. Applique la règle de mise à jour deux fois."
+>
+Premier pas : $L'(3) = 6$, donc $w = 3 - 0{,}1 \times 6 = 2{,}4$.
+
+Second pas : $L'(2{,}4) = 4{,}8$, donc $w = 2{,}4 - 0{,}48 = 1{,}92$.
+
+Remarque : chaque pas multiplie $w$ par $1 - 2\eta = 0{,}8$. Avec $\eta > 1$, ce facteur dépasse 1 en valeur absolue et la descente diverge.
+</Exercise>
+
 ## Le learning rate : ni trop petit, ni trop grand
 
 <Predict
@@ -76,6 +90,26 @@ $$
 
 La règle est identique, appliquée à chaque paramètre en même temps. Calculer efficacement ce gradient dans un réseau, c'est le rôle de la **backpropagation**. On y viendra dans le module Deep learning.
 
+## Batch, stochastique ou mini-batch ?
+
+La perte d'un modèle est une **moyenne** sur les $n$ exemples d'entraînement : $L(w) = \frac{1}{n}\sum_i \ell_i(w)$. Son gradient exact demande de parcourir tout le dataset à chaque pas, ce qui est impossible avec des millions d'exemples. Trois stratégies :
+
+| Méthode | Gradient calculé sur | Avantages | Inconvénients |
+|---|---|---|---|
+| Batch (GD) | tout le dataset | direction exacte, stable | très lent par pas |
+| Stochastique (SGD) | un seul exemple | pas très rapides | direction très bruitée |
+| Mini-batch | 32 à 1 024 exemples | compromis, parallélisable sur GPU | un hyperparamètre de plus |
+
+Le mini-batch est la norme en deep learning. Une **epoch** correspond à un passage complet sur les données, soit $n / B$ pas pour des batchs de taille $B$.
+
+<Callout type="intuition">
+Le gradient d'un mini-batch est une **moyenne** de gradients individuels : d'après le théorème central limite, son bruit diminue en $1/\sqrt{B}$. Un peu de bruit n'est pas un défaut : il aide à sortir des points selle et des minima étroits.
+</Callout>
+
+<Callout type="rappel">
+Une fonction est **convexe** si le segment entre deux points de sa courbe reste au-dessus d'elle (une forme de bol). Elle n'a alors qu'un seul minimum, que la descente de gradient atteint avec un learning rate adapté. Les pertes de la régression linéaire et logistique sont convexes ; celles des réseaux de neurones ne le sont pas.
+</Callout>
+
 <Quiz
   id="fin"
   questions={[
@@ -97,7 +131,32 @@ La règle est identique, appliquée à chaque paramètre en même temps. Calcule
       answer: 1,
       explain: "Le pas vaut η × pente ; au fond d'une vallée, la pente s'annule.",
     },
+    {
+      q: "Dataset de 10 000 exemples, mini-batchs de 100. Combien de mises à jour des poids par epoch ?",
+      options: ["1", "100", "10 000", "1 000 000"],
+      answer: 1,
+      explain: "Une epoch parcourt tout le dataset une fois : 10 000 / 100 = 100 pas de gradient.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="Quelle différence entre gradient descent, SGD et mini-batch ?">
+Les trois appliquent $w \leftarrow w - \eta \nabla L$ ; seule change la quantité de données utilisée pour estimer le gradient. Le batch complet donne la direction exacte mais coûte un passage sur tout le dataset par pas. Le SGD pur utilise un exemple : pas rapides mais très bruités. Le mini-batch estime le gradient sur quelques dizaines ou centaines d'exemples : c'est le standard, car il exploite le parallélisme des GPU et garde un bruit utile pour la généralisation. Je mentionne aussi qu'on fait décroître le learning rate au cours de l'entraînement pour stabiliser la fin.
+</Interview>
+
+<Interview q="Pourquoi utilise-t-on souvent Adam par défaut ?">
+Adam combine le **momentum** (moyenne mobile des gradients, qui lisse la direction) et un learning rate **adapté à chaque paramètre** (division par la racine d'une moyenne mobile des gradients au carré). Il converge vite et est peu sensible au choix du learning rate, d'où son usage par défaut. Nuances : SGD avec momentum généralise parfois mieux en vision, et pour régulariser on préfère **AdamW**, qui découple le weight decay de la mise à jour adaptative.
+</Interview>
+
+<Recap>
+- Dérivée = pente locale ; gradient = vecteur des dérivées partielles, direction de plus forte montée.
+- Mise à jour : $w \leftarrow w - \eta\,\nabla L(w)$. Les pas rétrécissent près d'un minimum.
+- Learning rate trop petit : convergence lente. Trop grand : oscillations puis divergence.
+- Pertes non convexes : minima locaux et surtout points selle en haute dimension.
+- Mini-batch = standard ; une epoch = un passage complet sur les données.
+- Optimiseurs modernes : momentum, Adam/AdamW, réduction progressive du learning rate.
+</Recap>
 
 <LessonComplete />

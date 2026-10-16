@@ -64,10 +64,14 @@ src/
 ## Ajouter une leçon
 
 1. Déclarer la leçon (et ses concepts) dans `src/lib/curriculum.ts`.
-2. Écrire `src/content/lessons/<slug>.mdx`. Les composants `Predict`, `Quiz`, `Callout`, `ThresholdLab` et `LessonComplete` sont disponibles sans import.
+2. Écrire `src/content/lessons/<slug>.mdx`. Les composants pédagogiques (`Predict`, `Exercise`, `Quiz`, `Interview`, `Recap`, `Callout`, `LessonComplete`) et tous les labos sont disponibles sans import.
 3. Ajouter l'import dans `src/lib/lessons.ts`.
 4. Ajouter 2 à 3 cartes par concept dans `src/lib/cards.ts`.
 5. Si la leçon a un défi, le définir dans `src/lib/challenges.ts` et vérifier dans `challenges.test.ts` qu'il est faisable et non résolu au départ.
+
+### Grille de complétude
+
+`src/lib/lessons-structure.test.ts` vérifie automatiquement que chaque leçon publiée contient : une prédiction d'accroche, un labo ou une illustration, au moins un défi, un exercice de calcul, une formule, un quiz de 4 questions ou plus, deux questions d'entretien avec réponse type, au moins trois types d'encadrés (intuition, piège, rappel, astuce, entretien), un encadré « À retenir », et au moins deux cartes de révision par concept.
 
 ### Boucle d'une leçon
 

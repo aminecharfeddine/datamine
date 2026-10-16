@@ -1,10 +1,11 @@
-import { Briefcase, Lightbulb, Sigma, TriangleAlert, type LucideIcon } from "lucide-react";
+import { Briefcase, Lightbulb, Sigma, TriangleAlert, WandSparkles, type LucideIcon } from "lucide-react";
 
 const STYLES: Record<string, { label: string; Icon: LucideIcon; bg: string; fg: string; ink: string }> = {
   intuition: { label: "Intuition", Icon: Lightbulb, bg: "#eef4ff", fg: "#3538cd", ink: "#2d31a6" },
   piege: { label: "Piège classique", Icon: TriangleAlert, bg: "#fff4ed", fg: "#e62e05", ink: "#97180c" },
   entretien: { label: "En entretien", Icon: Briefcase, bg: "#fffaeb", fg: "#dc6803", ink: "#93370d" },
   rappel: { label: "Rappel maths", Icon: Sigma, bg: "#f4f3ff", fg: "#6938ef", ink: "#4a1fb8" },
+  astuce: { label: "Astuce pratique", Icon: WandSparkles, bg: "#ecfdf3", fg: "#079455", ink: "#05603a" },
 };
 
 export function Callout({ type = "intuition", children }: { type?: keyof typeof STYLES; children: React.ReactNode }) {

@@ -15,6 +15,28 @@ Pour classer un point $x$ :
 2. garder les $k$ plus proches ;
 3. prédire la classe majoritaire parmi eux.
 
+Avec $\mathcal N_k(x)$ l'ensemble des $k$ plus proches voisins de $x$, la distance euclidienne et la règle de décision s'écrivent :
+
+$$
+d(x, x_i) = \sqrt{\sum_{j} (x_j - x_{ij})^2}
+\qquad
+\hat y(x) = \arg\max_{c} \sum_{i \in \mathcal N_k(x)} \mathbb 1[y_i = c]
+$$
+
+En régression, on remplace le vote par la moyenne : $\hat y(x) = \frac{1}{k} \sum_{i \in \mathcal N_k(x)} y_i$.
+
+<Exercise
+  id="distance"
+  question="Quelle est la distance euclidienne entre les points (1, 2) et (4, 6) ?"
+  answer={5}
+  tolerance={0.001}
+  hint="Différences 3 et 4, puis racine de la somme des carrés."
+>
+$d = \sqrt{(4-1)^2 + (6-2)^2} = \sqrt{9 + 16} = \sqrt{25} = 5$.
+
+Si la deuxième variable était exprimée dans une unité 20 fois plus grande, l'écart vertical vaudrait 80 et la distance $\approx 80{,}06$ : la première variable ne compterait presque plus. C'est le piège des unités, plus bas.
+</Exercise>
+
 Les données ci-dessous forment deux « demi-lunes » imbriquées et bruitées. Les zones colorées montrent ce que le modèle prédirait en chaque point du plan. Commence avec $k = 1$ et monte doucement.
 
 <KnnLab id="decouverte" k={1} challenge="knn-best" />
@@ -53,6 +75,16 @@ k-NN souffre de la **malédiction de la dimension** : en très grande dimension,
 k-NN est un modèle *paresseux* (*lazy learning*) : l'entraînement est instantané, mais chaque prédiction doit parcourir tout le dataset, en $O(n \cdot d)$. En production, on utilise des index de recherche approximative (KD-tree, HNSW). C'est exactement ce qui fait tourner la recherche par similarité des bases vectorielles utilisées pour le RAG.
 </Callout>
 
+## Variantes utiles
+
+- **Vote pondéré** : chaque voisin vote avec un poids $1/d$. Les voisins très proches comptent davantage, et le choix de $k$ devient moins critique.
+- **Régression** : on prédit la **moyenne** (ou la médiane) des valeurs des $k$ voisins, comme l'agent immobilier de l'introduction.
+- **Choix de la distance** : euclidienne par défaut ; Manhattan (somme des écarts absolus) plus robuste aux valeurs extrêmes ; **cosinus** pour des textes ou des embeddings, où seule la direction compte.
+
+<Callout type="astuce">
+Le k-NN est une excellente **baseline** sur des embeddings : encode tes documents ou images avec un modèle pré-entraîné, puis classe chaque nouvel exemple par ses voisins en similarité cosinus. Sans aucun entraînement, c'est souvent étonnamment compétitif.
+</Callout>
+
 <Quiz
   id="fin"
   questions={[
@@ -79,7 +111,32 @@ k-NN est un modèle *paresseux* (*lazy learning*) : l'entraînement est instanta
       answer: 1,
       explain: "Avec deux classes et un nombre impair de votants, il y a toujours une majorité.",
     },
+    {
+      q: "Les 5 plus proches voisins d'un point sont, du plus proche au plus loin : A, B, B, A, A. Prédictions pour k = 3 puis k = 5 ?",
+      options: ["A puis A", "B puis A", "B puis B", "A puis B"],
+      answer: 1,
+      explain: "k = 3 : A, B, B, donc B gagne. k = 5 : trois A contre deux B, donc A. Le choix de k change la décision.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="Quels sont les avantages et inconvénients du k-NN ?">
+Avantages : aucun entraînement, très simple à expliquer, s'adapte à des frontières de forme quelconque, fonctionne en classification comme en régression, et intègre de nouvelles données instantanément. Inconvénients : prédiction lente (il faut comparer à tout le dataset), forte sensibilité à l'échelle des variables et aux variables inutiles, et dégradation en grande dimension (malédiction de la dimension). Il faut standardiser, choisir k par validation croisée et, au-delà de quelques dizaines de variables, réduire la dimension.
+</Interview>
+
+<Interview q="Comment ferais-tu un k-NN sur 10 millions de points en production ?">
+La recherche exacte, en $O(n \cdot d)$ par requête, est trop lente. J'utiliserais un index de **recherche approximative de plus proches voisins** (ANN) : HNSW (graphe navigable), IVF avec quantification (FAISS), ou une base vectorielle qui les embarque. On échange un peu de rappel sur les vrais voisins contre des recherches en millisecondes. Je réduirais aussi la dimension si besoin (ACP, embeddings plus courts) et je mesurerais le rappel de l'index sur un échantillon par rapport à la recherche exacte.
+</Interview>
+
+<Recap>
+- k-NN : vote (ou moyenne) des k exemples les plus proches. Pas d'entraînement ; le modèle, c'est les données.
+- k petit → frontière irrégulière, overfitting ; k grand → frontière grossière, underfitting.
+- k impair en binaire ; k choisi par validation croisée.
+- Toujours **standardiser** : la distance est dominée par les variables aux grandes valeurs.
+- Malédiction de la dimension : les distances perdent leur sens en grande dimension.
+- En production : index ANN (HNSW, FAISS), la même brique que les bases vectorielles.
+</Recap>
 
 <LessonComplete />

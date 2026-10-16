@@ -25,6 +25,20 @@ Exemple : 10 exemples, 5 de chaque classe : $G = 1 - 0{,}5^2 - 0{,}5^2 = 0{,}5$.
 
 Chaque question coupe le plan par une droite verticale ou horizontale : les régions de décision sont donc toujours des **rectangles**. Augmente la profondeur et regarde le découpage s'affiner.
 
+<Exercise
+  id="gain"
+  question="Un nœud contient 10 exemples, 5 de chaque classe. Une question les sépare en (4 A, 1 B) et (1 A, 4 B). De combien l'impureté de Gini diminue-t-elle ?"
+  answer={0.18}
+  tolerance={0.002}
+  hint="Gini du parent, moins la moyenne des Gini des enfants pondérée par leur taille."
+>
+Parent : $G = 1 - 0{,}5^2 - 0{,}5^2 = 0{,}5$.
+
+Chaque enfant : $G = 1 - 0{,}8^2 - 0{,}2^2 = 0{,}32$. Moyenne pondérée : $\frac{5}{10} \times 0{,}32 + \frac{5}{10} \times 0{,}32 = 0{,}32$.
+
+Gain : $0{,}5 - 0{,}32 = 0{,}18$. L'algorithme calcule ce gain pour toutes les questions possibles et garde la meilleure.
+</Exercise>
+
 <TreeLab id="decouverte" depth={1} challenge="tree-memorize" />
 
 <Predict
@@ -37,6 +51,24 @@ Sans limite, un arbre peut créer une feuille pour chaque point isolé, y compri
 </Predict>
 
 <TreeLab id="elagage" depth={10} challenge="tree-best" />
+
+## Entropie, régression et importance des variables
+
+**L'entropie** est l'autre critère d'impureté courant :
+
+$$
+H = -\sum_c p_c \log_2 p_c
+$$
+
+Elle vaut 0 pour un groupe pur et 1 bit pour un mélange 50/50 de deux classes. La baisse d'entropie apportée par une question s'appelle le **gain d'information**. En pratique, Gini et entropie produisent des arbres très proches ; Gini est un peu plus rapide à calculer.
+
+**Arbres de régression** : pour prédire un nombre, chaque feuille renvoie la **moyenne** de ses exemples, et l'arbre choisit les questions qui réduisent le plus l'erreur quadratique (la variance dans chaque groupe). La prédiction est donc une fonction en escalier.
+
+**Importance des variables** : en additionnant la baisse d'impureté apportée par chaque variable dans l'arbre (ou la forêt), on obtient son importance. C'est pratique, mais biaisé en faveur des variables qui ont beaucoup de valeurs distinctes.
+
+<Callout type="astuce">
+Pour une importance plus fiable, utilise l'**importance par permutation** : on mélange les valeurs d'une variable dans le jeu de validation et on mesure la chute de performance. Une variable dont le mélange ne change rien n'est pas utile au modèle. Pour expliquer des prédictions individuelles, les valeurs **SHAP** sont devenues la référence.
+</Callout>
 
 ## Contrôler la complexité
 
@@ -80,7 +112,33 @@ Points forts des arbres : aucune standardisation nécessaire (une question « x 
       answer: 1,
       explain: "Moyenner de nombreux arbres entraînés sur des échantillons différents (bagging) réduit fortement la variance.",
     },
+    {
+      q: "Que prédit une feuille d'un arbre de régression ?",
+      options: ["La classe majoritaire", "La moyenne des valeurs des exemples de la feuille", "Une droite ajustée sur la feuille", "La médiane du dataset entier"],
+      answer: 1,
+      explain: "Chaque feuille prédit une constante, la moyenne de ses exemples : la fonction obtenue est en escalier.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="Gini ou entropie : lequel choisir ?">
+Les deux mesurent l'impureté d'un nœud et donnent presque toujours des arbres très similaires. L'entropie vient de la théorie de l'information (gain d'information) et pénalise un peu plus les mélanges ; Gini évite le logarithme et se calcule plus vite, c'est le défaut de scikit-learn. Je garde Gini par défaut et, si besoin, je traite le critère comme un hyperparamètre parmi d'autres, sachant que la profondeur ou le nombre minimal d'exemples par feuille ont bien plus d'impact.
+</Interview>
+
+<Interview q="Pourquoi une forêt aléatoire fait-elle mieux qu'un seul arbre ?">
+Un arbre profond a peu de biais mais une **variance** énorme. La forêt entraîne des centaines d'arbres, chacun sur un échantillon bootstrap des données (**bagging**) et en ne considérant qu'un sous-ensemble aléatoire de variables à chaque nœud. Cette seconde source de hasard **décorrèle** les arbres ; or la moyenne de prédictions peu corrélées a une variance bien plus faible. On garde le faible biais des arbres profonds en réduisant fortement la variance. Bonus : les exemples hors bootstrap (out-of-bag) donnent une estimation de validation gratuite.
+</Interview>
+
+<Recap>
+- Un arbre enchaîne des questions sur une variable à la fois ; ses régions sont des rectangles.
+- CART : à chaque nœud, la question qui réduit le plus l'impureté (Gini ou entropie).
+- Gini $= 1 - \sum p_c^2$ ; entropie $= -\sum p_c \log_2 p_c$.
+- Régression : feuilles = moyennes, découpages qui minimisent l'erreur quadratique.
+- Overfitting facile : limiter la profondeur, le nombre d'exemples par feuille, élaguer.
+- Pas besoin de standardiser. Variance élevée → forêts aléatoires et boosting.
+- Importance des variables : préférer la permutation ou SHAP aux impuretés.
+</Recap>
 
 <LessonComplete />

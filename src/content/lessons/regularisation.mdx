@@ -36,6 +36,18 @@ Tu retrouves la courbe en U de la leçon précédente, mais **à l'envers** : ic
 
 <RidgeLab id="trop" logLambda={-2} challenge="ridge-under" />
 
+<Exercise
+  id="penalite"
+  question="Un modèle a deux coefficients w = (3, −4). Avec λ = 0,1, que vaut le terme de pénalité ridge λ Σ wⱼ² ?"
+  answer={2.5}
+  tolerance={0.001}
+  hint="Élève chaque coefficient au carré, additionne, puis multiplie par λ."
+>
+$\sum w_j^2 = 9 + 16 = 25$, donc la pénalité vaut $0{,}1 \times 25 = 2{,}5$.
+
+En L1, le terme serait $\lambda \sum |w_j| = 0{,}1 \times (3 + 4) = 0{,}7$. La pénalité L2 punit beaucoup plus fort les **grands** coefficients ; la pénalité L1 traite tous les coefficients de la même façon, ce qui pousse les petits jusqu'à zéro.
+</Exercise>
+
 ## L1, L2 et les autres
 
 <Predict
@@ -51,6 +63,12 @@ Tu retrouves la courbe en U de la leçon précédente, mais **à l'envers** : ic
 >
 La pénalité L1 pousse les petits coefficients **exactement à zéro** : le modèle fait lui-même une sélection de variables. L2, elle, réduit tous les coefficients sans en annuler aucun. L'*elastic net* combine les deux.
 </Predict>
+
+Pourquoi cette différence ? Avec le lasso, l'objectif devient $\sum_i (y_i - \hat f_w(x_i))^2 + \lambda \sum_j |w_j|$. Une manière équivalente de voir la régularisation est de **contraindre** les coefficients à rester dans une région autour de zéro : un disque pour L2, un losange pour L1. La solution est le premier point de cette région que touchent les courbes de niveau de la perte.
+
+<NormBalls />
+
+Le losange a des **coins posés sur les axes**, et ce sont presque toujours eux qui sont touchés en premier : la solution a alors des coordonnées exactement nulles. Le disque, lui, est lisse : le point de contact n'a aucune raison d'être sur un axe.
 
 La même idée prend d'autres formes selon les modèles :
 
@@ -98,7 +116,37 @@ La pénalité dépend de la taille des coefficients, donc de **l'échelle des va
       answer: 2,
       explain: "λ est un hyperparamètre : on le règle sur des données de validation, pour garder le test set intact.",
     },
+    {
+      q: "Sur le schéma, pourquoi le lasso produit-il des coefficients nuls ?",
+      options: [
+        "Parce que λ est plus grand qu'en ridge",
+        "Parce que la région L1 a des coins sur les axes, souvent touchés en premier par la perte",
+        "Parce que le lasso supprime les variables corrélées avant l'entraînement",
+        "Parce que la perte est différente",
+      ],
+      answer: 1,
+      explain: "Le losange L1 est pointu sur les axes : le contact avec les ellipses de la perte se fait très souvent en un coin, où un coefficient vaut 0.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="L1 ou L2 : laquelle choisis-tu, et pourquoi ?">
+Ça dépend de l'objectif. **L1 (lasso)** si je veux un modèle parcimonieux et interprétable, ou si je soupçonne que peu de variables comptent : il fait de la sélection de variables. Mais avec des variables très corrélées, il en garde une un peu au hasard. **L2 (ridge)** si beaucoup de variables contribuent un peu : il réduit tous les coefficients et gère bien la colinéarité en répartissant le poids. En pratique, **elastic net** combine les deux, et je règle λ (et le mélange) par validation croisée, après avoir standardisé les variables.
+</Interview>
+
+<Interview q="Pourquoi ne régularise-t-on généralement pas l'intercept (le biais) ?">
+L'intercept ne contrôle pas la complexité du modèle : il fixe seulement le niveau moyen des prédictions. Le pénaliser tirerait les prédictions vers zéro sans raison, et le résultat dépendrait de l'origine choisie pour la cible (prédire des températures en °C ou en K donnerait des modèles différents). Les bibliothèques comme scikit-learn ne le pénalisent pas par défaut.
+</Interview>
+
+<Recap>
+- Régulariser = pénaliser la complexité : perte + λ × pénalité sur les coefficients.
+- Ridge (L2) : $\lambda \sum w_j^2$, réduit tous les coefficients, gère la colinéarité.
+- Lasso (L1) : $\lambda \sum |w_j|$, met des coefficients à zéro (sélection de variables).
+- λ petit → overfitting ; λ grand → underfitting. Choisir λ par validation croisée.
+- Standardiser les variables avant ; ne pas pénaliser l'intercept.
+- Autres formes : weight decay, dropout, early stopping, contraintes sur les arbres.
+</Recap>
 
 <LessonComplete />

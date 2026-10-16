@@ -3,7 +3,7 @@ import createMDX from "@next/mdx";
 const withMDX = createMDX({
   options: {
     // Noms de plugins en chaîne : requis par Turbopack (Next 16)
-    remarkPlugins: ["remark-math"],
+    remarkPlugins: ["remark-gfm", "remark-math"],
     rehypePlugins: ["rehype-katex"],
   },
 });

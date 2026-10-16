@@ -23,6 +23,16 @@ En répétant l'expérience des centaines de fois, les moyennes forment leur pro
 L'**écart-type** $\sigma$ mesure la dispersion autour de la moyenne : en gros, l'écart typique entre une valeur et $\mu$. La **variance** est son carré, $\sigma^2$. Pour une loi normale, environ 95 % des valeurs tombent dans $\mu \pm 2\sigma$.
 </Callout>
 
+## La loi des grands nombres
+
+Premier résultat, le plus intuitif : quand $n$ augmente, la moyenne d'échantillon $\bar x$ se rapproche de la vraie moyenne $\mu$. C'est la **loi des grands nombres**. C'est elle qui justifie d'estimer un taux de conversion, une moyenne de panier ou une précision de modèle à partir d'un échantillon.
+
+<Callout type="piege">
+La loi des grands nombres ne dit **pas** que le hasard « compense ». Après dix « pile », la pièce n'a pas plus de chances de tomber sur « face » : c'est l'erreur du joueur (*gambler's fallacy*). Les écarts ne sont pas rattrapés, ils sont **dilués** dans la masse des tirages suivants.
+</Callout>
+
+La loi des grands nombres dit **où** va la moyenne. Le théorème central limite dit **comment** elle fluctue autour de cette valeur.
+
 ## Le théorème central limite
 
 <Predict
@@ -52,6 +62,18 @@ Deux choses à retenir :
 Le $\sqrt{n}$ a une conséquence très concrète : la précision s'achète cher. Pour diviser l'erreur par 2, il faut **4 fois plus** de données ; pour la diviser par 10, **100 fois plus**.
 
 <CltLab id="racine" dist="exponentielle" n={1} dists={["exponentielle"]} challenge="clt-sqrt" />
+
+<Exercise
+  id="taille"
+  question="Une mesure a un écart-type σ = 20. Combien d'observations faut-il pour que l'erreur standard de la moyenne vaille 2 ?"
+  answer={100}
+  tolerance={0}
+  hint="Erreur standard = σ / √n. Isole √n."
+>
+$\sigma / \sqrt n = 2 \Rightarrow \sqrt n = 20 / 2 = 10 \Rightarrow n = 100$.
+
+Pour descendre à une erreur standard de 1, il faudrait $n = 400$ : quatre fois plus de données pour une précision deux fois meilleure.
+</Exercise>
 
 <Callout type="entretien">
 Le TCL justifie une grande partie des statistiques que tu utilises sans y penser : les intervalles de confiance ($\bar x \pm 1{,}96\,\sigma/\sqrt n$), les tests A/B, les barres d'erreur. Il explique aussi pourquoi le bruit d'un **mini-batch** en deep learning diminue en $1/\sqrt{\text{taille du batch}}$ : le gradient d'un batch est une moyenne de gradients individuels.
@@ -87,7 +109,36 @@ Le TCL suppose des tirages **indépendants** et une variance **finie**. Des donn
       answer: 1,
       explain: "La marge d'erreur évolue en 1/√n : la diviser par 2 demande 4 fois plus de répondants.",
     },
+    {
+      q: "Quelle différence entre la loi des grands nombres et le TCL ?",
+      options: [
+        "Aucune, ce sont deux noms du même résultat",
+        "La loi des grands nombres dit que x̄ tend vers μ ; le TCL décrit la forme normale de ses fluctuations",
+        "Le TCL ne s'applique qu'aux lois normales",
+        "La loi des grands nombres dit que le hasard compense les écarts",
+      ],
+      answer: 1,
+      explain: "LGN : convergence de la moyenne vers μ. TCL : fluctuations de la moyenne approximativement normales, d'écart-type σ/√n.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="Quelle est la différence entre la loi des grands nombres et le théorème central limite ?">
+La loi des grands nombres dit que la moyenne d'échantillon **converge** vers la vraie moyenne quand $n$ grandit. Le TCL est plus précis : il décrit la **distribution** de l'erreur, approximativement normale d'écart-type $\sigma/\sqrt n$, quelle que soit la loi de départ (variance finie, tirages indépendants). La LGN justifie qu'on estime ; le TCL permet de dire avec quelle incertitude, ce qui donne les intervalles de confiance et les tests.
+</Interview>
+
+<Interview q="Pourquoi le TCL compte-t-il autant en data science ?">
+Parce que la plupart des quantités qu'on rapporte sont des moyennes : taux de conversion, métriques d'un modèle sur un test set, gradient d'un mini-batch. Le TCL leur donne une incertitude calculable ($\sigma/\sqrt n$) sans connaître la loi des données. Il justifie les tests z et t des A/B tests et les barres d'erreur. Il dit aussi que la précision coûte cher : diviser l'erreur par 2 demande 4 fois plus de données. Je précise ses limites : dépendances entre observations et lois à queues lourdes.
+</Interview>
+
+<Recap>
+- Population (μ, σ) → échantillon de taille n → moyenne $\bar x$, qui varie d'un échantillon à l'autre.
+- Loi des grands nombres : $\bar x \to \mu$. Pas de « compensation » du hasard.
+- TCL : $\bar x \approx \mathcal N(\mu, \sigma/\sqrt n)$ pour n grand, quelle que soit la loi de départ.
+- Erreur standard $= \sigma/\sqrt n$ : 4 fois plus de données pour 2 fois plus de précision.
+- Conditions : indépendance, variance finie ; « n ≥ 30 » n'est qu'une règle empirique.
+</Recap>
 
 <LessonComplete />

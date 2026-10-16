@@ -29,6 +29,19 @@ $$
 
 Dans le labo, la vraie moyenne vaut 50. Chaque sondage tire $n$ mesures et trace son intervalle. Fais-en quelques-uns un par un, puis par paquets.
 
+<Exercise
+  id="borne"
+  question="Sur 100 livraisons, la durée moyenne est de 72 min, avec σ = 15 min (connu). Quelle est la borne haute de l'intervalle de confiance à 95 % ?"
+  answer={74.94}
+  tolerance={0.02}
+  unit="min"
+  hint="Commence par l'erreur standard σ/√n, puis multiplie par 1,96."
+>
+Erreur standard : $15 / \sqrt{100} = 1{,}5$. Marge : $1{,}96 \times 1{,}5 = 2{,}94$.
+
+Intervalle : $72 \pm 2{,}94$, soit $[69{,}06 \;;\; 74{,}94]$.
+</Exercise>
+
 <CiLab id="decouverte" n={20} level={0.95} challenge="ci-coverage" />
 
 <Callout type="intuition">
@@ -58,6 +71,21 @@ Ici, on suppose $\sigma$ connu pour garder la formule simple. En pratique on l'e
 « Deux intervalles à 95 % se chevauchent, donc la différence n'est pas significative ? » Faux en général : deux intervalles peuvent se chevaucher légèrement alors que la différence est significative. Pour comparer deux groupes, on calcule l'intervalle **de la différence**, ou on fait un test. C'est l'objet de la leçon suivante.
 </Callout>
 
+## Quand il n'y a pas de formule : le bootstrap
+
+La formule $\bar x \pm z\,\sigma/\sqrt n$ marche pour une moyenne. Mais quel est l'intervalle de confiance d'une **médiane**, d'un **F1-score** ou d'une **AUC** ? Il existe rarement une formule simple. Le **bootstrap** contourne le problème par simulation :
+
+1. tirer $n$ exemples **avec remise** dans l'échantillon (certains reviennent plusieurs fois, d'autres pas du tout) ;
+2. recalculer la statistique sur ce nouvel échantillon ;
+3. répéter 1 000 à 10 000 fois ;
+4. prendre les percentiles 2,5 % et 97,5 % des valeurs obtenues : c'est l'intervalle à 95 %.
+
+L'idée : l'échantillon est notre meilleure image de la population ; rééchantillonner dedans imite ce qui se passerait si on refaisait l'expérience.
+
+<Callout type="astuce">
+Avant d'annoncer « le nouveau modèle a 0,912 d'AUC contre 0,905 », calcule un intervalle bootstrap sur le test set. Si les intervalles se recouvrent largement, l'écart n'est probablement pas réel. Pour comparer deux modèles, bootstrappe directement **la différence** sur les mêmes exemples rééchantillonnés.
+</Callout>
+
 <Quiz
   id="fin"
   questions={[
@@ -79,7 +107,37 @@ Ici, on suppose $\sigma$ connu pour garder la formule simple. En pratique on l'e
       answer: 2,
       explain: "La largeur est proportionnelle à 1/√n : la diviser par 3 demande n × 9.",
     },
+    {
+      q: "Dans le bootstrap, on rééchantillonne…",
+      options: [
+        "Sans remise, n exemples parmi n",
+        "Avec remise, n exemples parmi n",
+        "La moitié des données, sans remise",
+        "Des données simulées selon une loi normale",
+      ],
+      answer: 1,
+      explain: "Le tirage avec remise produit des échantillons différents de même taille ; sans remise, on retrouverait toujours le même échantillon.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="Comment donnerais-tu un intervalle de confiance sur l'AUC de ton modèle ?">
+Par **bootstrap** sur le test set : je rééchantillonne les exemples de test avec remise (en gardant les mêmes tailles, et la proportion de classes si elle est déséquilibrée), je recalcule l'AUC, je répète un millier de fois et je prends les percentiles 2,5 % et 97,5 %. Pour comparer deux modèles, je bootstrappe **la différence** d'AUC sur les mêmes rééchantillonnages, ce qui tient compte de la corrélation entre les deux modèles. Il existe aussi une méthode analytique (DeLong), mais le bootstrap marche pour n'importe quelle métrique.
+</Interview>
+
+<Interview q="L'intervalle à 95 % de la différence de conversion entre A et B est [−0,2 ; +1,4] point. Qu'en conclus-tu ?">
+L'intervalle contient 0 : la différence n'est **pas significative** au seuil de 5 %, on ne peut pas exclure qu'il n'y ait aucun effet. Mais je ne conclus pas que B ne sert à rien : les données restent compatibles avec un gain allant jusqu'à 1,4 point, ce qui peut compter pour le business. L'intervalle est plus informatif qu'une p-value seule, car il donne l'ordre de grandeur plausible de l'effet. Pour trancher, il faut plus de données.
+</Interview>
+
+<Recap>
+- IC pour une moyenne : $\bar x \pm z\,\sigma/\sqrt n$ ($z$ = 1,96 à 95 %, 2,58 à 99 %).
+- « 95 % » qualifie la **méthode** : 95 % des intervalles construits ainsi contiennent μ.
+- Plus de confiance = intervalle plus large ; plus de données = intervalle plus étroit (en $1/\sqrt n$).
+- σ inconnu et n petit : loi de Student.
+- Pas de formule (médiane, AUC, F1) : **bootstrap**, rééchantillonnage avec remise et percentiles.
+- Un IC de différence qui contient 0 ⟺ différence non significative au même seuil.
+</Recap>
 
 <LessonComplete />

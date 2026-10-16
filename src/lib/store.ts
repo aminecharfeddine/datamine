@@ -58,6 +58,7 @@ type ProgressState = ProgressData & {
   award: (key: string | null, amount: number, label: string) => boolean;
   recordPrediction: (key: string, correct: boolean) => void;
   recordQuiz: (key: string, correct: boolean) => void;
+  recordExercise: (key: string) => void;
   recordChallenge: (key: string) => void;
   markDiscovered: (concepts: string[]) => void;
   completeLesson: (slug: string, concepts: string[]) => void;
@@ -158,6 +159,11 @@ export const useProgress = create<ProgressState>()(
           if (get().awarded[key]) return;
           if (correct) set((s) => ({ predictionsCorrect: s.predictionsCorrect + 1 }));
           get().award(key, correct ? XP.predictCorrect : XP.predictWrong, correct ? "Bonne prédiction" : "Prédiction");
+        },
+
+        recordExercise: (key) => {
+          if (get().awarded[key]) return;
+          get().award(key, XP.exercise, "Exercice réussi");
         },
 
         recordQuiz: (key, correct) => {

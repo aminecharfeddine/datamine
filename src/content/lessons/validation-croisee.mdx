@@ -38,6 +38,30 @@ Coche « 10 découpages simples » : chaque ligne grise désigne son propre meil
 Quel $k$ choisir ? $k = 5$ ou $10$ est le compromis habituel. **Leave-one-out** ($k = n$) utilise presque toutes les données pour entraîner, mais coûte $n$ entraînements et ses estimations sont plus variables. Pour la classification, on utilise des plis **stratifiés** : chaque pli garde la même proportion de classes que le dataset.
 </Callout>
 
+## Train, validation, test : trois rôles
+
+Un projet bien mené sépare trois usages des données :
+
+| Ensemble | Sert à | Utilisé |
+|---|---|---|
+| Entraînement | ajuster les paramètres du modèle | à chaque entraînement |
+| Validation | choisir les hyperparamètres et le modèle | autant que nécessaire |
+| Test | estimer la performance finale, de façon honnête | **une seule fois**, à la fin |
+
+La validation croisée remplace le validation set fixe : on garde un test set à part, et sur le reste on fait des plis tournants. Une fois les hyperparamètres choisis, on **réentraîne** le modèle sur toutes les données d'entraînement avant de l'évaluer sur le test.
+
+<Exercise
+  id="grid"
+  question="Tu testes 3 valeurs de λ et 4 profondeurs maximales, en validation croisée à 5 plis. Combien de modèles entraînes-tu pendant la recherche ?"
+  answer={60}
+  tolerance={0}
+  hint="Une combinaison d'hyperparamètres = un entraînement par pli."
+>
+$3 \times 4 = 12$ combinaisons, chacune évaluée sur 5 plis : $12 \times 5 = 60$ entraînements.
+
+On en ajoute un 61ᵉ pour réentraîner la meilleure combinaison sur toutes les données. C'est pour ce coût qu'on remplace souvent la grille complète par une **recherche aléatoire** ou bayésienne.
+</Exercise>
+
 ## La fuite de données
 
 La validation croisée ne protège que si **rien** de ce qui sert à construire le modèle n'a vu les données de validation. Sinon, c'est une **fuite de données** (*data leakage*) : l'information du test s'infiltre dans l'entraînement.
@@ -99,7 +123,37 @@ Avec scikit-learn, la manière robuste est un `Pipeline` passé à `cross_val_sc
       answer: 2,
       explain: "Mélanger les dates laisserait le modèle voir le futur. On utilise une validation temporelle (time series split).",
     },
+    {
+      q: "Quand doit-on utiliser le test set ?",
+      options: [
+        "À chaque essai d'hyperparamètres",
+        "Une seule fois, pour estimer la performance du modèle final",
+        "Pour choisir entre deux modèles",
+        "Jamais, la validation croisée suffit",
+      ],
+      answer: 1,
+      explain: "Dès qu'on s'en sert pour choisir quoi que ce soit, le test set devient un validation set et son estimation est optimiste.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="Comment évites-tu le data leakage dans un pipeline de ML ?">
+Trois réflexes. Un : je découpe **avant** tout traitement appris sur les données, et j'encapsule normalisation, imputation, sélection de variables et modèle dans un `Pipeline` passé à la validation croisée, pour que tout soit réappris dans chaque pli. Deux : je découpe selon la structure réelle du problème : par groupe (un patient, un client) avec `GroupKFold`, dans l'ordre du temps pour des données temporelles. Trois : je vérifie que chaque variable est disponible **au moment de la prédiction** en production. Et une performance « trop belle » déclenche toujours une enquête.
+</Interview>
+
+<Interview q="Qu'est-ce que la nested cross-validation, et quand l'utiliser ?">
+Quand on règle les hyperparamètres par validation croisée, le score du meilleur réglage est optimiste : on a choisi le maximum parmi beaucoup d'essais. La CV imbriquée ajoute une boucle extérieure : chaque pli extérieur sert de test, et à l'intérieur, une CV choisit les hyperparamètres sur le reste. On obtient une estimation honnête de **toute la procédure** (réglage compris). Utile pour publier un résultat sur un petit dataset ; sur un gros dataset, un simple test set mis de côté suffit.
+</Interview>
+
+<Recap>
+- k-fold : k entraînements, chaque exemple sert une fois en validation ; moyenne des k scores.
+- k = 5 ou 10 en pratique ; plis stratifiés en classification ; par groupe ou chronologiques si nécessaire.
+- Rôles : train (paramètres), validation (hyperparamètres), test (une fois, à la fin).
+- Fuite de données : toute étape apprise sur les données doit être refaite dans chaque pli.
+- Pipelines pour automatiser ; vérifier qu'aucune variable ne vient du futur.
+- Score trop beau = suspicion de fuite.
+</Recap>
 
 <LessonComplete />

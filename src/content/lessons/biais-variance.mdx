@@ -55,6 +55,18 @@ Degré faible : les 20 modèles se ressemblent tous (variance faible) mais raten
 L'**espérance** $\mathbb{E}[\cdot]$ est une moyenne « sur tous les jeux de données possibles ». Le biais compare la prédiction *moyenne* à la vérité ; la variance mesure la dispersion des prédictions autour de cette moyenne. Ce sont exactement le trait épais et les traits fins du labo ci-dessus.
 </Callout>
 
+<Exercise
+  id="decomposition"
+  question="Un modèle a un biais² de 0,04 et une variance de 0,10, sur des données dont le bruit vaut σ² = 0,09. Quelle erreur de test (MSE) peut-on attendre ?"
+  answer={0.23}
+  tolerance={0.002}
+  hint="Additionne les trois composantes de la décomposition."
+>
+$\text{MSE} = 0{,}04 + 0{,}10 + 0{,}09 = 0{,}23$.
+
+La variance est la plus grosse part réductible : le modèle est trop sensible à son échantillon. On peut viser plus de données, plus de régularisation ou un modèle plus simple. Le bruit (0,09) restera, quoi qu'on fasse.
+</Exercise>
+
 ## Plus de données, moins de variance
 
 Le bon degré n'est pas une constante : il dépend de la **quantité de données**. Un modèle complexe devient raisonnable s'il a assez d'exemples pour que le bruit se compense.
@@ -74,6 +86,19 @@ Les leviers contre l'overfitting, en résumé :
 
 <Callout type="piege">
 Choisir le degré en regardant l'erreur de **test** revient à entraîner sur le test set : il cesse d'être une mesure honnête. En pratique, on choisit les hyperparamètres sur un **validation set** (ou par cross-validation) et on ne regarde le test set qu'une seule fois, à la toute fin.
+</Callout>
+
+## Les courbes d'apprentissage
+
+Avant d'investir dans la collecte de données, une question pratique : **en ajouter va-t-il aider ?** Les courbes d'apprentissage y répondent. On entraîne le modèle sur des sous-ensembles de taille croissante et on trace l'erreur d'entraînement et l'erreur de validation.
+
+<LearningCurves />
+
+- **Biais élevé** : les deux courbes se rejoignent rapidement, toutes les deux **au-dessus** de l'objectif. Ajouter des données ne servira à rien ; il faut un modèle plus expressif ou de meilleures variables.
+- **Variance élevée** : un grand écart entre les courbes, qui se réduit quand les données augmentent. Plus de données, ou plus de régularisation, vont aider.
+
+<Callout type="astuce">
+En scikit-learn, `learning_curve` trace ces courbes en une ligne avec validation croisée. C'est l'un des diagnostics les plus rentables d'un projet : il évite de passer des semaines à collecter des données pour un modèle limité par son biais.
 </Callout>
 
 <Quiz
@@ -97,7 +122,33 @@ Choisir le degré en regardant l'erreur de **test** revient à entraîner sur le
       answer: 2,
       explain: "Le bruit fait partie des données elles-mêmes : même la vraie fonction ne le prédit pas.",
     },
+    {
+      q: "Sur la courbe d'apprentissage, erreurs d'entraînement et de validation se rejoignent vite et restent hautes. Ajouter des données…",
+      options: ["Va beaucoup aider", "N'aidera presque pas : le problème est le biais", "Va augmenter l'overfitting", "Va réduire le bruit irréductible"],
+      answer: 1,
+      explain: "Deux courbes proches et hautes signalent un biais élevé : c'est la capacité du modèle qui limite, pas la quantité de données.",
+    },
   ]}
 />
+
+## En entretien
+
+<Interview q="Comment sais-tu si collecter plus de données va améliorer ton modèle ?">
+Je trace une **courbe d'apprentissage** : erreur d'entraînement et de validation en fonction de la taille du jeu d'entraînement. Si un écart important se réduit encore au bout de la courbe, le modèle souffre de variance et plus de données aideront. Si les deux courbes ont déjà convergé à un niveau trop élevé, c'est un problème de biais : il faut des variables plus informatives ou un modèle plus expressif. Je compare aussi au niveau d'erreur humain ou à une baseline pour savoir ce qui est atteignable.
+</Interview>
+
+<Interview q="Les très grands réseaux de neurones devraient overfitter. Pourquoi généralisent-ils bien ?">
+Le compromis biais-variance classique prédit une courbe en U. Avec des modèles très surparamétrés, on observe parfois un **double descent** : l'erreur de test remonte autour du point où le modèle peut tout interpoler, puis redescend quand on continue d'augmenter la taille. Parmi les nombreuses solutions qui interpolent les données, l'optimisation (SGD, initialisation) favorise des solutions « simples », une **régularisation implicite**, à laquelle s'ajoutent les régularisations explicites (weight decay, data augmentation, dropout). Le compromis biais-variance reste un excellent outil de diagnostic, mais « plus de paramètres = plus d'overfitting » n'est pas une loi.
+</Interview>
+
+<Recap>
+- But du ML : bien prédire des données **nouvelles** (généralisation), pas les données d'entraînement.
+- Erreur de test = biais² + variance + bruit irréductible.
+- Underfitting : biais élevé, erreurs train et test hautes et proches.
+- Overfitting : variance élevée, train basse, test nettement plus haute.
+- Leviers contre la variance : données, régularisation, modèle plus simple, early stopping.
+- Courbes d'apprentissage : savoir si plus de données aidera.
+- Hyperparamètres choisis sur un validation set ; test set utilisé une seule fois.
+</Recap>
 
 <LessonComplete />
