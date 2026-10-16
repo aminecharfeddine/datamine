@@ -1,0 +1,46 @@
+<FicheSection kind="essentiel">
+- Un classifieur produit un **score** ; le **seuil** le transforme en décision. Le seuil est un choix métier, pas une partie du modèle.
+- Quatre issues : **TP** (positif trouvé), **FN** (positif raté), **FP** (fausse alerte), **TN** (négatif rejeté).
+- **Precision** : qualité des alertes. **Recall** : couverture des positifs.
+- Monter le seuil : moins de FP, plus de FN. Precision ↑ en tendance, recall ↓ toujours.
+- Le **F1** résume P et R ; il est dominé par la plus faible des deux.
+- L'**accuracy** est trompeuse quand les classes sont déséquilibrées.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{Precision} = \frac{TP}{TP+FP} \qquad \text{Recall} = \frac{TP}{TP+FN}
+$$
+
+$$
+F_1 = \frac{2PR}{P+R} \qquad \text{Accuracy} = \frac{TP+TN}{N}
+$$
+
+$$
+\text{Specificity} = \frac{TN}{TN+FP} \qquad F_\beta = \frac{(1+\beta^2)PR}{\beta^2 P + R}
+$$
+
+$\beta > 1$ favorise le recall, $\beta < 1$ la precision.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- 99 % d'accuracy avec 1 % de positifs = peut-être un modèle qui prédit toujours « négatif ».
+- Precision = 1 ne vaut rien sans le recall (et inversement).
+- Garder le seuil 0,5 par défaut au lieu de le choisir selon le coût des erreurs.
+- Le F1 suppose que FP et FN coûtent autant : rarement vrai.
+- Multiclasse déséquilibré : le micro-F1 (= accuracy) masque les classes rares.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Precision ou recall ?** Recall si rater un positif coûte cher (dépistage, fraude, sécurité). Precision si une fausse alerte coûte cher (spam, blocage de carte, recommandation affichée).
+
+**98 % d'accuracy sur du churn ?** Comparer au taux de base, puis regarder confusion matrix, precision et recall de la classe rare, PR curve.
+
+**Macro ou micro F1 ?** Macro : chaque classe pèse autant, révèle les classes rares ratées. Micro : dominé par les classes fréquentes.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Sensitivity = recall = TPR. Precision = PPV. FPR = 1 − specificity.
+- Moyenne harmonique : P = 1 et R = 0,02 donnent F1 ≈ 0,04 (contre 0,51 en moyenne arithmétique).
+- En scikit-learn : `classification_report` affiche P, R, F1 par classe et les moyennes macro / weighted.
+</FicheSection>

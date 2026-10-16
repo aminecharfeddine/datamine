@@ -1,0 +1,41 @@
+<FicheSection kind="essentiel">
+- Logique du procès : supposer $H_0$ (« aucun effet »), regarder si les données seraient surprenantes sous $H_0$.
+- **p-value** : probabilité, si $H_0$ est vraie, d'un résultat au moins aussi extrême.
+- Significatif si $p < \alpha$ (souvent 5 %). On accepte alors 5 % de **faux positifs**.
+- **Puissance** : probabilité de détecter un effet réel. Augmente avec n, la taille de l'effet et α.
+- Significatif ≠ important : toujours regarder la **taille de l'effet** et son IC.
+</FicheSection>
+
+<FicheSection kind="formules">
+Test z de deux proportions :
+
+$$
+z = \frac{\hat p_B - \hat p_A}{\sqrt{\hat p(1-\hat p)\left(\frac{1}{n_A} + \frac{1}{n_B}\right)}}
+$$
+
+Bilatéral : $p = 2\,\big(1 - \Phi(|z|)\big)$ ; significatif à 5 % si $|z| > 1{,}96$.
+
+| | $H_0$ vraie | $H_0$ fausse |
+|---|---|---|
+| Rejet | erreur I (α) | bonne détection (puissance) |
+| Non-rejet | correct | erreur II (β) |
+</FicheSection>
+
+<FicheSection kind="pieges">
+- p-value ≠ probabilité que $H_0$ soit vraie.
+- Non significatif ≠ pas d'effet (manque de puissance possible).
+- **Peeking** : regarder chaque jour et s'arrêter dès que p < 0,05 gonfle les faux positifs.
+- 20 variantes testées : environ une « victoire » par hasard. Corriger (Bonferroni, FDR).
+- Choisir l'unilatéral après avoir vu le sens de l'écart.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**p-value pour un manager ?** « Si la nouvelle version ne changeait rien, on verrait un écart aussi grand seulement p fois sur 100. » Plus l'effet estimé et sa fourchette.
+
+**Dimensionner un A/B test ?** Fixer l'effet minimal utile, α (5 %) et la puissance (80 %) **avant**, en déduire n.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Proportions : test z ou χ². Moyennes : test t (Welch). Avant/après : t apparié. Plus de 2 groupes : ANOVA. Non normal, petit n : Mann-Whitney.
+- 10 % → 12 % de conversion, puissance 80 % : environ 4 000 visiteurs par version.
+</FicheSection>

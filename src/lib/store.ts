@@ -198,7 +198,9 @@ export const useProgress = create<ProgressState>()(
               ? s.completedLessons
               : { ...s.completedLessons, [slug]: now.toISOString() },
           });
+          const firstTime = !s.completedLessons[slug];
           get().award(`lesson:${slug}`, XP.lessonComplete, "Leçon terminée");
+          if (firstTime) pushToast("Fiche récap débloquée", "info");
           checkBadges();
         },
 

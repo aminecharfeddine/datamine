@@ -5,6 +5,7 @@ import { Callout } from "@/components/pedago/Callout";
 import { Exercise } from "@/components/pedago/Exercise";
 import { Interview } from "@/components/pedago/Interview";
 import { Recap } from "@/components/pedago/Recap";
+import { FicheSection } from "@/components/fiche/FicheSection";
 import { LessonComplete } from "@/components/pedago/LessonComplete";
 import { ThresholdLab } from "@/components/viz/ThresholdLab";
 import { BayesLab } from "@/components/viz/BayesLab";
@@ -22,7 +23,7 @@ import { NormBalls } from "@/components/viz/NormBalls";
 import { LearningCurves } from "@/components/viz/LearningCurves";
 
 // Composants disponibles dans toutes les leçons MDX, sans import.
-const components: MDXComponents = { Predict, Quiz, Callout, Exercise, Interview, Recap, LessonComplete, ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab, AbLab, CiLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, NormBalls, LearningCurves };
+const components: MDXComponents = { Predict, Quiz, Callout, Exercise, Interview, Recap, FicheSection, LessonComplete, ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab, AbLab, CiLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, NormBalls, LearningCurves };
 
 export function useMDXComponents(): MDXComponents {
   return components;

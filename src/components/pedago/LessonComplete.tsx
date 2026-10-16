@@ -27,9 +27,12 @@ export function LessonComplete() {
           <CircleCheck size={44} strokeWidth={2.2} className="mx-auto" style={{ color: "var(--mod)" }} />
           <p className="mt-3 font-display text-2xl font-bold">Leçon terminée</p>
           <p className="mx-auto mt-1 max-w-md text-muted">
-            {nCards} cartes sont dans ton deck. Elles reviendront juste avant que tu ne les oublies.
+            Ta fiche récap est débloquée, et {nCards} cartes sont dans ton deck : elles reviendront juste avant que tu ne les oublies.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link href={`/fiches/${slug}`} className="btn-ghost px-5 py-2.5 text-sm">
+              Voir la fiche récap
+            </Link>
             <Link href="/revisions" className="btn-ghost px-5 py-2.5 text-sm">
               Réviser maintenant
             </Link>

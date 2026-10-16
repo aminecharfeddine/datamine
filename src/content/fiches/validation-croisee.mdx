@@ -1,0 +1,35 @@
+<FicheSection kind="essentiel">
+- **k-fold** : k entraînements ; chaque pli sert une fois de validation ; score = moyenne des k.
+- Plus stable qu'un seul découpage, et utilise toutes les données.
+- Rôles : **train** (paramètres), **validation** (hyperparamètres), **test** (une seule fois, à la fin).
+- **Fuite de données** : une information de validation, de test ou du futur influence l'entraînement ⇒ score trop optimiste.
+- Toute étape **apprise** sur les données doit être refaite dans chaque pli.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{CV}_k = \frac{1}{k}\sum_{f=1}^{k} \text{Erreur}\big(\hat f_{-f},\ \text{pli } f\big)
+$$
+
+Coût d'une grid search : $\#\text{combinaisons} \times k$ entraînements, plus un réentraînement final.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Standardiser, imputer ou **sélectionner des variables** sur tout le dataset avant de découper.
+- Même patient ou client en train et en validation : découper **par groupe**.
+- Mélanger des données temporelles : le modèle voit le futur.
+- Variable connue seulement **après** l'événement à prédire.
+- Score « trop beau » non investigué.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Éviter le leakage ?** Découper d'abord, tout mettre dans un `Pipeline` passé à la CV, découper selon la structure (groupes, temps), vérifier la disponibilité des variables en production.
+
+**Nested CV ?** Boucle externe pour estimer, boucle interne pour régler les hyperparamètres : estimation honnête de toute la procédure.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- k = 5 ou 10. LOO : k = n, coûteux et plus variable.
+- Classification : `StratifiedKFold`. Groupes : `GroupKFold`. Temps : `TimeSeriesSplit`.
+- 3 × 4 hyperparamètres en 5 plis = 60 entraînements.
+</FicheSection>

@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="relative z-10">
           <Header />
           <main>{children}</main>
-          <footer className="mx-auto mt-24 max-w-6xl border-t border-line px-4 py-8 text-sm text-muted">
+          <footer className="site-footer mx-auto mt-24 max-w-6xl border-t border-line px-4 py-8 text-sm text-muted">
             Datamine, un labo pour apprendre la data science en la manipulant.
           </footer>
         </div>

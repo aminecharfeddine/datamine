@@ -1,0 +1,45 @@
+<FicheSection kind="essentiel">
+- Probabilité conditionnelle : on restreint l'univers aux cas où B est vrai.
+- Bayes **retourne** une conditionnelle : de $P(+ \mid \text{malade})$ à $P(\text{malade} \mid +)$.
+- Le **prior** (prévalence) compte énormément : maladie rare ⇒ la plupart des positifs sont faux.
+- $P(\text{malade} \mid +)$ est la **precision** du test.
+- Le posterior d'une observation devient le prior de la suivante.
+- **Naive Bayes** : suppose les variables indépendantes sachant la classe. Faux, mais efficace.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+P(A \mid B) = \frac{P(A \cap B)}{P(B)}
+$$
+
+$$
+P(A \mid B) = \frac{P(B \mid A)\,P(A)}{P(B)}
+$$
+
+$$
+P(B) = P(B \mid A)P(A) + P(B \mid \bar A)P(\bar A)
+$$
+
+Indépendance : $P(A \cap B) = P(A)\,P(B)$.
+
+Naive Bayes : $P(y \mid x) \propto P(y) \prod_i P(x_i \mid y)$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Confondre $P(A \mid B)$ et $P(B \mid A)$ (*base rate fallacy*).
+- Améliorer la sensitivity quand le problème vient des faux positifs : avec une maladie rare, c'est la **specificity** qui compte.
+- Lire les probabilités de Naive Bayes comme calibrées.
+- Oublier le lissage de Laplace : un mot jamais vu annule tout le produit.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Expliquer Bayes ?** Prior × vraisemblance, normalisé. Exemple du test médical : 1 % de malades, sensitivity 90 %, 5 % de faux positifs ⇒ seulement 15 % de positifs réellement malades.
+
+**Pourquoi Naive Bayes est naïf ?** Indépendance conditionnelle des variables ; le classement reste bon car seul l'ordre des probabilités compte.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Raisonner en **effectifs** : « sur 1 000 personnes, combien de malades détectés, combien de sains alarmés ? »
+- Exemple de référence : 1 %, 90 %, 95 % ⇒ 18 vrais positifs contre 99 faux, soit ≈ 15 %.
+- Deux tests positifs indépendants : 15 % devient ≈ 76 %.
+</FicheSection>

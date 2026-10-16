@@ -1,0 +1,40 @@
+<FicheSection kind="essentiel">
+- Prédire = trouver les **k exemples les plus proches** et voter (classification) ou moyenner (régression).
+- Pas d'entraînement : le modèle, ce sont les données.
+- **k petit** : frontière irrégulière, overfitting. **k grand** : frontière grossière, underfitting.
+- Repose entièrement sur les **distances** ⇒ standardiser les variables.
+- Se dégrade en grande dimension (**malédiction de la dimension**).
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+d(x, x_i) = \sqrt{\sum_j (x_j - x_{ij})^2}
+$$
+
+$$
+\hat y(x) = \arg\max_c \sum_{i \in \mathcal N_k(x)} \mathbb 1[y_i = c]
+$$
+
+Régression : $\hat y(x) = \frac{1}{k}\sum_{i \in \mathcal N_k(x)} y_i$.
+
+Cosinus : $\cos(u, v) = \frac{u \cdot v}{\lVert u \rVert\,\lVert v \rVert}$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Variables d'unités différentes non standardisées : une variable écrase les autres.
+- Évaluer un 1-NN sur ses propres données : 100 % garanti, sans valeur.
+- Variables inutiles : elles ajoutent du bruit à la distance.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Avantages / inconvénients ?** Simple, sans entraînement, frontières quelconques ; mais prédiction lente, sensible à l'échelle et aux variables inutiles, mauvais en grande dimension.
+
+**10 millions de points ?** Index de recherche approximative (HNSW, FAISS / IVF), comme les bases vectorielles du RAG.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- k impair en binaire ; k choisi par validation croisée.
+- Vote pondéré par $1/d$ : rend le choix de k moins critique.
+- Excellente baseline sur des **embeddings** avec la similarité cosinus.
+- Coût d'une prédiction exacte : $O(n \cdot d)$.
+</FicheSection>

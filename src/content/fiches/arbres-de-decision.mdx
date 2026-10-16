@@ -1,0 +1,41 @@
+<FicheSection kind="essentiel">
+- Un arbre enchaîne des questions sur **une variable à la fois** ; les feuilles donnent la prédiction.
+- Régions de décision = **rectangles** alignés sur les axes.
+- CART : à chaque nœud, la question qui réduit le plus l'**impureté** (construction gloutonne).
+- Overfitte facilement : sans limite, il apprend chaque point par cœur.
+- Interprétable, pas besoin de standardiser, mais **variance élevée** et pas d'extrapolation.
+- Base des **forêts aléatoires** (bagging) et du **gradient boosting**.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{Gini} = 1 - \sum_c p_c^2 \qquad H = -\sum_c p_c \log_2 p_c
+$$
+
+Gain d'un découpage en $L$ et $R$ :
+
+$$
+\Delta = G(\text{parent}) - \frac{n_L}{n} G(L) - \frac{n_R}{n} G(R)
+$$
+
+Régression : feuille = moyenne ; découpage qui minimise l'erreur quadratique.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Laisser l'arbre pousser sans limite (100 % en train, mauvais en test).
+- Se fier à l'importance par impureté : biaisée vers les variables à nombreuses valeurs.
+- Attendre d'un arbre de régression qu'il extrapole hors des données vues.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Gini ou entropie ?** Résultats très proches ; Gini plus rapide (défaut de scikit-learn). La profondeur compte bien plus.
+
+**Pourquoi une forêt bat un arbre ?** Bagging + sous-ensemble aléatoire de variables à chaque nœud ⇒ arbres décorrélés ⇒ la moyenne réduit fortement la variance.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Gini max (2 classes) = 0,5 ; entropie max = 1 bit.
+- 5/5 découpé en (4, 1) et (1, 4) : gain de Gini = 0,18.
+- Régulariser : `max_depth`, `min_samples_leaf`, élagage.
+- Importance fiable : permutation ou SHAP.
+</FicheSection>

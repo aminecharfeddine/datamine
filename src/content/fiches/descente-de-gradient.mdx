@@ -1,0 +1,47 @@
+<FicheSection kind="essentiel">
+- Entraîner = minimiser une perte $L(w)$. La **dérivée** donne la pente locale, le **gradient** la direction de plus forte montée.
+- On fait un pas **opposé** au gradient, de taille proportionnelle au **learning rate** η.
+- Les pas rétrécissent seuls près d'un minimum (la pente tend vers 0).
+- η trop petit : lent. η trop grand : oscillations puis **divergence**.
+- Pertes non convexes : minima locaux, et surtout **points selle** en grande dimension.
+- **Mini-batch** = standard ; une **epoch** = un passage sur toutes les données.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+w \leftarrow w - \eta\,\nabla L(w)
+$$
+
+$$
+\nabla L = \left(\frac{\partial L}{\partial w_1}, \dots, \frac{\partial L}{\partial w_d}\right)
+$$
+
+Perte moyenne et gradient de mini-batch $\mathcal B$ :
+
+$$
+L = \frac{1}{n}\sum_i \ell_i \qquad \hat\nabla L = \frac{1}{|\mathcal B|}\sum_{i \in \mathcal B} \nabla \ell_i
+$$
+
+Pas par epoch : $n / B$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Perte qui oscille puis NaN : learning rate trop grand (premier réflexe : le diviser).
+- Conclure à un minimum global : la descente ne voit que la pente locale.
+- Variables d'échelles très différentes : vallée étirée, convergence lente. Standardiser.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**GD, SGD, mini-batch ?** Même règle, seule change la quantité de données pour estimer le gradient. Mini-batch : parallélisable sur GPU, bruit utile.
+
+**Pourquoi Adam ?** Momentum + learning rate adapté à chaque paramètre ; robuste au choix de η. AdamW pour le weight decay ; SGD + momentum généralise parfois mieux.
+
+**Minima locaux, un problème ?** En grande dimension, surtout des points selle ; les minima trouvés sont en général proches du global.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- $L(w) = w^2$ : chaque pas multiplie $w$ par $1 - 2\eta$ ; divergence si $\eta > 1$.
+- Le bruit d'un mini-batch décroît en $1/\sqrt{B}$ (TCL).
+- Pratique : learning rate finder, warmup, puis décroissance (cosine, step).
+- Convexe (régressions linéaire et logistique) : un seul minimum.
+</FicheSection>

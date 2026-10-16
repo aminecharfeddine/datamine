@@ -1,0 +1,37 @@
+<FicheSection kind="essentiel">
+- Trois niveaux : population (μ, σ), échantillon de taille n, moyenne $\bar x$ (qui varie d'un échantillon à l'autre).
+- **Loi des grands nombres** : $\bar x$ se rapproche de μ quand n augmente.
+- **TCL** : $\bar x$ suit approximativement une loi normale, quelle que soit la loi de départ.
+- La dispersion de $\bar x$ (erreur standard) diminue en $1/\sqrt n$.
+- Conditions : tirages **indépendants**, variance **finie**.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\bar x \;\approx\; \mathcal N\!\left(\mu,\ \frac{\sigma}{\sqrt n}\right)
+$$
+
+$$
+\text{SE} = \frac{\sigma}{\sqrt n}
+$$
+
+Loi normale : 68 % dans $\mu \pm \sigma$, 95 % dans $\mu \pm 2\sigma$ (1,96 exactement), 99,7 % dans $\mu \pm 3\sigma$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Croire que les **données** deviennent normales : ce sont les **moyennes**.
+- *Gambler's fallacy* : le hasard ne compense pas, il dilue.
+- « n ≥ 30 suffit toujours » : faux pour des données corrélées ou à queues lourdes.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**LGN vs TCL ?** LGN : la moyenne converge vers μ. TCL : forme normale des fluctuations, d'écart-type σ/√n.
+
+**Pourquoi le TCL compte ?** Toutes les métriques rapportées sont des moyennes : il donne leur incertitude, base des IC, tests et barres d'erreur.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Diviser l'erreur par 2 coûte **4 fois** plus de données ; par 10, 100 fois plus.
+- σ = 20 et SE voulue = 2 ⇒ n = 100.
+- Mini-batch de taille B : bruit du gradient en $1/\sqrt B$.
+</FicheSection>

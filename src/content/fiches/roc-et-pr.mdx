@@ -1,0 +1,45 @@
+<FicheSection kind="essentiel">
+- Un point de **ROC curve** = un seuil : FPR en abscisse, TPR (recall) en ordonnée.
+- Modèle aléatoire : la diagonale. Modèle parfait : monte jusqu'à (0, 1).
+- **AUC ROC** : qualité du **classement**, indépendante du seuil. 0,5 = hasard, 1 = parfait, < 0,5 = classement inversé.
+- La ROC est insensible à la prévalence : **flatteuse** quand les positifs sont rares.
+- **PR curve** : precision en fonction du recall ; baseline = prévalence. À privilégier en déséquilibre.
+- **Calibration** : un score de 0,8 doit correspondre à 80 % de positifs. L'AUC n'en dit rien.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+TPR = \frac{TP}{TP+FN} \qquad FPR = \frac{FP}{FP+TN}
+$$
+
+$$
+\text{AUC} = P\big(s(x^+) > s(x^-)\big)
+$$
+
+Indice de Youden (seuil sans information de coût) :
+
+$$
+J = \max_{\text{seuil}} \big(TPR - FPR\big)
+$$
+</FicheSection>
+
+<FicheSection kind="pieges">
+- AUC ROC de 0,95 sur 1 % de positifs : la precision au seuil utile peut être très basse.
+- Comparer des modèles sur l'AUC alors que seul un seuil compte en production.
+- Lire un score non calibré comme une probabilité.
+- AUC de 0,99 du premier coup : suspecter une fuite de données.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**ROC ou PR pour la fraude ?** PR : la ROC est écrasée par la masse de négatifs (FPR minuscule), la PR montre la charge réelle de fausses alertes.
+
+**AUC 0,99 : qu'est-ce qui cloche ?** Variable qui encode la cible, doublons train/test, même client des deux côtés, découpage aléatoire sur des données temporelles.
+
+**Choisir le seuil ?** Contrainte métier (recall ≥ 90 %), coût des erreurs, ou Youden à défaut.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- AUC 0,3 = classement inversé : inverser les scores donne 0,7.
+- Calibration : courbe de calibration, log loss, score de Brier ; corriger par Platt ou régression isotone (l'AUC ne change pas).
+- Rapporter l'average precision avec un intervalle de confiance bootstrap.
+</FicheSection>

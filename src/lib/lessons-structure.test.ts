@@ -4,6 +4,7 @@ import path from "node:path";
 import { ALL_LESSONS } from "./curriculum";
 import { CHALLENGES } from "./challenges";
 import { cardsForConcepts } from "./cards";
+import { FICHE_CONTENT } from "./fiches";
 
 // Grille de complétude : chaque leçon publiée doit contenir tous les blocs pédagogiques.
 const dir = path.resolve(__dirname, "../content/lessons");
@@ -38,4 +39,13 @@ describe.each(ALL_LESSONS.filter((l) => l.available))("leçon $slug", (lesson) =
     lesson.concepts.forEach((c) => expect(cardsForConcepts([c]).length, c).toBeGreaterThanOrEqual(2));
   });
   it("pas de tiret cadratin", () => expect(src.includes("—")).toBe(false));
+
+  it("une fiche récap complète", () => {
+    const fichePath = path.resolve(__dirname, "../content/fiches", `${lesson.slug}.mdx`);
+    expect(fs.existsSync(fichePath), "fiche manquante").toBe(true);
+    const fiche = fs.readFileSync(fichePath, "utf8");
+    for (const kind of ["essentiel", "formules", "pieges", "entretien"]) expect(fiche, kind).toContain(`kind="${kind}"`);
+    expect(fiche.includes("—")).toBe(false);
+    expect(FICHE_CONTENT[lesson.slug]).toBeDefined();
+  });
 });

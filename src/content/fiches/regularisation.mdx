@@ -1,0 +1,38 @@
+<FicheSection kind="essentiel">
+- Régulariser = **pénaliser la complexité** : le modèle garde sa flexibilité mais doit s'en servir avec modération.
+- **λ** règle l'arbitrage : λ ≈ 0 ⇒ overfitting ; λ grand ⇒ underfitting.
+- **Ridge (L2)** : réduit tous les coefficients, gère la colinéarité.
+- **Lasso (L1)** : met des coefficients **exactement à zéro** ⇒ sélection de variables.
+- **Elastic net** : combine L1 et L2.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{Ridge : } \min_w \sum_i (y_i - \hat y_i)^2 + \lambda \sum_j w_j^2
+$$
+
+$$
+\text{Lasso : } \min_w \sum_i (y_i - \hat y_i)^2 + \lambda \sum_j |w_j|
+$$
+
+Géométrie : région autorisée = disque (L2) ou losange (L1). Les coins du losange, sur les axes, sont touchés en premier ⇒ coefficients nuls.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Ne pas **standardiser** : la pénalité dépend de l'échelle des variables.
+- Choisir λ sur le test set au lieu de la validation croisée.
+- Pénaliser l'intercept.
+- Lasso avec variables très corrélées : en garde une un peu au hasard.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**L1 ou L2 ?** L1 pour un modèle parcimonieux et interprétable ; L2 si beaucoup de variables contribuent un peu ou sont corrélées ; elastic net sinon. λ par validation croisée.
+
+**Pourquoi ça réduit l'overfitting ?** Moins de variance (coefficients contraints) contre un peu de biais. Vue bayésienne : prior gaussien (L2) ou de Laplace (L1).
+</FicheSection>
+
+<FicheSection kind="astuces">
+- λ se cherche sur une **échelle log** (10⁻⁴ … 10²).
+- Autres formes : weight decay, dropout, early stopping, profondeur max d'un arbre.
+- w = (3, −4) : L2 = 25, L1 = 7.
+</FicheSection>

@@ -1,0 +1,39 @@
+<FicheSection kind="essentiel">
+- Objectif : **généraliser** à des données nouvelles, pas réussir sur l'entraînement.
+- **Underfitting** (biais élevé) : modèle trop simple, erreurs train et test hautes et proches.
+- **Overfitting** (variance élevée) : train basse, test nettement plus haute.
+- L'erreur de test en fonction de la complexité dessine un **U**.
+- Le bon niveau de complexité dépend de la **quantité de données**.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\mathbb E\big[(y - \hat f(x))^2\big] = \text{Biais}^2 + \text{Variance} + \sigma^2
+$$
+
+$$
+\text{Biais} = \mathbb E[\hat f(x)] - f(x) \qquad \text{Variance} = \mathbb E\big[(\hat f(x) - \mathbb E[\hat f(x)])^2\big]
+$$
+
+$\sigma^2$ : bruit irréductible.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Choisir les hyperparamètres sur le **test set** : il cesse d'être une mesure honnête.
+- Ajouter des données à un modèle limité par son **biais** : inutile.
+- Juger un modèle sur sa seule erreur d'entraînement.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Diagnostiquer ?** Train basse + validation haute = variance. Les deux hautes et proches = biais.
+
+**Plus de données va aider ?** Tracer une **courbe d'apprentissage** : un écart qui se réduit encore ⇒ oui ; deux courbes déjà convergées trop haut ⇒ non.
+
+**Grands réseaux et overfitting ?** Double descent et régularisation implicite de l'optimisation.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Contre la variance : plus de données, régularisation, modèle plus simple, early stopping, ensembles.
+- Contre le biais : modèle plus expressif, meilleures variables, moins de régularisation.
+- Comparer à une baseline et au niveau humain pour savoir ce qui est atteignable.
+</FicheSection>

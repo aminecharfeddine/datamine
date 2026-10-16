@@ -1,0 +1,37 @@
+<FicheSection kind="essentiel">
+- Un IC donne une **fourchette plausible** pour un paramètre inconnu (moyenne, taux, AUC…).
+- « 95 % » qualifie la **méthode** : 95 % des intervalles construits ainsi contiennent la vraie valeur. μ est fixe, l'intervalle varie.
+- Plus de confiance ⇒ intervalle plus **large**. Plus de données ⇒ intervalle plus **étroit**.
+- σ inconnu et n petit : quantile de **Student** au lieu de z.
+- Pas de formule (médiane, AUC, F1) : **bootstrap**.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\bar x \;\pm\; z \cdot \frac{\sigma}{\sqrt n}
+$$
+
+| Niveau | 80 % | 90 % | 95 % | 99 % |
+|---|---|---|---|---|
+| z | 1,28 | 1,64 | 1,96 | 2,58 |
+
+Proportion : $\hat p \pm z\sqrt{\hat p(1-\hat p)/n}$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Dire « 95 % de chances que μ soit dans [45 ; 51] » : formellement faux (interprétation fréquentiste).
+- Confondre l'IC de la **moyenne** avec la plage des **valeurs individuelles**.
+- Deux IC qui se chevauchent n'impliquent pas une différence non significative : calculer l'IC **de la différence**.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**IC sur l'AUC d'un modèle ?** Bootstrap du test set (1 000 rééchantillonnages, percentiles 2,5 et 97,5). Pour comparer deux modèles : bootstrapper la **différence** sur les mêmes rééchantillonnages.
+
+**IC de la différence A − B = [−0,2 ; +1,4] pt ?** Contient 0 : non significatif à 5 %, mais un gain jusqu'à 1,4 pt reste plausible. Plus de données nécessaires.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Marge ∝ $1/\sqrt n$ : diviser la marge par 3 demande 9 fois plus de données.
+- Bootstrap : tirage **avec remise**, même taille que l'échantillon.
+- Toujours rapporter un effet avec son IC plutôt qu'une p-value seule.
+</FicheSection>

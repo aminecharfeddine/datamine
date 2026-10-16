@@ -44,8 +44,9 @@ Fonctionnement : la progression reste locale pour une interface instantanée ; �
 
 ```
 src/
-  app/                    routes : / (Aujourd'hui), /parcours, /revisions, /profil, /lecons/[slug]
+  app/                    routes : / (Aujourd'hui), /parcours, /revisions, /fiches, /fiches/[slug], /profil, /compte, /lecons/[slug]
   content/lessons/*.mdx   contenu des leçons
+  content/fiches/*.mdx    fiches récap (une par leçon, débloquée à la fin de la leçon, export PDF via l'impression)
   components/
     pedago/               Predict, Quiz, Callout, LessonComplete (utilisables dans le MDX)
     viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab)
@@ -67,7 +68,8 @@ src/
 2. Écrire `src/content/lessons/<slug>.mdx`. Les composants pédagogiques (`Predict`, `Exercise`, `Quiz`, `Interview`, `Recap`, `Callout`, `LessonComplete`) et tous les labos sont disponibles sans import.
 3. Ajouter l'import dans `src/lib/lessons.ts`.
 4. Ajouter 2 à 3 cartes par concept dans `src/lib/cards.ts`.
-5. Si la leçon a un défi, le définir dans `src/lib/challenges.ts` et vérifier dans `challenges.test.ts` qu'il est faisable et non résolu au départ.
+5. Écrire la fiche récap `src/content/fiches/<slug>.mdx` (blocs `FicheSection` essentiel, formules, pieges, entretien, astuces) et l'ajouter dans `src/lib/fiches.ts`.
+6. Si la leçon a un défi, le définir dans `src/lib/challenges.ts` et vérifier dans `challenges.test.ts` qu'il est faisable et non résolu au départ.
 
 ### Grille de complétude
 

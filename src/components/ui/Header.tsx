@@ -12,6 +12,7 @@ const NAV = [
   { href: "/", label: "Aujourd'hui" },
   { href: "/parcours", label: "Parcours" },
   { href: "/revisions", label: "Révisions" },
+  { href: "/fiches", label: "Fiches" },
   { href: "/profil", label: "Profil" },
 ];
 
@@ -44,7 +45,7 @@ export function Header() {
   const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur">
+    <header className="site-header sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
         <Logo />
         <nav className="hidden gap-1 md:flex">
