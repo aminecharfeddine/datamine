@@ -1,0 +1,103 @@
+<Predict
+  id="hook"
+  question="Tu es dans le brouillard sur une colline et tu veux descendre. Tu ne vois rien, mais tu sens la pente sous tes pieds : elle monte vers l'est. Où vas-tu ?"
+  options={["Vers l'est", "Vers l'ouest", "Tout droit vers le nord", "Tu restes sur place"]}
+  answer={1}
+>
+Vers l'ouest, à l'opposé de la montée. C'est **exactement** ce que fait l'algorithme qui entraîne presque tous les modèles de machine learning, des régressions aux LLM : la **descente de gradient**. Le « brouillard », c'est que le modèle ne voit jamais la forme globale de son erreur. Il ne connaît que la pente là où il se trouve.
+</Predict>
+
+## La pente, c'est la dérivée
+
+Entraîner un modèle revient à chercher les paramètres $w$ qui rendent une **fonction de perte** $L(w)$ (l'erreur du modèle) la plus petite possible.
+
+<Callout type="rappel">
+La **dérivée** $L'(w)$ mesure la pente de la courbe au point $w$ : de combien $L$ augmente quand $w$ augmente un tout petit peu.
+
+- $L'(w) > 0$ : la courbe monte vers la droite → il faut aller à gauche.
+- $L'(w) < 0$ : la courbe descend vers la droite → il faut aller à droite.
+- $L'(w) = 0$ : terrain plat, on est sur un minimum… ou un maximum.
+
+Exemple : si $L(w) = w^2$, alors $L'(w) = 2w$. En $w = 3$ la pente vaut 6, en $w = 0$ elle vaut 0.
+</Callout>
+
+La règle de mise à jour en découle directement : on fait un pas **opposé** à la pente, d'une taille proportionnelle à celle-ci.
+
+$$
+w \leftarrow w - \eta \, L'(w)
+$$
+
+Le coefficient $\eta$ (*eta*) est le **learning rate**. Déplace le point de départ et fais quelques pas : observe la tangente en pointillés.
+
+<GradientLab id="decouverte" w0={2} lr={0.1} controls={["w0"]} />
+
+Remarque que les pas **rétrécissent tout seuls** en approchant du fond : la pente diminue, donc le pas aussi. Pas besoin de savoir où est le minimum pour s'en approcher.
+
+## Le learning rate : ni trop petit, ni trop grand
+
+<Predict
+  id="lr-grand"
+  question="Que se passe-t-il si le learning rate est beaucoup trop grand ?"
+  options={["L'entraînement est simplement plus rapide", "Les pas dépassent le fond de la vallée et peuvent faire exploser la perte", "Le modèle s'arrête au premier pas", "Rien, la pente compense"]}
+  answer={1}
+>
+Un pas trop grand **enjambe** le minimum et atterrit sur l'autre versant, souvent plus haut. Là, la pente est encore plus forte, donc le pas suivant est encore plus grand… La perte diverge. C'est l'une des premières causes de « NaN » dans un entraînement de réseau de neurones.
+</Predict>
+
+<GradientLab id="converge" w0={-0.3} lr={0.05} controls={["lr"]} challenge="gd-converge" />
+
+<GradientLab id="diverge" w0={-0.3} lr={0.1} controls={["lr"]} showTangent={false} challenge="gd-diverge" />
+
+<Callout type="intuition">
+Le bon learning rate dépend de la **courbure** de la vallée : plus elle est étroite, plus les pas doivent être petits. En pratique, on ne le connaît pas à l'avance. On le cherche (*learning rate finder*), on le fait décroître au cours de l'entraînement (*scheduling*), ou on utilise un optimiseur qui l'adapte à chaque paramètre, comme Adam.
+</Callout>
+
+## Les minima locaux
+
+Notre perte a **deux vallées** : une peu profonde à droite (minimum local) et une plus profonde à gauche (minimum global). La descente de gradient ne voit que la pente locale : elle tombe dans le creux le plus proche.
+
+<GradientLab id="escape" w0={2} lr={0.1} challenge="gd-escape" />
+
+Tu viens de voir le paradoxe : de grands pas permettent de franchir la bosse, mais rendent la descente chaotique au fond de la vallée. C'est pour ça que les optimiseurs modernes combinent des pas plus grands au début, du **momentum** (une inertie qui aide à traverser les petits creux) et une réduction progressive du learning rate.
+
+<Callout type="entretien">
+« Les minima locaux sont-ils un problème pour les réseaux de neurones ? » Moins qu'on ne le croyait : en très haute dimension, la plupart des points où le gradient s'annule sont des **points selle** (montée dans certaines directions, descente dans d'autres), et les minima locaux trouvés ont en général une perte proche du minimum global.
+</Callout>
+
+## Et avec des millions de paramètres ?
+
+Un vrai modèle a des millions de paramètres $w_1, w_2, \dots$ La pente devient le **gradient** : le vecteur de toutes les dérivées partielles, qui indique la direction de plus forte montée.
+
+$$
+\nabla L = \left( \frac{\partial L}{\partial w_1}, \frac{\partial L}{\partial w_2}, \dots \right)
+\qquad
+\mathbf{w} \leftarrow \mathbf{w} - \eta \, \nabla L
+$$
+
+La règle est identique, appliquée à chaque paramètre en même temps. Calculer efficacement ce gradient dans un réseau, c'est le rôle de la **backpropagation** — on y viendra dans le module Deep learning.
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "En w = 1, L′(w) = −4 et le learning rate vaut 0,1. Quelle est la nouvelle valeur de w ?",
+      options: ["0,6", "1,4", "0,96", "−3"],
+      answer: 1,
+      explain: "w ← w − η·L′(w) = 1 − 0,1 × (−4) = 1,4. Pente négative : on avance vers la droite.",
+    },
+    {
+      q: "La perte augmente et oscille de plus en plus fort au fil des itérations. Que faire en premier ?",
+      options: ["Augmenter le learning rate", "Diminuer le learning rate", "Ajouter des données", "Augmenter le nombre d'itérations"],
+      answer: 1,
+      explain: "Une perte qui oscille et grandit est le symptôme classique d'un learning rate trop élevé.",
+    },
+    {
+      q: "Pourquoi les pas rétrécissent-ils naturellement près d'un minimum ?",
+      options: ["Le learning rate diminue automatiquement", "La pente tend vers 0", "La perte devient négative", "Le gradient change de signe à chaque pas"],
+      answer: 1,
+      explain: "Le pas vaut η × pente ; au fond d'une vallée, la pente s'annule.",
+    },
+  ]}
+/>
+
+<LessonComplete />

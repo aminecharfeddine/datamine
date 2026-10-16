@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { scaleLinear } from "d3-scale";
 import { line } from "d3-shape";
 import { auc, histogram, makeDataset, metricsAt, prCurve, rocCurve, type Metrics } from "@/lib/metrics";
 import { CHALLENGES } from "@/lib/challenges";
-import { useProgress } from "@/lib/store";
-import { useLesson } from "@/components/pedago/LessonContext";
+import { ChallengeBanner } from "@/components/pedago/ChallengeBanner";
+import { Slider } from "./controls";
 
 type Panel = "dist" | "matrix" | "metrics" | "roc" | "pr";
 type Control = "threshold" | "separation" | "prevalence";
@@ -128,78 +128,7 @@ export function ThresholdLab({
   );
 }
 
-// ---------------------------------------------------------------- Défi
-
-function ChallengeBanner({ labId, challengeId, solved }: { labId: string; challengeId: string; solved: boolean }) {
-  const ch = CHALLENGES[challengeId];
-  const { slug } = useLesson();
-  const key = `${slug}:challenge:${labId}:${challengeId}`;
-  const already = useProgress((s) => !!s.awarded[key]);
-  const record = useProgress((s) => s.recordChallenge);
-  const [hint, setHint] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  // Valide après un court instant de stabilité pour éviter les validations « au passage » du curseur.
-  useEffect(() => {
-    if (!solved || already) return;
-    const t = setTimeout(() => record(key), 450);
-    return () => clearTimeout(t);
-  }, [solved, already, key, record]);
-
-  const done = mounted && (already || solved);
-
-  return (
-    <div
-      className={clsx(
-        "mb-6 rounded-xl border p-4 transition-colors",
-        done ? "border-pos bg-pos-soft" : "border-dashed border-ink/40",
-      )}
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Défi · {ch.title}</div>
-        <div className={clsx("num text-xs font-semibold", done ? "text-good" : "text-muted")}>
-          {done ? (solved ? "✓ réussi" : "✓ déjà réussi") : "+25 XP"}
-        </div>
-      </div>
-      <p className="mt-1 font-serif text-lg leading-snug">{ch.goal}</p>
-      {!done && (
-        <button onClick={() => setHint((h) => !h)} className="mt-2 text-xs text-muted underline underline-offset-4 hover:text-ink">
-          {hint ? ch.hint : "Un indice ?"}
-        </button>
-      )}
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------- Contrôles
-
-function Slider(props: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  display: string;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <label className="block">
-      <div className="mb-1.5 flex items-baseline justify-between text-sm">
-        <span className="text-muted">{props.label}</span>
-        <span className="num font-semibold">{props.display}</span>
-      </div>
-      <input
-        type="range"
-        min={props.min}
-        max={props.max}
-        step={props.step}
-        value={props.value}
-        onChange={(e) => props.onChange(Number(e.target.value))}
-      />
-    </label>
-  );
-}
 
 // ---------------------------------------------------------------- Histogramme miroir
 

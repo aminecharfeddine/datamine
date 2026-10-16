@@ -1,0 +1,93 @@
+<Predict
+  id="hook"
+  question="On lance 1 dé : chaque face de 1 à 6 a la même chance. Si on lance 10 dés et qu'on calcule leur moyenne, quelle valeur sort le plus souvent ?"
+  options={["Toutes les moyennes sont aussi probables", "Autour de 3,5", "1 ou 6", "Impossible à prévoir"]}
+  answer={1}
+>
+La distribution d'un seul dé est **plate** (uniforme). Mais pour obtenir une moyenne de 1 sur 10 dés, il faut dix 1 d'affilée : quasi impossible. Une moyenne proche de 3,5, au contraire, peut s'obtenir d'innombrables façons. La moyenne de plusieurs tirages se **concentre** autour de la vraie moyenne — et prend une forme bien particulière.
+</Predict>
+
+## Échantillon, moyenne, et distribution des moyennes
+
+Trois niveaux, à ne pas confondre :
+
+1. La **population** : toutes les valeurs possibles, avec leur distribution (moyenne $\mu$, écart-type $\sigma$).
+2. Un **échantillon** : $n$ valeurs tirées au hasard dans la population.
+3. La **moyenne de l'échantillon** $\bar x$ : un seul nombre. Si on refait l'expérience, on obtient un autre échantillon, donc une autre moyenne.
+
+En répétant l'expérience des centaines de fois, les moyennes forment leur propre distribution : la **distribution d'échantillonnage**. Commence avec $n = 1$ et tire quelques échantillons un par un, puis augmente $n$.
+
+<CltLab id="decouverte" dist="de" n={1} dists={["de"]} />
+
+<Callout type="rappel">
+L'**écart-type** $\sigma$ mesure la dispersion autour de la moyenne : en gros, l'écart typique entre une valeur et $\mu$. La **variance** est son carré, $\sigma^2$. Pour une loi normale, environ 95 % des valeurs tombent dans $\mu \pm 2\sigma$.
+</Callout>
+
+## Le théorème central limite
+
+<Predict
+  id="exponentielle"
+  question="Et si la population est très asymétrique, comme des temps d'attente (beaucoup de courts, quelques très longs) ? La distribution des moyennes avec n = 30…"
+  options={["Reste asymétrique, comme la population", "Devient en cloche, symétrique", "Devient uniforme", "Dépend de la chance"]}
+  answer={1}
+>
+C'est tout le pouvoir du **théorème central limite** (TCL) : quelle que soit la forme de départ — plate, asymétrique, à deux bosses — la moyenne d'un échantillon assez grand suit approximativement une **loi normale**. Vérifie-le toi-même.
+</Predict>
+
+Formellement, pour des tirages indépendants issus d'une population de moyenne $\mu$ et d'écart-type $\sigma$ :
+
+$$
+\bar x \;\approx\; \mathcal{N}\!\left(\mu,\ \frac{\sigma}{\sqrt{n}}\right) \quad \text{quand } n \text{ est grand}
+$$
+
+<CltLab id="formes" dist="uniforme" n={1} challenge="clt-bell" />
+
+Deux choses à retenir :
+
+- **Le centre ne bouge pas** : la moyenne des moyennes reste $\mu$. La moyenne d'échantillon est un estimateur *sans biais*.
+- **La largeur rétrécit en** $\sigma / \sqrt{n}$ : c'est l'**erreur standard** (*standard error*). Plus l'échantillon est grand, plus la moyenne est précise.
+
+## La loi de la racine carrée
+
+Le $\sqrt{n}$ a une conséquence très concrète : la précision s'achète cher. Pour diviser l'erreur par 2, il faut **4 fois plus** de données ; pour la diviser par 10, **100 fois plus**.
+
+<CltLab id="racine" dist="exponentielle" n={1} dists={["exponentielle"]} challenge="clt-sqrt" />
+
+<Callout type="entretien">
+Le TCL justifie une grande partie des statistiques que tu utilises sans y penser : les intervalles de confiance ($\bar x \pm 1{,}96\,\sigma/\sqrt n$), les tests A/B, les barres d'erreur. Il explique aussi pourquoi le bruit d'un **mini-batch** en deep learning diminue en $1/\sqrt{\text{taille du batch}}$ : le gradient d'un batch est une moyenne de gradients individuels.
+</Callout>
+
+<Callout type="piege">
+Le TCL suppose des tirages **indépendants** et une variance **finie**. Des données corrélées (séries temporelles, utilisateurs qui s'influencent) ou à queues extrêmes (certains revenus, tailles de fichiers) peuvent converger beaucoup plus lentement, voire pas du tout. « n ≥ 30 » est une règle empirique, pas une loi.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Une population a σ = 10. Quel est l'écart-type de la moyenne d'un échantillon de 100 valeurs ?",
+      options: ["10", "1", "0,1", "100"],
+      answer: 1,
+      explain: "σ / √n = 10 / √100 = 1.",
+    },
+    {
+      q: "Le TCL dit que la distribution…",
+      options: [
+        "des données devient normale quand n est grand",
+        "des moyennes d'échantillons devient normale quand n est grand",
+        "de la population est toujours normale",
+        "des moyennes est uniforme",
+      ],
+      answer: 1,
+      explain: "Les données individuelles gardent leur forme ; ce sont les moyennes qui deviennent normales.",
+    },
+    {
+      q: "Un sondage sur 1 000 personnes a une marge d'erreur de ±3 points. Combien de personnes faut-il pour ±1,5 point ?",
+      options: ["2 000", "4 000", "1 500", "9 000"],
+      answer: 1,
+      explain: "La marge d'erreur évolue en 1/√n : la diviser par 2 demande 4 fois plus de répondants.",
+    },
+  ]}
+/>
+
+<LessonComplete />

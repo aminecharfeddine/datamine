@@ -34,7 +34,7 @@ src/
   content/lessons/*.mdx   contenu des leçons
   components/
     pedago/               Predict, Quiz, Callout, LessonComplete (utilisables dans le MDX)
-    viz/                  visualisations interactives (ThresholdLab…)
+    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab)
     pages/                écrans client (Today, SkillTree, Review, Profile)
   lib/
     curriculum.ts         modules → concepts → leçons (source de vérité du parcours)
@@ -43,6 +43,7 @@ src/
     gamification.ts       XP, niveaux, séries, badges
     store.ts              état de progression + FSRS
     metrics.ts            métriques de classification (pures, testées)
+    sims.ts               calculs des labos : Bayes, descente de gradient, TCL, régression polynomiale
 ```
 
 ## Ajouter une leçon
@@ -62,7 +63,8 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 - [x] Phase 0 — fondations, composants pédagogiques, design system
 - [x] Phase 1 — module Évaluation : confusion matrix, precision/recall/F1, ROC/AUC, PR curve
 - [ ] Phase 2 — comptes Supabase (auth GitHub/Google), synchronisation de la progression, migration du mode invité
-- [ ] Phase 3 — modules Rappels maths, Statistiques, Fondamentaux ML (bias-variance)
+- [x] Phase 3 (en cours) — Bayes, descente de gradient, théorème central limite, bias-variance
+- [ ] Phase 3 (suite) — tests & p-values, intervalles de confiance, cross-validation, data leakage, régularisation
 - [ ] Phase 4 — Modèles classiques, Deep learning (playground TensorFlow.js)
 - [ ] Phase 5 — Transformers, LLM, IA agentique
 - [ ] Phase 6 — vitrine publique : landing, SEO, images de partage, accessibilité, version anglaise

@@ -15,6 +15,131 @@ export type McqCard = {
 export type ReviewCard = FlashCard | McqCard;
 
 export const CARDS: ReviewCard[] = [
+  // --- proba (Bayes)
+  {
+    id: "proba-1",
+    concept: "proba",
+    kind: "flash",
+    front: "Énonce le théorème de Bayes et nomme chaque terme.",
+    back: "P(A|B) = P(B|A)·P(A) / P(B). P(A) : a priori (prior). P(B|A) : vraisemblance. P(B) : probabilité totale de B. P(A|B) : a posteriori (posterior).",
+  },
+  {
+    id: "proba-2",
+    concept: "proba",
+    kind: "mcq",
+    front: "Prévalence 1 %, sensitivity 90 %, 5 % de faux positifs chez les sains. P(malade | test +) ≈ ?",
+    options: ["90 %", "50 %", "15 %", "5 %"],
+    answer: 2,
+    explain: "Sur 2 000 personnes : 18 vrais positifs contre 99 faux positifs → 18/117 ≈ 15 %. Les sains sont 99 fois plus nombreux.",
+  },
+  {
+    id: "proba-3",
+    concept: "proba",
+    kind: "flash",
+    front: "Maladie rare : quel paramètre du test améliore le plus P(malade | +) ?",
+    back: "La specificity. Les faux positifs viennent de l'immense population des sains : réduire leur taux réduit le dénominateur bien plus qu'améliorer la détection des rares malades.",
+  },
+  // --- gradient
+  {
+    id: "grad-1",
+    concept: "gradient",
+    kind: "flash",
+    front: "Règle de mise à jour de la descente de gradient ?",
+    back: "w ← w − η · ∇L(w). On fait un pas opposé au gradient (direction de plus forte montée), de taille proportionnelle au learning rate η.",
+  },
+  {
+    id: "grad-2",
+    concept: "gradient",
+    kind: "mcq",
+    front: "La perte oscille de plus en plus fort et finit en NaN. Cause la plus probable ?",
+    options: ["Learning rate trop petit", "Learning rate trop grand", "Trop de données", "Minimum local"],
+    answer: 1,
+    explain: "Des pas trop grands enjambent le minimum et atterrissent plus haut : la perte diverge.",
+  },
+  {
+    id: "grad-3",
+    concept: "gradient",
+    kind: "mcq",
+    front: "L(w) = w². Quelle est la dérivée L′(3) ?",
+    options: ["3", "6", "9", "2"],
+    answer: 1,
+    explain: "L′(w) = 2w, donc L′(3) = 6. Avec η = 0,1, le pas suivant serait w = 3 − 0,6 = 2,4.",
+  },
+  // --- distributions
+  {
+    id: "dist-1",
+    concept: "distributions",
+    kind: "flash",
+    front: "Pour une loi normale, quelle proportion des valeurs tombe dans μ ± 2σ ?",
+    back: "Environ 95 % (68 % dans μ ± σ, 99,7 % dans μ ± 3σ).",
+  },
+  {
+    id: "dist-2",
+    concept: "distributions",
+    kind: "flash",
+    front: "Quelle différence entre variance et écart-type ?",
+    back: "La variance σ² est la moyenne des carrés des écarts à la moyenne. L'écart-type σ est sa racine : il s'exprime dans la même unité que les données, donc plus lisible.",
+  },
+  // --- tcl
+  {
+    id: "tcl-1",
+    concept: "tcl",
+    kind: "flash",
+    front: "Que dit le théorème central limite ?",
+    back: "Pour des tirages indépendants de variance finie, la moyenne d'un échantillon de taille n suit approximativement N(μ, σ/√n) quand n est grand, quelle que soit la distribution de départ.",
+  },
+  {
+    id: "tcl-2",
+    concept: "tcl",
+    kind: "mcq",
+    front: "Pour diviser par 3 l'erreur standard d'une moyenne, il faut multiplier la taille de l'échantillon par…",
+    options: ["3", "6", "9", "√3"],
+    answer: 2,
+    explain: "L'erreur standard vaut σ/√n : la diviser par 3 demande √n × 3, donc n × 9.",
+  },
+  // --- generalisation
+  {
+    id: "gen-1",
+    concept: "generalisation",
+    kind: "flash",
+    front: "Pourquoi ne faut-il pas choisir ses hyperparamètres sur le test set ?",
+    back: "Le test set deviendrait une donnée d'entraînement indirecte : son erreur ne mesurerait plus la généralisation. On choisit sur un validation set (ou par cross-validation) et on n'utilise le test qu'une fois, à la fin.",
+  },
+  {
+    id: "gen-2",
+    concept: "generalisation",
+    kind: "mcq",
+    front: "Erreur d'entraînement très basse, erreur de validation élevée. Diagnostic ?",
+    options: ["Underfitting", "Overfitting", "Fuite de données", "Modèle optimal"],
+    answer: 1,
+    explain: "Le modèle a mémorisé ses données d'entraînement au lieu d'en extraire la structure.",
+  },
+  // --- biais-variance
+  {
+    id: "bv-1",
+    concept: "biais-variance",
+    kind: "flash",
+    front: "Décomposition de l'erreur de test (MSE) ?",
+    back: "Erreur = Biais² + Variance + bruit irréductible σ². Biais : erreur systématique d'un modèle trop simple. Variance : sensibilité au jeu d'entraînement d'un modèle trop flexible.",
+  },
+  {
+    id: "bv-2",
+    concept: "biais-variance",
+    kind: "mcq",
+    front: "Ajouter beaucoup de données d'entraînement réduit surtout…",
+    options: ["Le biais", "La variance", "Le bruit irréductible", "Les trois également"],
+    answer: 1,
+    explain: "Plus d'exemples stabilisent l'estimation : le modèle dépend moins des particularités de l'échantillon. Le biais, lui, tient à la forme du modèle.",
+  },
+  {
+    id: "bv-3",
+    concept: "biais-variance",
+    kind: "mcq",
+    front: "Erreurs d'entraînement et de validation hautes et proches. Quel levier ?",
+    options: ["Plus de régularisation", "Plus de données", "Un modèle plus complexe", "Early stopping plus tôt"],
+    answer: 2,
+    explain: "C'est un problème de biais (underfitting) : il faut plus de capacité, pas moins.",
+  },
   // --- confusion-matrix
   {
     id: "cm-1",

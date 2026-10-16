@@ -35,7 +35,24 @@ export const MODULES: Module[] = [
       { id: "algebre", title: "Vecteurs & matrices" },
       { id: "gradient", title: "Dérivées & gradient" },
     ],
-    lessons: [],
+    lessons: [
+      {
+        slug: "bayes",
+        title: "Bayes et le paradoxe du test médical",
+        summary: "Pourquoi un test positif à « 90 % fiable » ne signifie souvent presque rien.",
+        minutes: 15,
+        concepts: ["proba"],
+        available: true,
+      },
+      {
+        slug: "descente-de-gradient",
+        title: "Dérivée, gradient et descente",
+        summary: "Descendre une colline dans le brouillard : l'algorithme qui entraîne tous les modèles.",
+        minutes: 15,
+        concepts: ["gradient"],
+        available: true,
+      },
+    ],
   },
   {
     id: "stats",
@@ -49,7 +66,16 @@ export const MODULES: Module[] = [
       { id: "tests", title: "Tests & p-values" },
       { id: "ic", title: "Intervalles de confiance" },
     ],
-    lessons: [],
+    lessons: [
+      {
+        slug: "theoreme-central-limite",
+        title: "Le théorème central limite",
+        summary: "Pourquoi la loi normale est partout, et pourquoi la précision coûte √n.",
+        minutes: 15,
+        concepts: ["distributions", "tcl"],
+        available: true,
+      },
+    ],
   },
   {
     id: "fondamentaux",
@@ -64,7 +90,16 @@ export const MODULES: Module[] = [
       { id: "cross-validation", title: "Cross-validation" },
       { id: "leakage", title: "Data leakage" },
     ],
-    lessons: [],
+    lessons: [
+      {
+        slug: "biais-variance",
+        title: "Overfitting et bias-variance tradeoff",
+        summary: "Apprendre par cœur ou comprendre : la courbe en U qui gouverne tout le ML.",
+        minutes: 20,
+        concepts: ["generalisation", "biais-variance"],
+        available: true,
+      },
+    ],
   },
   {
     id: "modeles",

@@ -22,7 +22,10 @@ export function Today() {
   });
   const maxXp = Math.max(30, ...week.map((w) => w.xp));
 
-  const evalModule = MODULES.find((m) => m.id === "evaluation")!;
+  // Module en cours : celui de la prochaine leçon (ou le dernier disponible si tout est terminé).
+  const currentModule =
+    MODULES.find((m) => m.id === next?.moduleId) ??
+    [...MODULES].reverse().find((m) => m.lessons.some((l) => l.available))!;
 
   return (
     <div className="mx-auto max-w-6xl px-4 pt-12">
@@ -97,11 +100,11 @@ export function Today() {
 
       <section className="mt-14">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-serif text-2xl font-semibold">Module {evalModule.index} · {evalModule.title}</h2>
+          <h2 className="font-serif text-2xl font-semibold">Module {currentModule.index} · {currentModule.title}</h2>
           <Link href="/parcours" className="text-sm text-muted hover:text-ink">Tout le parcours →</Link>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {evalModule.concepts.map((c) => {
+          {currentModule.concepts.map((c) => {
             const lv = hydrated ? conceptLevel(s, c.id) : 0;
             return (
               <div key={c.id} className="rounded-xl border border-line bg-surface p-3">

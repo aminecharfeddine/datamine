@@ -1,0 +1,103 @@
+<Predict
+  id="hook"
+  question="Deux étudiants préparent un examen. L'un apprend par cœur les corrigés des annales, l'autre comprend les méthodes. Aux annales, le premier a 20/20. À l'examen, avec des sujets nouveaux ?"
+  options={["Le premier a encore la meilleure note", "Le second a la meilleure note", "Ils ont la même note", "Impossible à dire"]}
+  answer={1}
+>
+Apprendre par cœur donne une performance parfaite sur ce qu'on a déjà vu, et ne transfère pas. En machine learning, cela s'appelle l'**overfitting** (sur-apprentissage). Le but d'un modèle n'est jamais de bien prédire ses données d'entraînement : c'est de bien prédire **des données qu'il n'a jamais vues**. C'est la **généralisation**.
+</Predict>
+
+## Train et test
+
+Pour mesurer la généralisation, on met de côté une partie des données que le modèle ne verra jamais pendant l'entraînement : le **test set**. On compare alors :
+
+- l'**erreur d'entraînement** (*training error*) : à quel point le modèle colle aux données qu'il a vues ;
+- l'**erreur de test** : à quel point il prédit des données nouvelles. C'est la seule qui compte vraiment.
+
+Ici, les données viennent d'une vraie fonction (en pointillés) à laquelle on ajoute du bruit. On essaie de la retrouver avec un polynôme, dont le **degré** règle la complexité : degré 1, une droite ; degré 15, une courbe capable de presque n'importe quelle forme.
+
+<PolyFitLab id="decouverte" degree={1} panels={["fit"]} />
+
+<Predict
+  id="degre-max"
+  question="On monte le degré jusqu'à 15. Que fait l'erreur de test ?"
+  options={["Elle baisse toujours, comme celle d'entraînement", "Elle baisse, puis remonte", "Elle reste constante", "Elle monte dès le degré 2"]}
+  answer={1}
+>
+Au début, plus de flexibilité aide le modèle à capter la vraie forme : les deux erreurs baissent. Puis le modèle commence à suivre **le bruit** des points d'entraînement — des zigzags qui n'existent pas dans la réalité. L'erreur d'entraînement continue de baisser, mais l'erreur de test remonte. Cette courbe en U est l'une des figures les plus importantes du machine learning.
+</Predict>
+
+<PolyFitLab id="courbe-u" degree={1} challenge="bv-overfit" />
+
+## Le bias-variance tradeoff
+
+L'erreur de test d'un modèle se décompose en trois morceaux :
+
+$$
+\mathbb{E}\big[(y - \hat f(x))^2\big] = \underbrace{\text{Biais}^2}_{\text{modèle trop simple}} + \underbrace{\text{Variance}}_{\text{modèle trop sensible}} + \underbrace{\sigma^2}_{\text{bruit irréductible}}
+$$
+
+- Le **biais** (*bias*) : l'erreur systématique d'un modèle trop rigide. Une droite ne pourra jamais suivre une vague, quelles que soient les données. C'est l'**underfitting**.
+- La **variance** : à quel point le modèle change si on l'entraîne sur un autre jeu de données. Un modèle trop flexible apprend les particularités de *son* échantillon. C'est l'**overfitting**.
+- Le **bruit** $\sigma^2$ : l'aléa des données elles-mêmes. Aucun modèle ne peut descendre en dessous.
+
+Pour voir biais et variance séparément, il faut entraîner **plusieurs** modèles sur des jeux de données différents. Coche la case, puis compare un degré faible et un degré élevé.
+
+<PolyFitLab id="ensemble" degree={1} panels={["fit"]} ensemble={true} />
+
+<Callout type="intuition">
+Degré faible : les 20 modèles se ressemblent tous (variance faible) mais ratent tous la vraie forme de la même façon (biais élevé). Degré élevé : en moyenne ils tombent juste (biais faible), mais chacun part dans tous les sens (variance élevée). Le meilleur modèle est un **compromis** entre les deux.
+</Callout>
+
+<PolyFitLab id="optimum" degree={1} challenge="bv-best" />
+
+<Callout type="rappel">
+L'**espérance** $\mathbb{E}[\cdot]$ est une moyenne « sur tous les jeux de données possibles ». Le biais compare la prédiction *moyenne* à la vérité ; la variance mesure la dispersion des prédictions autour de cette moyenne. Ce sont exactement le trait épais et les traits fins du labo ci-dessus.
+</Callout>
+
+## Plus de données, moins de variance
+
+Le bon degré n'est pas une constante : il dépend de la **quantité de données**. Un modèle complexe devient raisonnable s'il a assez d'exemples pour que le bruit se compense.
+
+<PolyFitLab id="donnees" degree={12} controls={["degree", "n"]} challenge="bv-data" />
+
+Les leviers contre l'overfitting, en résumé :
+
+- **Plus de données** (le meilleur, quand c'est possible).
+- **Un modèle plus simple** (moins de paramètres, moins de degrés de liberté).
+- **La régularisation** : pénaliser les modèles trop « tordus » (L1, L2, dropout…), sujet d'une prochaine leçon.
+- **L'early stopping** : arrêter l'entraînement avant que l'erreur de validation ne remonte.
+
+<Callout type="entretien">
+« Comment savoir si un modèle overfit ? » Erreur d'entraînement basse **et** erreur de validation nettement plus haute. S'il underfit, les deux erreurs sont hautes et proches. Et un écart qui se réduit quand on ajoute des données confirme un problème de variance.
+</Callout>
+
+<Callout type="piege">
+Choisir le degré en regardant l'erreur de **test** revient à entraîner sur le test set : il cesse d'être une mesure honnête. En pratique, on choisit les hyperparamètres sur un **validation set** (ou par cross-validation) et on ne regarde le test set qu'une seule fois, à la toute fin.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Erreur d'entraînement 0,02, erreur de test 0,45. Diagnostic le plus probable ?",
+      options: ["Underfitting", "Overfitting", "Modèle optimal", "Bruit trop faible"],
+      answer: 1,
+      explain: "Le modèle colle à ses données d'entraînement mais généralise mal : variance élevée.",
+    },
+    {
+      q: "Erreurs d'entraînement et de test toutes deux élevées et proches. Que tenter ?",
+      options: ["Ajouter des données", "Un modèle plus complexe", "Plus de régularisation", "Retirer des variables"],
+      answer: 1,
+      explain: "C'est de l'underfitting (biais élevé) : le modèle est trop simple pour capter la structure des données.",
+    },
+    {
+      q: "Quelle composante de l'erreur aucun modèle ne peut réduire ?",
+      options: ["Le biais", "La variance", "Le bruit irréductible", "L'erreur d'entraînement"],
+      answer: 2,
+      explain: "Le bruit fait partie des données elles-mêmes : même la vraie fonction ne le prédit pas.",
+    },
+  ]}
+/>
+
+<LessonComplete />

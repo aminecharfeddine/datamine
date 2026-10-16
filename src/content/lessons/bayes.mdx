@@ -1,0 +1,98 @@
+<Predict
+  id="hook"
+  question="Une maladie touche 1 % de la population. Un test la détecte dans 90 % des cas et se trompe chez 5 % des personnes saines. Ton test est positif. Probabilité que tu sois malade ?"
+  options={["Environ 90 %", "Environ 95 %", "Environ 50 %", "Environ 15 %"]}
+  answer={3}
+>
+Environ **15 %**. La plupart des gens — médecins compris, dans les études sur le sujet — répondent 90 %. L'erreur vient d'un oubli : comme il y a **99 fois plus de personnes saines que malades**, même un petit taux de fausses alertes chez les sains finit par produire plus de positifs que la maladie elle-même.
+</Predict>
+
+## Penser en effectifs, pas en pourcentages
+
+Le moyen le plus sûr de ne pas se tromper est de remplacer les probabilités par des **effectifs concrets**. Prenons 2 000 personnes :
+
+- 1 % sont malades → **20 malades**. Le test en détecte 90 % → **18** positifs mérités.
+- 99 % sont saines → **1 980 personnes saines**. Le test se trompe pour 5 % d'entre elles → **99** positifs à tort.
+
+Au total, 117 tests positifs, dont seulement 18 malades : $18 / 117 \approx 15\ \%$.
+
+La grille ci-dessous représente ces 2 000 personnes. Joue avec les curseurs et regarde **d'où viennent les carrés positifs** : malades détectés (TP) ou sains alarmés (FP).
+
+<BayesLab id="decouverte" prevalence={0.01} sensitivity={0.9} specificity={0.95} />
+
+<Callout type="intuition">
+Tu as déjà vu ces couleurs : ce sont exactement les quatre cases de la confusion matrix. La probabilité d'être malade sachant un test positif, c'est la **precision** du test. Le recall, ici, s'appelle *sensitivity*.
+</Callout>
+
+## Le théorème de Bayes
+
+Ce raisonnement a une forme générale. Pour deux événements A (« être malade ») et B (« test positif ») :
+
+$$
+P(A \mid B) = \frac{P(B \mid A)\,P(A)}{P(B)}
+$$
+
+- $P(A)$ est la **probabilité a priori** : la prévalence, avant tout test.
+- $P(B \mid A)$ est la **vraisemblance** : la probabilité d'un test positif chez un malade (la sensitivity).
+- $P(B)$ est la probabilité totale d'un test positif, chez les malades **et** chez les sains :
+
+$$
+P(B) = P(B \mid A)\,P(A) + P(B \mid \bar A)\,P(\bar A)
+$$
+
+- $P(A \mid B)$ est la **probabilité a posteriori** : ce qu'on sait après avoir vu le résultat.
+
+<Callout type="rappel">
+$P(A \mid B)$ se lit « probabilité de A **sachant** B ». Et en général $P(A \mid B) \neq P(B \mid A)$ : la probabilité d'être positif quand on est malade (90 %) n'a rien à voir avec celle d'être malade quand on est positif (15 %). Confondre les deux porte un nom : le *base rate fallacy*.
+</Callout>
+
+<Predict
+  id="second-test"
+  question="Après un premier test positif, on refait un second test indépendant, lui aussi positif. La probabilité d'être malade…"
+  options={["Reste 15 %", "Monte fortement (au-delà de 70 %)", "Atteint exactement 90 %", "Redescend"]}
+  answer={1}
+>
+Le *posterior* du premier test devient le *prior* du second : on repart avec une « prévalence » de 15 % au lieu de 1 %. Avec ce nouveau point de départ, $P(\text{malade} \mid ++) = \frac{0{,}9 \times 0{,}15}{0{,}9 \times 0{,}15 + 0{,}05 \times 0{,}85} \approx 76\ \%$. C'est le cœur de l'**inférence bayésienne** : chaque nouvelle observation met à jour la croyance précédente.
+</Predict>
+
+## Que faut-il améliorer ?
+
+Quand la maladie est rare, le problème vient des sains, beaucoup plus nombreux. À toi de trouver le levier.
+
+<BayesLab id="fiable" prevalence={0.01} sensitivity={0.9} specificity={0.95} controls={["sensitivity", "specificity"]} challenge="ppv-90" />
+
+Améliorer la sensitivity ne change presque rien : il y a très peu de malades à mieux détecter. C'est la **specificity** qui compte, parce qu'elle agit sur la population immense des sains.
+
+Le même test change aussi complètement de valeur selon **la population où on l'applique**.
+
+<BayesLab id="prevalence" prevalence={0.01} sensitivity={0.9} specificity={0.95} controls={["prevalence"]} challenge="ppv-50" />
+
+<Callout type="entretien">
+C'est la même raison pour laquelle un détecteur de fraude excellent sur le papier noie les analystes sous les fausses alertes : la fraude est rare. Dès qu'un problème a une faible prévalence, pense Bayes — et pense precision.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Dans P(A | B), que représente P(A) ?",
+      options: ["La vraisemblance", "La probabilité a priori", "La probabilité a posteriori", "La probabilité totale"],
+      answer: 1,
+      explain: "P(A) est ce qu'on croit avant d'observer B — ici, la prévalence de la maladie.",
+    },
+    {
+      q: "Un test a une sensitivity de 99 %. Peut-on en conclure qu'un positif est malade à 99 % ?",
+      options: ["Oui", "Non, cela dépend de la prévalence et de la specificity", "Oui, si la specificity vaut aussi 99 %", "Non, ce sera toujours 50 %"],
+      answer: 1,
+      explain: "La sensitivity est P(+ | malade). Ce qu'on veut, P(malade | +), dépend aussi de la prévalence et du taux de faux positifs.",
+    },
+    {
+      q: "Sur 10 000 personnes, 100 malades. Le test détecte 80 malades et alarme 495 sains. P(malade | +) ≈ ?",
+      options: ["80 %", "14 %", "1 %", "50 %"],
+      answer: 1,
+      explain: "80 / (80 + 495) ≈ 0,139. Les effectifs rendent le calcul immédiat.",
+    },
+  ]}
+/>
+
+<LessonComplete />
