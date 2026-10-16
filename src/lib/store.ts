@@ -12,7 +12,36 @@ export type StoredCard = Omit<Card, "due" | "last_review"> & { due: string; last
 
 export type Toast = { id: number; text: string; tone: "xp" | "badge" | "info" };
 
-type ProgressState = {
+/** Données de progression sérialisables (ce qui est stocké localement et dans Supabase). */
+export type ProgressData = {
+  xp: number;
+  dailyXp: Record<string, number>;
+  awarded: Record<string, true>;
+  discovered: Record<string, true>;
+  completedLessons: Record<string, string>;
+  challengesDone: number;
+  predictionsCorrect: number;
+  reviewsDone: number;
+  streak: Streak;
+  srs: Record<string, StoredCard>;
+  badges: Record<string, string>;
+};
+
+export const DATA_KEYS = [
+  "xp", "dailyXp", "awarded", "discovered", "completedLessons", "challengesDone",
+  "predictionsCorrect", "reviewsDone", "streak", "srs", "badges",
+] as const satisfies readonly (keyof ProgressData)[];
+
+export function pickData(s: ProgressData): ProgressData {
+  const out = {} as Record<string, unknown>;
+  for (const k of DATA_KEYS) out[k] = s[k];
+  return out as ProgressData;
+}
+
+type ProgressState = ProgressData & {
+  /** Compte auquel appartient l'état local (null = mode invité). */
+  ownerId: string | null;
+  setData: (data: ProgressData, ownerId: string | null) => void;
   xp: number;
   dailyXp: Record<string, number>;
   awarded: Record<string, true>;
@@ -52,7 +81,22 @@ const deserialize = (c: StoredCard): Card => ({
 
 let toastSeq = 0;
 
+export const EMPTY_DATA: ProgressData = {
+  xp: 0,
+  dailyXp: {},
+  awarded: {},
+  discovered: {},
+  completedLessons: {},
+  challengesDone: 0,
+  predictionsCorrect: 0,
+  reviewsDone: 0,
+  streak: { current: 0, best: 0, lastDay: null, freezes: 1 },
+  srs: {},
+  badges: {},
+};
+
 const initial = {
+  ownerId: null as string | null,
   xp: 0,
   dailyXp: {},
   awarded: {},
@@ -166,6 +210,8 @@ export const useProgress = create<ProgressState>()(
         },
 
         dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+
+        setData: (data, ownerId) => set({ ...EMPTY_DATA, ...data, ownerId }),
 
         reset: () => set({ ...initial }),
       };

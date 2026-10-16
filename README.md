@@ -16,6 +16,17 @@ npm run build    # build de production
 1. Pousser le dépôt sur GitHub.
 2. Sur vercel.com → *Add New Project* → importer le dépôt. Aucune variable d'environnement n'est nécessaire pour l'instant.
 
+## Comptes (Supabase)
+
+Connexion par lien magique envoyé par e-mail ; la progression est stockée dans la table `progress` (une ligne JSON par utilisateur, protégée par RLS).
+
+Configuration à faire une fois dans le tableau de bord Supabase :
+
+1. **SQL Editor** → exécuter `supabase/migrations/001_progress.sql`.
+2. **Authentication → URL Configuration** : *Site URL* = l'URL Vercel de production ; ajouter dans *Redirect URLs* `https://<ton-projet>.vercel.app/**` et `http://localhost:3000/**`.
+
+Fonctionnement : la progression reste locale pour une interface instantanée ; à la connexion, au retour sur l'onglet et 1,5 s après chaque changement, l'app fait « lire → fusionner → écrire ». La fusion (`src/lib/sync/merge.ts`) est commutative et idempotente : plusieurs appareils convergent sans jamais perdre de progrès. Un état local appartenant à un autre compte n'est jamais fusionné.
+
 ## Stack
 
 - **Next.js 16** (App Router, Turbopack) + TypeScript
@@ -23,7 +34,8 @@ npm run build    # build de production
 - **Tailwind CSS 4** (tokens de couleur dans `src/app/globals.css`, clair/sombre)
 - **d3-scale / d3-shape** pour les visualisations SVG
 - **ts-fsrs** pour la répétition espacée (algorithme FSRS)
-- **zustand** pour la progression (stockée en localStorage, mode invité)
+- **zustand** pour la progression (localStorage en mode invité)
+- **Supabase** (auth par e-mail + Postgres avec RLS) pour les comptes et la synchronisation
 - **Vitest** + Testing Library
 
 ## Structure
@@ -62,7 +74,7 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 
 - [x] Phase 0 — fondations, composants pédagogiques, design system
 - [x] Phase 1 — module Évaluation : confusion matrix, precision/recall/F1, ROC/AUC, PR curve
-- [ ] Phase 2 — comptes Supabase (auth GitHub/Google), synchronisation de la progression, migration du mode invité
+- [x] Phase 2 — comptes Supabase (lien magique), synchronisation multi-appareils, migration du mode invité
 - [x] Phase 3 (en cours) — Bayes, descente de gradient, théorème central limite, bias-variance
 - [ ] Phase 3 (suite) — tests & p-values, intervalles de confiance, cross-validation, data leakage, régularisation
 - [ ] Phase 4 — Modèles classiques, Deep learning (playground TensorFlow.js)

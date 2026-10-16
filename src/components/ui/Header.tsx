@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { useProgress, dueCardIds } from "@/lib/store";
 import { displayedStreak, dayKey, levelInfo } from "@/lib/gamification";
 import { useHydrated } from "./useHydrated";
+import { AccountChip } from "./AccountChip";
 
 const NAV = [
   { href: "/", label: "Aujourd'hui" },
@@ -63,6 +64,7 @@ export function Header() {
               <span className="block h-full bg-accent transition-all" style={{ width: `${hydrated ? lvl.progress * 100 : 0}%` }} />
             </span>
           </span>
+          <AccountChip />
         </div>
       </div>
       <nav className="flex gap-1 overflow-x-auto border-t border-line px-2 sm:hidden">

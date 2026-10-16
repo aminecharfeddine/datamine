@@ -3,11 +3,14 @@ import clsx from "clsx";
 import { useProgress } from "@/lib/store";
 import { BADGES, dayKey, levelInfo } from "@/lib/gamification";
 import { useHydrated } from "@/components/ui/useHydrated";
+import { useAuth, resetProgress } from "@/lib/sync/sync";
+import Link from "next/link";
 
 export function Profile() {
   const hydrated = useHydrated();
   const s = useProgress();
   const lvl = levelInfo(s.xp);
+  const auth = useAuth();
 
   // Heatmap d'activité : 12 dernières semaines
   const days = Array.from({ length: 84 }, (_, i) => {
@@ -68,10 +71,23 @@ export function Profile() {
 
       <section className="mt-14 border-t border-line pt-6">
         <p className="text-sm text-muted">
-          Ta progression est enregistrée dans ce navigateur. La synchronisation de compte arrive bientôt.
+          {auth.email ? (
+            <>Ta progression est synchronisée avec ton compte ({auth.email}).</>
+          ) : (
+            <>
+              Ta progression est enregistrée dans ce navigateur uniquement.{" "}
+              <Link href="/compte" className="text-ink underline underline-offset-4">Crée un compte</Link> pour la retrouver partout.
+            </>
+          )}
         </p>
         <button
-          onClick={() => confirm("Effacer toute ta progression ? Cette action est définitive.") && s.reset()}
+          onClick={() =>
+            confirm(
+              auth.email
+                ? "Effacer toute ta progression, sur cet appareil ET dans ton compte ? Cette action est définitive."
+                : "Effacer toute ta progression ? Cette action est définitive.",
+            ) && resetProgress()
+          }
           className="mt-3 text-sm text-muted underline underline-offset-4 hover:text-accent"
         >
           Réinitialiser ma progression

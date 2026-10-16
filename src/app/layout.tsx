@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/ui/Header";
 import { Toaster } from "@/components/ui/Toaster";
+import { SyncProvider } from "@/components/ui/SyncProvider";
 
 export const metadata: Metadata = {
   title: { default: "Datamine — apprendre la data science en manipulant", template: "%s · Datamine" },
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </footer>
         </div>
         <Toaster />
+        <SyncProvider />
       </body>
     </html>
   );
