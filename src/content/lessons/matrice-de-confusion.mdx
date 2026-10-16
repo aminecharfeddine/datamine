@@ -1,0 +1,136 @@
+<Predict
+  id="hook-accuracy"
+  question="Un modèle de détection de fraude bancaire affiche 99 % d'accuracy. Bon modèle ?"
+  options={["Oui, excellent", "Impossible à dire sans plus d'information", "Non, 99 % c'est forcément de l'overfitting"]}
+  answer={1}
+>
+Si seulement 1 % des transactions sont frauduleuses, un « modèle » qui répond **toujours** « pas de fraude » obtient 99 % d'accuracy… sans jamais détecter une seule fraude. Une seule métrique ne dit pas *quelles* erreurs le modèle commet. Pour ça, il faut ouvrir la boîte : la **confusion matrix**.
+</Predict>
+
+## Du score à la décision
+
+Un classifieur ne répond presque jamais directement « oui » ou « non ». Il produit un **score** entre 0 et 1 — une sorte de degré de confiance. La décision vient ensuite, en comparant ce score à un **seuil** (threshold) : au-dessus, on prédit *positif* ; en dessous, *négatif*.
+
+Chaque exemple tombe alors dans l'une de quatre cases, selon ce qu'il est **réellement** et ce que le modèle a **prédit** :
+
+- <span className="t-tp">TP</span> **true positive** — positif réel, prédit positif. Le modèle a vu juste.
+- <span className="t-fn">FN</span> **false negative** — positif réel, prédit négatif. Un cas raté.
+- <span className="t-fp">FP</span> **false positive** — négatif réel, prédit positif. Une fausse alerte.
+- <span className="t-tn">TN</span> **true negative** — négatif réel, prédit négatif.
+
+Le nom se lit en deux temps : *True/False* dit si la prédiction est correcte, *Positive/Negative* dit ce qui a été prédit.
+
+Ci-dessous, les positifs réels sont au-dessus de l'axe, les négatifs en dessous. Déplace le seuil et observe les cases se remplir.
+
+<ThresholdLab id="intro" panels={["dist", "matrix"]} separation={2} prevalence={0.4} threshold={0.5} />
+
+<Predict
+  id="seuil-fp"
+  question="Tu montes le seuil de 0,5 à 0,8. Que deviennent les false positives ?"
+  options={["Ils augmentent", "Ils diminuent", "Ils ne changent pas", "Ça dépend du modèle"]}
+  answer={1}
+>
+Un seuil plus strict fait basculer des exemples de « prédit positif » vers « prédit négatif ». Les FP deviennent des TN : **moins de fausses alertes**. Mais les TP qui basculent deviennent des FN : **plus de cas ratés**. Monter ou baisser le seuil, c'est toujours échanger un type d'erreur contre l'autre. Vérifie-le dans le labo juste au-dessus.
+</Predict>
+
+## Precision et recall : deux questions différentes
+
+À partir de ces quatre cases, on construit deux métriques qui répondent chacune à une question précise.
+
+La **precision** répond à : *« quand le modèle dit positif, a-t-il raison ? »*
+
+$$
+\text{Precision} = \frac{TP}{TP + FP}
+$$
+
+Le **recall** (ou *sensitivity*, ou *true positive rate*) répond à : *« parmi tous les vrais positifs, combien le modèle en retrouve-t-il ? »*
+
+$$
+\text{Recall} = \frac{TP}{TP + FN}
+$$
+
+<Callout type="rappel">
+En probabilités, la precision est $P(\text{réel} = 1 \mid \text{prédit} = 1)$ et le recall est $P(\text{prédit} = 1 \mid \text{réel} = 1)$. Même événements, conditionnement inversé — exactement le piège qu'on retrouve avec le théorème de Bayes.
+</Callout>
+
+Le dénominateur de la precision regarde la **colonne** « prédit positif » de la matrice. Celui du recall regarde la **ligne** « réel positif ». C'est tout.
+
+<ThresholdLab
+  id="depistage"
+  panels={["dist", "matrix", "metrics"]}
+  separation={2}
+  prevalence={0.4}
+  threshold={0.5}
+  challenge="recall-90"
+/>
+
+<Callout type="entretien">
+Une formulation qui marche à l'oral : la precision mesure la **qualité** des alertes, le recall mesure leur **couverture**. Un filtre anti-spam veut une forte precision (ne jamais jeter un vrai mail) ; un dépistage médical veut un fort recall (ne rater aucun malade).
+</Callout>
+
+## Le tradeoff precision / recall
+
+En général, les deux tirent en sens opposé. Baisser le seuil attrape plus de positifs (recall ↑) mais laisse passer plus de fausses alertes (precision ↓). Le monter fait l'inverse.
+
+Pousse l'idée à l'extrême : peut-on supprimer **toutes** les fausses alertes ?
+
+<ThresholdLab id="zero-fp" panels={["dist", "matrix", "metrics"]} separation={3} prevalence={0.4} threshold={0.5} challenge="zero-fp" />
+
+Tu as obtenu une precision parfaite… au prix de la majorité des positifs. Une precision de 1 ne vaut rien sans regarder le recall, et inversement : prédire *tout* positif donne un recall de 1.
+
+## Le F1-score : un seul chiffre pour les deux
+
+Pour résumer precision et recall en un nombre, on utilise leur **moyenne harmonique** :
+
+$$
+F_1 = \frac{2 \cdot \text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
+$$
+
+<Predict
+  id="f1-harmonique"
+  question="Precision = 1,00 et recall = 0,02. Que vaut le F1 ?"
+  options={["≈ 0,51", "≈ 0,04", "≈ 0,02", "1,00"]}
+  answer={1}
+>
+$F_1 = \frac{2 \times 1 \times 0{,}02}{1{,}02} \approx 0{,}039$. La moyenne arithmétique aurait donné 0,51, ce qui serait absurde pour un modèle qui rate 98 % des cas. La moyenne harmonique est **dominée par la plus petite valeur** : impossible d'obtenir un bon F1 en sacrifiant l'une des deux métriques.
+</Predict>
+
+<ThresholdLab id="f1" panels={["dist", "metrics"]} separation={2} prevalence={0.4} threshold={0.85} challenge="best-f1" />
+
+<Callout type="piege">
+Le F1 suppose que FP et FN coûtent **autant** l'un que l'autre. C'est rarement le cas en pratique. Quand les coûts sont asymétriques, on utilise le $F_\beta$ (β > 1 favorise le recall) ou, mieux, on choisit le seuil directement à partir du coût métier de chaque erreur.
+</Callout>
+
+## Choisir son seuil
+
+Le seuil ne fait pas partie du modèle : c'est une **décision métier**, prise après l'entraînement. Changer de seuil ne demande aucun ré-entraînement — seulement de savoir quelle erreur coûte le plus cher.
+
+- **Dépistage d'une maladie grave** : un FN est dramatique, un FP coûte un examen de plus → seuil bas, recall élevé.
+- **Filtre anti-spam** : un FP (vrai mail jeté) est très gênant, un FN (spam qui passe) est bénin → seuil haut, precision élevée.
+- **Détection de fraude** : compromis selon le coût d'une fraude ratée face au coût d'un client bloqué à tort.
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Un modèle a 40 TP, 10 FP, 20 FN et 930 TN. Sa precision vaut…",
+      options: ["0,67", "0,80", "0,97", "0,40"],
+      answer: 1,
+      explain: "Precision = TP / (TP + FP) = 40 / 50 = 0,80. Son recall, lui, vaut 40 / 60 ≈ 0,67.",
+    },
+    {
+      q: "Lequel de ces changements peut faire baisser le recall ?",
+      options: ["Baisser le seuil", "Monter le seuil", "Ajouter des TN", "Aucun, le recall ne dépend que du modèle"],
+      answer: 1,
+      explain: "Monter le seuil transforme des TP en FN. Le recall dépend du modèle ET du seuil.",
+    },
+    {
+      q: "Pour une alarme incendie, quelle métrique prioriser ?",
+      options: ["Precision", "Recall", "Accuracy", "Specificity"],
+      answer: 1,
+      explain: "Rater un vrai incendie (FN) est inacceptable ; une fausse alerte (FP) est un désagrément. On maximise le recall.",
+    },
+  ]}
+/>
+
+<LessonComplete />

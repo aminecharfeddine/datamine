@@ -1,0 +1,105 @@
+<Predict
+  id="hook"
+  question="Deux modèles A et B. Au seuil 0,5, A a un meilleur F1. Peut-on conclure que A est le meilleur modèle ?"
+  options={["Oui, le F1 résume tout", "Non, B pourrait être meilleur à un autre seuil", "Oui, si les données sont équilibrées"]}
+  answer={1}
+>
+Un F1, une precision ou un recall sont mesurés **à un seuil donné**. Or le seuil est un choix métier qui peut changer. Pour comparer des *modèles*, on veut une mesure qui ne dépend pas de ce choix : on évalue le modèle sur **tous les seuils à la fois**.
+</Predict>
+
+## La ROC curve
+
+Faisons varier le seuil de 1 à 0. À chaque valeur, on calcule deux taux et on place un point :
+
+- en ordonnée, le **True Positive Rate** — c'est le recall : $TPR = \frac{TP}{TP + FN}$
+- en abscisse, le **False Positive Rate** : la part des négatifs qui déclenchent une fausse alerte, $FPR = \frac{FP}{FP + TN}$
+
+Seuil à 1 : personne n'est prédit positif, on est en (0, 0). Seuil à 0 : tout le monde l'est, on est en (1, 1). Entre les deux, la courbe dessine la façon dont le modèle **classe** les exemples.
+
+<Predict
+  id="roc-hasard"
+  question="À quoi ressemble la ROC curve d'un modèle qui donne des scores au hasard ?"
+  options={["Une ligne horizontale à y = 0,5", "La diagonale de (0,0) à (1,1)", "Un point unique au centre", "Une courbe collée en haut à gauche"]}
+  answer={1}
+>
+Si les scores sont aléatoires, chaque baisse de seuil fait entrer autant (en proportion) de positifs que de négatifs : TPR et FPR augmentent au même rythme. Un modèle parfait, lui, monte d'abord tout droit jusqu'à (0, 1) — tous les positifs avant le moindre négatif.
+</Predict>
+
+<ThresholdLab
+  id="roc"
+  panels={["dist", "roc"]}
+  controls={["threshold", "separation"]}
+  separation={2}
+  prevalence={0.4}
+  threshold={0.5}
+  challenge="random-model"
+/>
+
+## L'AUC : la qualité du classement
+
+L'**AUC** (*Area Under the Curve*) mesure l'aire sous la ROC curve. 0,5 correspond au hasard, 1 à une séparation parfaite. Elle a une interprétation élégante :
+
+$$
+\text{AUC} = P\big(\text{score}(x^+) > \text{score}(x^-)\big)
+$$
+
+c'est-à-dire la probabilité qu'un positif tiré au hasard reçoive un score plus élevé qu'un négatif tiré au hasard. L'AUC ne juge pas une décision, elle juge un **ranking**.
+
+<Callout type="entretien">
+Question fréquente : *« Une AUC de 0,3, c'est grave ? »* Pas vraiment : le modèle classe à l'envers de façon systématique. Inverser ses scores donne une AUC de 0,7. Le vrai mauvais modèle, c'est 0,5.
+</Callout>
+
+## Le piège des classes déséquilibrées
+
+Dans la vraie vie, les positifs sont souvent rares : fraudes, maladies, pannes, clics. Que devient la ROC curve quand la prévalence s'effondre ?
+
+<Predict
+  id="roc-prevalence"
+  question="Même modèle, mais la part de positifs passe de 40 % à 2 %. La ROC curve…"
+  options={["S'effondre vers la diagonale", "Reste quasiment identique", "S'améliore nettement"]}
+  answer={1}
+>
+TPR et FPR sont chacun calculés **à l'intérieur d'une seule classe** (les positifs pour l'un, les négatifs pour l'autre). Ils ne voient donc pas la proportion entre les deux. La ROC curve est (en espérance) **insensible à la prévalence**. C'est une qualité… et un piège : avec 2 % de positifs, même un faible FPR représente des fausses alertes en masse, et la precision s'écroule sans que la ROC ne bronche.
+</Predict>
+
+C'est là qu'intervient la **Precision-Recall curve** : on trace la precision en fonction du recall pour tous les seuils. Sa baseline n'est plus la diagonale, mais une droite horizontale à hauteur de la **prévalence** — la precision d'un modèle qui tire au hasard.
+
+<ThresholdLab
+  id="desequilibre"
+  panels={["dist", "roc", "pr"]}
+  controls={["threshold", "prevalence"]}
+  separation={3}
+  prevalence={0.4}
+  threshold={0.5}
+  challenge="imbalance-trap"
+/>
+
+<Callout type="piege">
+Une AUC ROC de 0,95 sur un problème à 1 % de positifs peut cacher un modèle inutilisable en production : pour retrouver la moitié des fraudes, il faudrait peut-être examiner dix fausses alertes pour une vraie. Sur des données déséquilibrées, regarde **toujours** la PR curve (et son aire, l'*average precision*).
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que représente un point de la ROC curve ?",
+      options: ["Un exemple du dataset", "Un seuil de décision", "Une itération d'entraînement", "Une classe"],
+      answer: 1,
+      explain: "Chaque seuil donne un couple (FPR, TPR). La courbe relie tous ces couples.",
+    },
+    {
+      q: "Un modèle a une AUC ROC de 0,5. Cela signifie que…",
+      options: ["Il a 50 % d'accuracy", "Il classe les exemples comme le hasard", "Son seuil optimal est 0,5", "Sa precision vaut 0,5"],
+      answer: 1,
+      explain: "L'AUC mesure la qualité du ranking : 0,5 = un positif a une chance sur deux d'être mieux classé qu'un négatif.",
+    },
+    {
+      q: "1 % de positifs. Quelle est la precision d'un modèle aléatoire ?",
+      options: ["≈ 0,01", "≈ 0,50", "≈ 0,99", "Indéfinie"],
+      answer: 0,
+      explain: "Au hasard, la part de vrais positifs parmi les alertes est égale à la prévalence : c'est la baseline de la PR curve.",
+    },
+  ]}
+/>
+
+<LessonComplete />
