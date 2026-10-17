@@ -57,6 +57,8 @@ export function mergeProgress(x: Partial<ProgressData> | null | undefined, y: Pa
     srs,
     badges: unionEarliest(a.badges, b.badges),
     answers: maxPerKey(a.answers, b.answers),
+    explored: union(a.explored, b.explored),
+    cosmetics: (b.cosmetics.u ?? "") > (a.cosmetics.u ?? "") ? b.cosmetics : a.cosmetics,
     reviewLog: mergeLog(a.reviewLog, b.reviewLog),
   };
 }

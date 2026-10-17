@@ -12,6 +12,7 @@ export function Quiz({ id, title = "Vérifie tes acquis", questions }: { id: str
   const { slug } = useLesson();
   const record = useProgress((s) => s.recordQuiz);
   const remember = useProgress((s) => s.rememberAnswer);
+  const explore = useProgress((s) => s.explore);
   const scoreKey = `${slug}:quizscore:${id}`;
   const best = useProgress((s) => s.answers[scoreKey]);
   const [idx, setIdx] = useState(0);
@@ -90,7 +91,10 @@ export function Quiz({ id, title = "Vérifie tes acquis", questions }: { id: str
               <p className="text-[0.95rem] text-muted">{q.explain}</p>
               <button
                 onClick={() => {
-                  if (idx + 1 >= questions.length) remember(scoreKey, score, "max");
+                  if (idx + 1 >= questions.length) {
+                    remember(scoreKey, score, "max");
+                    if (score === questions.length) explore(`quiz-perfect:${scoreKey}`);
+                  }
                   setIdx((i) => i + 1);
                   setChoice(null);
                 }}

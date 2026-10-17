@@ -29,7 +29,7 @@ export function RidgeLab({ id = "ridge", logLambda: l0 = -6, challenge }: { id?:
   const solved = challenge ? CHALLENGES[challenge].check({ logLambda, train, test, trainMse, testMse }) : false;
 
   return (
-    <LabFrame>
+    <LabFrame labKey={id}>
       {challenge && <ChallengeBanner labId={id} challengeId={challenge} solved={solved} />}
 
       <div className="mb-6 max-w-md">

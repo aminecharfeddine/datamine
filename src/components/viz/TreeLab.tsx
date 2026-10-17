@@ -40,7 +40,7 @@ export function TreeLab({ id = "tree", depth: d0 = 1, challenge }: { id?: string
   const leaves = countLeaves(tree);
 
   return (
-    <LabFrame>
+    <LabFrame labKey={id}>
       {challenge && <ChallengeBanner labId={id} challengeId={challenge} solved={solved} />}
       <div className="mb-6 max-w-md">
         <Slider label="Profondeur maximale de l'arbre" value={depth} min={1} max={TREE_MAX_DEPTH} step={1} onChange={setDepth} display={String(depth)} />

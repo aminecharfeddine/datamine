@@ -1,30 +1,26 @@
 "use client";
 import Link from "next/link";
 import clsx from "clsx";
-import { Flame, Lock, Repeat, Zap } from "lucide-react";
+import { Flame, Lock, Repeat } from "lucide-react";
 import { useProgress, dueCardIds, conceptLevel } from "@/lib/store";
 import { ALL_LESSONS, MODULES, modStyle, moduleById, type Module } from "@/lib/curriculum";
-import { dayKey, displayedStreak, levelInfo } from "@/lib/gamification";
+import { dayKey, displayedStreak } from "@/lib/gamification";
 import { useHydrated } from "@/components/ui/useHydrated";
 import { ModuleIcon } from "@/components/ui/ModuleIcon";
+import { WeeklyGoal } from "@/components/game/WeeklyGoal";
+import { NextUnlock } from "@/components/game/NextUnlock";
+import { useMe } from "@/components/game/useMe";
 
 export function Today() {
   const hydrated = useHydrated();
   const s = useProgress();
+  const me = useMe();
   const due = hydrated ? dueCardIds(s.srs).length : 0;
   const next = hydrated ? ALL_LESSONS.find((l) => l.available && !s.completedLessons[l.slug]) : ALL_LESSONS[0];
   const nextMod = next ? moduleById(next.moduleId) : undefined;
-  const lvl = levelInfo(s.xp);
   const streak = hydrated ? displayedStreak(s.streak, dayKey()) : 0;
   const isNew = hydrated && s.xp === 0;
 
-  const week = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    return { day: d.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", ""), xp: hydrated ? (s.dailyXp[dayKey(d)] ?? 0) : 0 };
-  });
-  const maxXp = Math.max(30, ...week.map((w) => w.xp));
-  const weekTotal = week.reduce((a, w) => a + w.xp, 0);
 
   const mastery = (m: Module) => {
     if (!hydrated) return 0;
@@ -36,8 +32,18 @@ export function Today() {
     <div className="mx-auto max-w-6xl px-4 pt-10">
       <section>
         <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
-          {isNew ? "La data science, en manipulant." : "On continue ?"}
+          {isNew ? "La data science, en manipulant." : `On continue, ${me.name} ?`}
         </h1>
+        {!isNew && hydrated && (
+          <p className="mt-2 flex items-center gap-2 font-semibold text-accent">
+            {me.title} · niveau {me.level.level}
+            {streak > 0 && (
+              <span className="flex items-center gap-1 text-flame">
+                · <Flame size={16} fill="currentColor" /> {streak} j
+              </span>
+            )}
+          </p>
+        )}
         <p className="mt-3 max-w-2xl text-lg text-muted">
           {isNew
             ? "Statistiques, machine learning, deep learning, LLM. Tu prédis, tu manipules, tu relèves des défis, puis tes révisions reviennent juste avant que tu oublies."
@@ -88,34 +94,13 @@ export function Today() {
             </span>
           </Link>
 
-          <div className="card p-5">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 font-semibold">
-                <Flame size={18} className={streak > 0 ? "text-flame" : "text-muted"} fill={streak > 0 ? "currentColor" : "none"} />
-                {streak} jour{streak > 1 ? "s" : ""} de suite
-              </span>
-              <span className="flex items-center gap-1 text-sm font-semibold text-[#b45309]">
-                <Zap size={15} fill="currentColor" className="text-xp" />
-                <span className="num">{weekTotal}</span> XP cette semaine
-              </span>
-            </div>
-            <div className="mt-4 flex h-20 items-end gap-2" aria-label="XP gagnée sur les 7 derniers jours">
-              {week.map((w, i) => (
-                <div key={i} className="flex flex-1 flex-col items-center gap-1" title={`${w.xp} XP`}>
-                  <div
-                    className={clsx("w-full rounded-lg", w.xp === 0 ? "bg-sunken" : i === 6 ? "bg-xp" : "bg-accent")}
-                    style={{ height: `${Math.max(6, (w.xp / maxXp) * 56)}px` }}
-                  />
-                  <span className={clsx("text-[11px] capitalize", i === 6 ? "font-bold text-ink" : "text-muted")}>{w.day}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 text-xs text-muted">
-              Niveau {lvl.level} · encore {lvl.needed - lvl.current} XP pour le niveau {lvl.level + 1}
-            </div>
-          </div>
+          <WeeklyGoal compact />
         </div>
       </section>
+
+      <div className="mt-4">
+        <NextUnlock />
+      </div>
 
       <section className="mt-14">
         <div className="flex items-baseline justify-between">

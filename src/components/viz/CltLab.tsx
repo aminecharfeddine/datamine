@@ -87,7 +87,7 @@ export function CltLab({
   const normalPath = line<{ x: number; y: number }>().x((p) => x(p.x)).y((p) => yM(p.y))(normal) ?? "";
 
   return (
-    <LabFrame>
+    <LabFrame labKey={id}>
       {challenge && <ChallengeBanner labId={id} challengeId={challenge} solved={solved} />}
 
       <div className="mb-6 grid gap-x-8 gap-y-4 sm:grid-cols-2">

@@ -5,7 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import { EMPTY_DATA, pickData, useProgress, DATA_KEYS, type ProgressData } from "@/lib/store";
 import { mergeProgress, sameData } from "./merge";
-import { withEarnedBadges } from "@/lib/gamification";
+import { withEarnedBadges } from "@/lib/achievements";
 
 // Synchronisation de la progression avec Supabase.
 // Principe : l'état local reste la source immédiate (l'interface ne bloque jamais) ; à la connexion,

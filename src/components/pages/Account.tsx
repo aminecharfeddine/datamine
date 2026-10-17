@@ -18,6 +18,8 @@ import {
 import { useProgress } from "@/lib/store";
 import { levelInfo } from "@/lib/gamification";
 import { useHydrated } from "@/components/ui/useHydrated";
+import { Avatar } from "@/components/game/Avatar";
+import { useMe } from "@/components/game/useMe";
 
 type Mode = "signup" | "login" | "forgot" | "magic";
 
@@ -343,6 +345,7 @@ function Profile() {
   const [pw, setPw] = useState("");
   const [pwMsg, setPwMsg] = useState<string | null>(null);
   const color = auth.color ?? AVATAR_COLORS[0];
+  const me = useMe();
   const name = auth.pseudo || auth.email!.split("@")[0];
 
   const save = async (patch: { pseudo?: string; color?: string }) => {
@@ -367,12 +370,11 @@ function Profile() {
     <div className="grid gap-6 md:grid-cols-[1.2fr_1fr]">
       <section className="card p-6">
         <div className="flex items-center gap-4">
-          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl font-display text-3xl font-extrabold uppercase text-white" style={{ background: color }}>
-            {name[0]}
-          </span>
+          <Avatar size={84} letter={name} glyph={me.glyph} frame={me.frame} color={color} />
           <div className="min-w-0">
             <div className="truncate font-display text-2xl font-bold">{name}</div>
             <div className="truncate text-sm text-muted">{auth.email}</div>
+            <div className="text-sm font-semibold text-accent">{me.title}</div>
             <div className="mt-1 text-sm font-semibold text-[#b45309]">
               Niveau {lvl.level} · {xp} XP · {lessons} leçon{lessons > 1 ? "s" : ""} terminée{lessons > 1 ? "s" : ""}
             </div>

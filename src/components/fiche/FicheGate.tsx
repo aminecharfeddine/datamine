@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import Link from "next/link";
 import { Download, Lock } from "lucide-react";
 import { useProgress } from "@/lib/store";
@@ -11,6 +12,10 @@ import { useHydrated } from "@/components/ui/useHydrated";
 export function FicheGate({ slug, title, children }: { slug: string; title: string; children: React.ReactNode }) {
   const hydrated = useHydrated();
   const unlocked = useProgress((s) => !!s.completedLessons[slug]);
+  const explore = useProgress((s) => s.explore);
+  useEffect(() => {
+    if (hydrated && unlocked) explore(`fiche:${slug}`);
+  }, [hydrated, unlocked, slug, explore]);
 
   if (!hydrated) return <div className="h-96" aria-busy="true" />;
 

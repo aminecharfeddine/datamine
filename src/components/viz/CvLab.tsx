@@ -29,7 +29,7 @@ export function CvLab({ id = "cv", degree: d0 = 10, k: k0 = 5, challenge }: { id
   const solved = challenge ? CHALLENGES[challenge].check({ degree, k, cv }) : false;
 
   return (
-    <LabFrame>
+    <LabFrame labKey={id}>
       {challenge && <ChallengeBanner labId={id} challengeId={challenge} solved={solved} />}
       <div className="mb-6 grid gap-x-8 gap-y-4 sm:grid-cols-2">
         <Slider label="Degré du polynôme" value={degree} min={0} max={CV_MAX_DEGREE} step={1} onChange={setDegree} display={String(degree)} />

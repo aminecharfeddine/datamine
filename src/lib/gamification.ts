@@ -21,50 +21,7 @@ export function levelInfo(xp: number) {
   return { level, current: xp - floor, needed: ceil - floor, progress: (xp - floor) / (ceil - floor) };
 }
 
-export type BadgeStats = {
-  lessonsCompleted: number;
-  challengesDone: number;
-  reviewsDone: number;
-  streakBest: number;
-  predictionsCorrect: number;
-};
-
-export type Badge = { id: string; title: string; description: string; icon: string; earned: (s: BadgeStats) => boolean };
-
-export const BADGES: Badge[] = [
-  { id: "first-lesson", title: "Premier pas", description: "Terminer une leçon", icon: "◆", earned: (s) => s.lessonsCompleted >= 1 },
-  { id: "first-challenge", title: "Mains dans le cambouis", description: "Réussir un défi", icon: "▲", earned: (s) => s.challengesDone >= 1 },
-  { id: "challenges-5", title: "Chasseur de seuils", description: "Réussir 5 défis", icon: "✦", earned: (s) => s.challengesDone >= 5 },
-  { id: "oracle", title: "Oracle", description: "10 prédictions correctes", icon: "◉", earned: (s) => s.predictionsCorrect >= 10 },
-  { id: "reviews-25", title: "Mémoire longue", description: "25 révisions", icon: "↻", earned: (s) => s.reviewsDone >= 25 },
-  { id: "streak-3", title: "Régulier", description: "Série de 3 jours", icon: "≋", earned: (s) => s.streakBest >= 3 },
-  { id: "streak-7", title: "Inarrêtable", description: "Série de 7 jours", icon: "☼", earned: (s) => s.streakBest >= 7 },
-];
-
-/** Ajoute les badges mérités mais absents (ex. après la fusion de deux appareils). Ne retire jamais rien. */
-export function withEarnedBadges<T extends BadgeStatsSource>(d: T, now = new Date().toISOString()): T {
-  const stats: BadgeStats = {
-    lessonsCompleted: Object.keys(d.completedLessons).length,
-    challengesDone: d.challengesDone,
-    reviewsDone: d.reviewsDone,
-    streakBest: d.streak.best,
-    predictionsCorrect: d.predictionsCorrect,
-  };
-  const missing = BADGES.filter((b) => !d.badges[b.id] && b.earned(stats));
-  if (!missing.length) return d;
-  const badges = { ...d.badges };
-  missing.forEach((b) => (badges[b.id] = now));
-  return { ...d, badges };
-}
-
-type BadgeStatsSource = {
-  completedLessons: Record<string, string>;
-  challengesDone: number;
-  reviewsDone: number;
-  predictionsCorrect: number;
-  streak: { best: number };
-  badges: Record<string, string>;
-};
+// Les succès sont définis dans achievements.ts, les cosmétiques dans cosmetics.ts.
 
 /** Date locale au format YYYY-MM-DD. */
 export const dayKey = (d = new Date()) =>

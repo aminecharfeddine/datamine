@@ -1,5 +1,7 @@
 "use client";
 import clsx from "clsx";
+import { useLesson } from "@/components/pedago/LessonContext";
+import { useProgress } from "@/lib/store";
 
 export function Slider(props: {
   label: string;
@@ -78,10 +80,20 @@ export function LabButton({ children, onClick, primary, disabled }: { children: 
   );
 }
 
-/** Cadre commun des labos. */
-export function LabFrame({ children }: { children: React.ReactNode }) {
+/** Cadre commun des labos. La première manipulation compte pour les succès de curiosité. */
+export function LabFrame({ labKey, children }: { labKey?: string; children: React.ReactNode }) {
+  const { slug } = useLesson();
+  const explore = useProgress((s) => s.explore);
+  const touched = () => {
+    if (labKey) explore(`lab:${slug}:${labKey}`);
+  };
   return (
-    <figure className="not-prose card my-10 -mx-4 rounded-none border-x-0 px-4 py-6 sm:mx-0 sm:rounded-3xl sm:border-x sm:p-7">
+    <figure
+      onPointerDownCapture={touched}
+      onKeyDownCapture={touched}
+      onChangeCapture={touched}
+      className="not-prose card my-10 -mx-4 rounded-none border-x-0 px-4 py-6 sm:mx-0 sm:rounded-3xl sm:border-x sm:p-7"
+    >
       {children}
     </figure>
   );

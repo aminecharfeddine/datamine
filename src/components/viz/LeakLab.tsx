@@ -34,7 +34,7 @@ export function LeakLab({ id = "leak", challenge }: { id?: string; challenge?: s
   const y = scaleLinear().domain([0, 1]).range([H - PAD, PAD]);
 
   return (
-    <LabFrame>
+    <LabFrame labKey={id}>
       {challenge && <ChallengeBanner labId={id} challengeId={challenge} solved={solved} />}
       <p className="mb-5 rounded-xl bg-paper p-3 text-sm text-muted">
         {N} patients, {P.toLocaleString("fr-FR")} variables de <strong className="text-ink">pur bruit aléatoire</strong>, et une étiquette malade / sain tirée à pile ou face. Aucun modèle ne peut faire mieux que <strong className="text-ink">50 %</strong> sur de nouvelles données. Pipeline : garder les {M} variables les plus corrélées à l'étiquette, puis classer par plus proche centroïde, évalué en validation croisée à 5 plis.

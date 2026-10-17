@@ -56,7 +56,7 @@ export function PolyFitLab({
   const solved = challenge ? CHALLENGES[challenge].check({ degree, n, noise, train, test, trainMse, testMse }) : false;
 
   return (
-    <LabFrame>
+    <LabFrame labKey={id}>
       {challenge && <ChallengeBanner labId={id} challengeId={challenge} solved={solved} />}
 
       <div className="mb-6 grid gap-x-8 gap-y-4 sm:grid-cols-3">

@@ -31,7 +31,7 @@ export function KnnLab({ id = "knn", k: k0 = 1, allowScale = false, challenge }:
   const solved = challenge ? CHALLENGES[challenge].check({ k, scaled, testAcc, bestAcc }) : false;
 
   return (
-    <LabFrame>
+    <LabFrame labKey={id}>
       {challenge && <ChallengeBanner labId={id} challengeId={challenge} solved={solved} />}
       <div className="mb-6 grid gap-x-8 gap-y-4 sm:grid-cols-2">
         <Slider label="Nombre de voisins k" value={k} min={1} max={149} step={2} onChange={setK} display={String(k)} />

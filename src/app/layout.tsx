@@ -3,6 +3,8 @@ import "./globals.css";
 import { Header } from "@/components/ui/Header";
 import { Toaster } from "@/components/ui/Toaster";
 import { SyncProvider } from "@/components/ui/SyncProvider";
+import { Celebrations } from "@/components/game/Celebrations";
+import { ThemeApplier } from "@/components/game/ThemeApplier";
 
 export const metadata: Metadata = {
   title: { default: "Datamine · Apprendre la data science en manipulant", template: "%s · Datamine" },
@@ -31,6 +33,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
         <Toaster />
         <SyncProvider />
+        <ThemeApplier />
+        <Celebrations />
       </body>
     </html>
   );

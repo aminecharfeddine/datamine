@@ -2,6 +2,9 @@
 import Link from "next/link";
 import clsx from "clsx";
 import { useAuth } from "@/lib/sync/sync";
+import { Avatar } from "@/components/game/Avatar";
+import { useMe } from "@/components/game/useMe";
+import { useHydrated } from "./useHydrated";
 
 const DOT: Record<string, string> = {
   synced: "bg-good-bg",
@@ -10,8 +13,10 @@ const DOT: Record<string, string> = {
 };
 
 export function AccountChip() {
-  const { status, email, pseudo, color } = useAuth();
-  if (status === "loading") return <span className="h-9 w-9" />;
+  const { status, email } = useAuth();
+  const me = useMe();
+  const hydrated = useHydrated();
+  if (status === "loading") return <span className="h-11 w-11" />;
   if (!email)
     return (
       <Link href="/compte" className="btn-ghost px-3 py-1.5 text-sm">
@@ -19,15 +24,9 @@ export function AccountChip() {
       </Link>
     );
   return (
-    <Link
-      href="/compte"
-      className="relative flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold uppercase text-white"
-      style={{ background: color ?? "var(--accent)" }}
-      title={pseudo ?? email}
-      aria-label={`Compte de ${pseudo ?? email}`}
-    >
-      {(pseudo ?? email)[0]}
-      <span className={clsx("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-surface", DOT[status] ?? "bg-muted")} />
+    <Link href="/profil" className="relative block" title={`${me.name} · ${me.title}`} aria-label={`Profil de ${me.name}`}>
+      <Avatar size={44} letter={me.letter} glyph={hydrated ? me.glyph : undefined} frame={hydrated ? me.frame : "f-none"} color={me.color} />
+      <span className={clsx("absolute bottom-1 right-1 h-3 w-3 rounded-full ring-2 ring-surface", DOT[status] ?? "bg-muted")} />
     </Link>
   );
 }

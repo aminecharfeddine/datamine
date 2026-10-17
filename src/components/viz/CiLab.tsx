@@ -55,7 +55,7 @@ export function CiLab({
   const x = scaleLinear().domain([CI_MU - 14, CI_MU + 14]).range([10, W - 10]).clamp(true);
 
   return (
-    <LabFrame>
+    <LabFrame labKey={id}>
       {challenge && <ChallengeBanner labId={id} challengeId={challenge} solved={solved} />}
 
       <div className="mb-6 grid gap-x-8 gap-y-4 sm:grid-cols-2">

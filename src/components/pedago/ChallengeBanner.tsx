@@ -13,6 +13,7 @@ export function ChallengeBanner({ labId, challengeId, solved }: { labId: string;
   const key = `${slug}:challenge:${labId}:${challengeId}`;
   const already = useProgress((s) => !!s.awarded[key]);
   const record = useProgress((s) => s.recordChallenge);
+  const explore = useProgress((s) => s.explore);
   const [hint, setHint] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -55,7 +56,11 @@ export function ChallengeBanner({ labId, challengeId, solved }: { labId: string;
               <Lightbulb size={16} className="mt-0.5 shrink-0" /> {ch.hint}
             </p>
           ) : (
-            <button onClick={() => setHint(true)} className="mt-2 text-sm font-semibold text-[#b54708] underline underline-offset-4">
+            <button
+              onClick={() => {
+                setHint(true);
+                explore(`hint:${key}`); // un défi réussi après l'indice ne compte pas pour « Sans filet »
+              }} className="mt-2 text-sm font-semibold text-[#b54708] underline underline-offset-4">
               Afficher un indice
             </button>
           ))}

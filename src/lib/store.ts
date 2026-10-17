@@ -3,8 +3,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { createEmptyCard, fsrs, generatorParameters, Rating, type Card, type Grade } from "ts-fsrs";
-import { BADGES, dayKey, touchStreak, XP, type BadgeStats, type Streak } from "./gamification";
-import { cardsForConcepts, CARDS } from "./cards";
+import { dayKey, levelInfo, touchStreak, XP, type Streak } from "./gamification";
+import { newlyEarned } from "./achievements";
+import { describeUnlock, unlockedBetweenLevels, unlockedByBadge, type Cosmetic, type Equipped, type Slot } from "./cosmetics";
+import { cardsForConcepts } from "./cards";
 
 // Stockage local (mode invité). La phase 2 synchronisera ce même état avec Supabase.
 
@@ -15,7 +17,10 @@ export type StoredCard = Omit<Card, "due" | "last_review"> & { due: string; last
 export type ReviewLogEntry = { c: string; g: number; t: string };
 export const REVIEW_LOG_MAX = 500;
 
-export type Toast = { id: number; text: string; tone: "xp" | "badge" | "info" };
+export type Toast = { id: number; text: string; tone: "xp" | "badge" | "info" | "level"; detail?: string };
+
+/** Moment de célébration : petit (défi réussi) ou grand (leçon terminée, niveau, succès). */
+export type Celebration = { id: number; size: "small" | "big"; effect?: string };
 
 /** Données de progression sérialisables (ce qui est stocké localement et dans Supabase). */
 export type ProgressData = {
@@ -34,11 +39,15 @@ export type ProgressData = {
   answers: Record<string, number>;
   /** Historique chronologique des révisions. */
   reviewLog: ReviewLogEntry[];
+  /** Traces d'exploration (labos manipulés, fiches lues, indices affichés…), pour les succès de curiosité et de rigueur. */
+  explored: Record<string, true>;
+  /** Cosmétiques équipés (u = date du dernier changement, pour la fusion entre appareils). */
+  cosmetics: Equipped;
 };
 
 export const DATA_KEYS = [
   "xp", "dailyXp", "awarded", "discovered", "completedLessons", "challengesDone",
-  "predictionsCorrect", "reviewsDone", "streak", "srs", "badges", "answers", "reviewLog",
+  "predictionsCorrect", "reviewsDone", "streak", "srs", "badges", "answers", "reviewLog", "explored", "cosmetics",
 ] as const satisfies readonly (keyof ProgressData)[];
 
 export function pickData(s: ProgressData): ProgressData {
@@ -63,6 +72,7 @@ type ProgressState = ProgressData & {
   srs: Record<string, StoredCard>;
   badges: Record<string, string>;
   toasts: Toast[];
+  celebrations: Celebration[];
 
   award: (key: string | null, amount: number, label: string) => boolean;
   recordPrediction: (key: string, correct: boolean) => void;
@@ -77,6 +87,11 @@ type ProgressState = ProgressData & {
   completeLesson: (slug: string, concepts: string[]) => void;
   review: (cardId: string, grade: Grade) => void;
   dismissToast: (id: number) => void;
+  /** Note une exploration (idempotent). */
+  explore: (key: string) => void;
+  equip: (slot: Slot, id: string) => void;
+  celebrate: (size: Celebration["size"], effect?: string) => void;
+  endCelebration: (id: number) => void;
   reset: () => void;
 };
 
@@ -121,6 +136,8 @@ export const EMPTY_DATA: ProgressData = {
   badges: {},
   answers: {},
   reviewLog: [],
+  explored: {},
+  cosmetics: {},
 };
 
 const initial = {
@@ -138,33 +155,37 @@ const initial = {
   badges: {},
   answers: {} as Record<string, number>,
   reviewLog: [] as ReviewLogEntry[],
+  explored: {} as Record<string, true>,
+  cosmetics: {} as Equipped,
   toasts: [] as Toast[],
+  celebrations: [] as Celebration[],
 };
 
 export const useProgress = create<ProgressState>()(
   persist(
     (set, get) => {
-      const pushToast = (text: string, tone: Toast["tone"]) => {
+      const pushToast = (text: string, tone: Toast["tone"], detail?: string) => {
         const id = ++toastSeq;
-        set((s) => ({ toasts: [...s.toasts, { id, text, tone }] }));
-        setTimeout(() => get().dismissToast(id), 2600);
+        set((s) => ({ toasts: [...s.toasts, { id, text, tone, detail }] }));
+        setTimeout(() => get().dismissToast(id), detail ? 5200 : 2600);
       };
 
+      const celebrate = (size: Celebration["size"], effect?: string) => {
+        const id = ++toastSeq;
+        set((s) => ({ celebrations: [...s.celebrations.slice(-2), { id, size, effect }] }));
+        setTimeout(() => get().endCelebration(id), 2200);
+      };
+
+      const unlockDetail = (items: Cosmetic[]) =>
+        items.length ? `Débloque ${items.map(describeUnlock).join(", ")}.` : undefined;
+
       const checkBadges = () => {
-        const s = get();
-        const stats: BadgeStats = {
-          lessonsCompleted: Object.keys(s.completedLessons).length,
-          challengesDone: s.challengesDone,
-          reviewsDone: s.reviewsDone,
-          streakBest: s.streak.best,
-          predictionsCorrect: s.predictionsCorrect,
-        };
-        for (const b of BADGES) {
-          if (!s.badges[b.id] && b.earned(stats)) {
-            set((st) => ({ badges: { ...st.badges, [b.id]: new Date().toISOString() } }));
-            pushToast(`Badge débloqué · ${b.icon} ${b.title}`, "badge");
-          }
-        }
+        const earned = newlyEarned(get());
+        if (!earned.length) return;
+        const now = new Date().toISOString();
+        set((st) => ({ badges: { ...st.badges, ...Object.fromEntries(earned.map((x) => [x.id, now])) } }));
+        for (const x of earned) pushToast(`Succès débloqué · ${x.title}`, "badge", unlockDetail(unlockedByBadge(x.id)));
+        celebrate("big");
       };
 
       return {
@@ -173,6 +194,11 @@ export const useProgress = create<ProgressState>()(
         award: (key, amount, label) => {
           if (key && get().awarded[key]) return false;
           const today = dayKey();
+          const levelBefore = levelInfo(get().xp).level;
+          // Moment de la journée (succès secrets « Noctambule » et « Lève-tôt »).
+          const hour = new Date().getHours();
+          if (hour < 5) get().explore("time:night");
+          else if (hour < 7) get().explore("time:early");
           set((s) => ({
             xp: s.xp + amount,
             dailyXp: { ...s.dailyXp, [today]: (s.dailyXp[today] ?? 0) + amount },
@@ -180,6 +206,11 @@ export const useProgress = create<ProgressState>()(
             streak: touchStreak(s.streak, today),
           }));
           pushToast(`+${amount} XP · ${label}`, "xp");
+          const levelAfter = levelInfo(get().xp).level;
+          if (levelAfter > levelBefore) {
+            pushToast(`Niveau ${levelAfter} atteint`, "level", unlockDetail(unlockedBetweenLevels(levelBefore, levelAfter)));
+            celebrate("big");
+          }
           checkBadges();
           return true;
         },
@@ -218,6 +249,7 @@ export const useProgress = create<ProgressState>()(
         recordChallenge: (key) => {
           if (get().awarded[key]) return;
           set((s) => ({ challengesDone: s.challengesDone + 1 }));
+          celebrate("small");
           get().award(key, XP.challenge, "Défi réussi");
         },
 
@@ -246,7 +278,10 @@ export const useProgress = create<ProgressState>()(
           });
           const firstTime = !s.completedLessons[slug];
           get().award(`lesson:${slug}`, XP.lessonComplete, "Leçon terminée");
-          if (firstTime) pushToast("Fiche récap débloquée", "info");
+          if (firstTime) {
+            pushToast("Fiche récap débloquée", "info");
+            celebrate("big");
+          }
           checkBadges();
         },
 
@@ -270,6 +305,18 @@ export const useProgress = create<ProgressState>()(
 
         dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
+        explore: (key) => {
+          if (get().explored[key]) return;
+          set((s) => ({ explored: { ...s.explored, [key]: true } }));
+          checkBadges();
+        },
+
+        equip: (slot, id) => set((s) => ({ cosmetics: { ...s.cosmetics, [slot]: id, u: new Date().toISOString() } })),
+
+        celebrate,
+
+        endCelebration: (id) => set((s) => ({ celebrations: s.celebrations.filter((c) => c.id !== id) })),
+
         setData: (data, ownerId) => set({ ...EMPTY_DATA, ...data, ownerId }),
 
         reset: () => set({ ...initial }),
@@ -278,7 +325,7 @@ export const useProgress = create<ProgressState>()(
     {
       name: "datamine-progress-v1",
       version: 1,
-      partialize: ({ toasts, ...rest }) => rest,
+      partialize: ({ toasts, celebrations, ...rest }) => rest,
     },
   ),
 );
@@ -292,24 +339,7 @@ export function dueCardIds(srs: Record<string, StoredCard>, now = new Date()) {
     .map(([id]) => id);
 }
 
-export const MASTERY_LABELS = ["Non vu", "Découvert", "Pratiqué", "Maîtrisé", "Consolidé"] as const;
-
-/** Niveau de maîtrise 0-4 d'un concept, dérivé de la progression et de la stabilité FSRS. */
-export function conceptLevel(
-  state: Pick<ProgressState, "discovered" | "srs">,
-  concept: string,
-): 0 | 1 | 2 | 3 | 4 {
-  const cards = CARDS.filter((c) => c.concept === concept);
-  const stored = cards.map((c) => state.srs[c.id]).filter(Boolean);
-  if (stored.length > 0 && stored.length === cards.length) {
-    const reviewed = stored.every((c) => c.reps > 0);
-    const minStab = Math.min(...stored.map((c) => c.stability));
-    if (reviewed && minStab >= 21) return 4;
-    if (reviewed && minStab >= 5) return 3;
-    return 2;
-  }
-  return state.discovered[concept] ? 1 : 0;
-}
+export { MASTERY_LABELS, conceptLevel } from "./mastery";
 
 /** Date de prochaine révision pour chaque note possible (affichée sur les boutons). */
 export function previewDue(stored: StoredCard, now = new Date()) {

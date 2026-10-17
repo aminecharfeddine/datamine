@@ -64,7 +64,7 @@ export function AbLab({
       .y1((v) => y(normalPdf(v, 0, se0)))(xs.filter((v) => side * v >= thr)) ?? "";
 
   return (
-    <LabFrame>
+    <LabFrame labKey={id}>
       {challenge && <ChallengeBanner labId={id} challengeId={challenge} solved={solved} />}
 
       <div className="mb-6 grid gap-x-8 gap-y-4 sm:grid-cols-2">

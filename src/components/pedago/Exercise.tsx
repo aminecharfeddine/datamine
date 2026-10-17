@@ -47,6 +47,7 @@ export function Exercise({
   const { slug } = useLesson();
   const record = useProgress((s) => s.recordExercise);
   const remember = useProgress((s) => s.rememberAnswer);
+  const explore = useProgress((s) => s.explore);
   const key = `${slug}:exercise:${id}`;
   const saved = useProgress((s) => s.answers[key]);
   const [value, setValue] = useState("");
@@ -71,6 +72,8 @@ export function Exercise({
     if (isClose(v, answer, tol)) {
       setState("right");
       remember(key, v, "last");
+      if (tries === 0) explore(`ex-first:${key}`);
+      if (tries >= 2) explore(`ex-persist:${key}`);
       record(key);
     } else {
       setState("wrong");

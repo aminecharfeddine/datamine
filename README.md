@@ -28,6 +28,17 @@ Configuration à faire une fois dans le tableau de bord Supabase :
 
 Fonctionnement : la progression reste locale pour une interface instantanée ; à la connexion, au retour sur l'onglet et 1,5 s après chaque changement, l'app fait « lire → fusionner → écrire ». La fusion (`src/lib/sync/merge.ts`) est commutative et idempotente : plusieurs appareils convergent sans jamais perdre de progrès. Un état local appartenant à un autre compte n'est jamais fusionné.
 
+## Gamification
+
+Principe : l'XP ne récompense que des actes d'apprentissage (prédire, réussir un défi ou un exercice, réviser, terminer une leçon). Tout le reste en découle.
+
+- **Niveaux et rangs** (`gamification.ts`, `cosmetics.ts`) : le titre par défaut suit le niveau, de « Point de donnée » à « Oracle bayésien ».
+- **Succès** (`achievements.ts`) : 40 succès en cinq familles (régularité, maîtrise, rigueur, curiosité, secrets), avec paliers bronze, argent, or et platine. Tous sont dérivés de la progression ; un test vérifie le catalogue.
+- **Atlas** : chaque concept est une carte dont l'apparence suit sa maîtrise mesurée par FSRS (`mastery.ts`), jusqu'à une version holographique une fois consolidé.
+- **Atelier** : glyphes d'avatar, cadres inspirés de visualisations, thèmes d'accent, titres et célébrations, débloqués par niveau ou par succès. Purement visuels.
+- **Objectif hebdomadaire** : 4 jours d'apprentissage sur 7, plus doux qu'une série quotidienne.
+- Les explorations (labos manipulés, fiches lues, indices affichés…) sont stockées dans `explored` et synchronisées ; les cosmétiques équipés dans `cosmetics` (le changement le plus récent gagne).
+
 ## Stack
 
 - **Next.js 16** (App Router, Turbopack) + TypeScript
@@ -51,11 +62,15 @@ src/
     pedago/               Predict, Quiz, Callout, LessonComplete (utilisables dans le MDX)
     viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab)
     pages/                écrans client (Today, SkillTree, Review, Profile)
+    game/                 avatar et cadres, médailles, célébrations, onglets Succès / Atlas / Atelier
   lib/
     curriculum.ts         modules → concepts → leçons (source de vérité du parcours)
     cards.ts              cartes de révision par concept
     challenges.ts         défis auto-validés des visualisations
-    gamification.ts       XP, niveaux, séries, badges
+    gamification.ts       XP, niveaux, séries
+    achievements.ts       succès (catalogue, statistiques dérivées de la progression)
+    cosmetics.ts          cosmétiques de l'Atelier et règles de déblocage
+    mastery.ts            niveau de maîtrise d'un concept (Atlas)
     store.ts              état de progression + FSRS
     metrics.ts            métriques de classification (pures, testées)
     sims.ts               calculs des labos : Bayes, descente de gradient, TCL, IC, tests A/B, polynômes, ridge
