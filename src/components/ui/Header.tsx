@@ -46,7 +46,7 @@ export function Header() {
 
   return (
     <header className="site-header sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:gap-6">
         <Logo />
         <nav className="hidden gap-1 md:flex">
           {NAV.map((n) => (
@@ -65,7 +65,7 @@ export function Header() {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
           <span
             className={clsx("flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-sm font-bold", days > 0 ? "bg-flame/10 text-flame" : "text-muted")}
             title="Série de jours consécutifs"
@@ -78,7 +78,10 @@ export function Header() {
             title={`${lvl.current} / ${lvl.needed} XP avant le niveau ${lvl.level + 1}`}
           >
             <Zap size={17} strokeWidth={2.6} fill="currentColor" />
-            <span className="num">Niv. {hydrated ? lvl.level : "–"}</span>
+            <span className="num whitespace-nowrap">
+              <span className="hidden sm:inline">Niv. </span>
+              {hydrated ? lvl.level : "–"}
+            </span>
             <span className="hidden h-2 w-14 overflow-hidden rounded-full bg-xp/25 sm:block">
               <span className="block h-full rounded-full bg-xp transition-all" style={{ width: `${hydrated ? lvl.progress * 100 : 0}%` }} />
             </span>

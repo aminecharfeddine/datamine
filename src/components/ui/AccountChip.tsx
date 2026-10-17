@@ -19,7 +19,7 @@ export function AccountChip() {
   if (status === "loading") return <span className="h-11 w-11" />;
   if (!email)
     return (
-      <Link href="/compte" className="btn-ghost px-3 py-1.5 text-sm">
+      <Link href="/compte" className="btn-ghost whitespace-nowrap px-3 py-1.5 text-sm">
         Se connecter
       </Link>
     );

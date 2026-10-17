@@ -1,7 +1,7 @@
 import { CARDS } from "./cards";
 
 // Niveau de maîtrise d'un concept, dérivé de la progression et de la mémoire mesurée par FSRS.
-// Module pur (sans état) pour pouvoir être utilisé par le store, les succès et l'Atlas.
+// Module pur (sans état) pour pouvoir être utilisé par le store, et les succès.
 
 export const MASTERY_LABELS = ["Non vu", "Découvert", "Pratiqué", "Maîtrisé", "Consolidé"] as const;
 export type MasteryLevel = 0 | 1 | 2 | 3 | 4;

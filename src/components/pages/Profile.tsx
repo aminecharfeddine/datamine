@@ -13,15 +13,13 @@ import { useMe } from "@/components/game/useMe";
 import { WeeklyGoal } from "@/components/game/WeeklyGoal";
 import { NextUnlock } from "@/components/game/NextUnlock";
 import { AchievementsTab } from "@/components/game/AchievementsTab";
-import { AtlasTab } from "@/components/game/AtlasTab";
-import { AtelierTab } from "@/components/game/AtelierTab";
+import { VestiaireTab } from "@/components/game/VestiaireTab";
 import { Medal } from "@/components/game/Medal";
 
 const TABS = [
   { id: "apercu", label: "Vue d'ensemble" },
   { id: "succes", label: "Succès" },
-  { id: "atlas", label: "Atlas" },
-  { id: "atelier", label: "Atelier" },
+  { id: "vestiaire", label: "Vestiaire" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
@@ -90,10 +88,8 @@ export function Profile() {
           <Overview onGo={go} />
         ) : tab === "succes" ? (
           <AchievementsTab />
-        ) : tab === "atlas" ? (
-          <AtlasTab />
         ) : (
-          <AtelierTab />
+          <VestiaireTab />
         )}
       </div>
     </div>

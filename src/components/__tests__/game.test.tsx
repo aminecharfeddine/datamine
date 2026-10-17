@@ -77,11 +77,12 @@ describe("profil et atelier", () => {
     await act(async () => {});
     expect(screen.getByText("Objectif de la semaine")).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Succès" }));
-    expect(screen.getByText(/succès obtenus/)).toBeTruthy();
-    expect(screen.getAllByText("Succès secret").length).toBe(3);
-    fireEvent.click(screen.getByRole("tab", { name: "Atlas" }));
-    expect(screen.getByText(/maîtrisés/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: "Atelier" }));
+    expect(screen.getAllByText("???").length).toBe(3);
+    fireEvent.click(screen.getByText("Premier pas"));
+    expect(screen.getByText("Terminer une leçon.")).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "Atlas" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Vestiaire" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Titre/ }));
     expect(screen.getByText("Rang automatique")).toBeTruthy();
   });
   it("équiper un thème débloqué change l'accent du site ; un thème verrouillé ne s'équipe pas", async () => {
@@ -93,15 +94,17 @@ describe("profil et atelier", () => {
       </>,
     );
     await act(async () => {});
-    fireEvent.click(screen.getByRole("tab", { name: "Atelier" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Vestiaire" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Thème/ }));
     fireEvent.click(screen.getByText("Prune"));
     expect(useProgress.getState().cosmetics.theme).toBeUndefined();
+    expect(screen.getByText(/Aperçu · Niveau 9/)).toBeTruthy();
     fireEvent.click(screen.getByText("Émeraude"));
     expect(useProgress.getState().cosmetics.theme).toBe("th-emeraude");
     await act(async () => {});
     expect(document.documentElement.style.getPropertyValue("--accent")).toBe("#047857");
   });
-  it("« Essayer » joue la célébration choisie", async () => {
+  it("équiper une célébration la joue", async () => {
     act(() => useProgress.setState({ xp: xpForLevel(5) }));
     const { container } = render(
       <>
@@ -110,8 +113,9 @@ describe("profil et atelier", () => {
       </>,
     );
     await act(async () => {});
-    fireEvent.click(screen.getByRole("tab", { name: "Atelier" }));
-    fireEvent.click(screen.getAllByText("Essayer")[1]);
+    fireEvent.click(screen.getByRole("tab", { name: "Vestiaire" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Célébration/ }));
+    fireEvent.click(screen.getByText("Confettis"));
     expect(useProgress.getState().celebrations.at(-1)?.effect).toBe("e-confetti");
     expect(container.querySelector(".pointer-events-none.fixed")).toBeTruthy();
   });

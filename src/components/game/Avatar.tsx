@@ -146,6 +146,8 @@ export function Avatar({
   glyph,
   frame = "f-none",
   color = "var(--accent)",
+  textColor = "white",
+  frameColor,
   className,
 }: {
   size?: number;
@@ -153,6 +155,8 @@ export function Avatar({
   glyph?: string;
   frame?: string;
   color?: string;
+  textColor?: string;
+  frameColor?: string;
   className?: string;
 }) {
   const text = glyph ?? letter.slice(0, 1).toUpperCase();
@@ -164,14 +168,14 @@ export function Avatar({
         y={C}
         dy="0.35em"
         textAnchor="middle"
-        fill="white"
+        fill={textColor}
         fontSize={glyph ? 38 : 34}
         fontWeight={800}
         style={{ fontFamily: glyph ? "Georgia, 'Times New Roman', serif" : "var(--font-display)" }}
       >
         {text}
       </text>
-      <Frame id={frame} color={color} />
+      <Frame id={frame} color={frameColor ?? color} />
     </svg>
   );
 }

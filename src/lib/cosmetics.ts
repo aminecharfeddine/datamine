@@ -1,4 +1,4 @@
-// Atelier : cosmétiques à équiper. Chaque niveau en débloque, certains succès aussi.
+// Vestiaire : cosmétiques à équiper. Chaque niveau en débloque, certains succès aussi.
 // Purement visuels : ils récompensent sans jamais changer la difficulté ni le contenu.
 
 import { levelInfo } from "./gamification";
@@ -109,6 +109,13 @@ export function unlockLabel(c: Cosmetic) {
   if ("level" in c.unlock) return `Niveau ${c.unlock.level}`;
   const ach = achievementById(c.unlock.badge);
   return ach ? (ach.secret ? "Succès secret" : `Succès « ${ach.title} »`) : "Succès";
+}
+
+/** Condition de déblocage, version courte pour les vignettes. */
+export function unlockShort(c: Cosmetic) {
+  if ("level" in c.unlock) return `Niveau ${c.unlock.level}`;
+  const ach = achievementById(c.unlock.badge);
+  return ach ? (ach.secret ? "Secret" : ach.title) : "Succès";
 }
 
 /** Titre de rang correspondant à un niveau. */
