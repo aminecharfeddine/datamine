@@ -1,0 +1,42 @@
+<FicheSection kind="essentiel">
+- Neurone : somme pondérée puis activation. Avec la sigmoïde, c'est une régression logistique.
+- MLP : des couches de neurones empilées ; chaque couche calcule $\varphi(Wx + b)$.
+- Sans activation non linéaire, un réseau profond équivaut à **une seule** couche linéaire.
+- Chaque neurone ReLU ou tanh découpe l'espace par un hyperplan ; les couches suivantes combinent ces découpes.
+- Approximation universelle : une couche cachée assez large suffit en théorie ; la profondeur est plus efficace en pratique.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+h = \varphi(W_1 x + b_1) \qquad \hat p = \sigma(W_2 h + b_2)
+$$
+
+$$
+\text{ReLU}(z) = \max(0, z) \qquad \tanh(z) = \frac{e^z - e^{-z}}{e^z + e^{-z}}
+$$
+
+Paramètres de `nn.Linear(d_in, d_out)` : $d_{in} \cdot d_{out} + d_{out}$.
+
+Mémoire : 4 octets par paramètre en float32, 2 en float16/bfloat16.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Appliquer sigmoïde ou softmax avant `BCEWithLogitsLoss` ou `CrossEntropyLoss` : double application.
+- Initialiser les poids à zéro : symétrie, tous les neurones restent identiques.
+- Sigmoïde dans les couches cachées d'un réseau profond : gradients qui s'évanouissent.
+- Oublier que la 1ʳᵉ dimension est le batch : erreurs de forme.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Pourquoi des activations non linéaires ?** Sinon la composition de couches reste affine : aucun gain d'expressivité.
+
+**Logit ?** Score avant sigmoïde ou softmax ; les losses les prennent en entrée pour la stabilité numérique.
+
+**Pourquoi ReLU ?** Dérivée 1 sur la partie active (pas de vanishing gradient), calcul trivial.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Commenter la forme attendue de chaque tenseur, et vérifier avec `assert x.shape == ...`.
+- `sum(p.numel() for p in model.parameters())` pour compter les paramètres.
+- À l'inférence, `torch.sigmoid(logits)` ou `logits.softmax(-1)` pour obtenir des probabilités.
+</FicheSection>

@@ -22,11 +22,19 @@ import { TreeLab } from "@/components/viz/TreeLab";
 import { SigmoidLab, LogRegLab } from "@/components/viz/LogisticLab";
 import { ForestLab, BoostLab } from "@/components/viz/EnsembleLab";
 import { KMeansLab } from "@/components/viz/KMeansLab";
+import { NeuralLab } from "@/components/viz/NeuralLab";
+import { BackpropLab } from "@/components/viz/BackpropLab";
+import { TrainLoopLab } from "@/components/viz/TrainLoopLab";
+import { BpeLab } from "@/components/viz/BpeLab";
+import { AttentionLab, AttentionMatrixLab } from "@/components/viz/AttentionLab";
+import { CodeBlock, MdxPre } from "@/components/code/Code";
+import { CodeChoice } from "@/components/code/CodeChoice";
+import { Parsons } from "@/components/code/Parsons";
 import { NormBalls } from "@/components/viz/NormBalls";
 import { LearningCurves } from "@/components/viz/LearningCurves";
 
 // Composants disponibles dans toutes les leçons MDX, sans import.
-const components: MDXComponents = { Predict, Quiz, Callout, Exercise, Interview, Recap, FicheSection, LessonComplete, ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab, AbLab, CiLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NormBalls, LearningCurves };
+const components: MDXComponents = { Predict, Quiz, Callout, Exercise, Interview, Recap, FicheSection, LessonComplete, ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab, AbLab, CiLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab, CodeBlock, CodeChoice, Parsons, pre: MdxPre, NormBalls, LearningCurves };
 
 export function useMDXComponents(): MDXComponents {
   return components;

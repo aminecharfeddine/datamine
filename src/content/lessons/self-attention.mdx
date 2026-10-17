@@ -1,0 +1,190 @@
+<Predict
+  id="hook"
+  question="« Le chat dort car il est fatigué. » Pour construire une bonne représentation du token « il », de quoi le modèle a-t-il surtout besoin ?"
+  options={[
+    "Du token juste avant lui, « car »",
+    "D'aller chercher l'information portée par « chat », plus loin dans la phrase",
+    "De la moyenne de tous les tokens de la phrase",
+    "De rien d'autre que « il » lui-même",
+  ]}
+  answer={1}
+>
+Le sens de « il » se trouve ailleurs : chez « chat ». Les anciens réseaux récurrents (RNN) lisaient la phrase token par token en résumant tout le passé dans un seul vecteur, et l'information lointaine s'y diluait. La **self-attention** permet à chaque token d'aller **chercher directement** l'information dont il a besoin chez n'importe quel autre token, en un seul pas, et pour tous les tokens en parallèle. C'est le cœur du Transformer, et donc de tous les LLM.
+</Predict>
+
+## Query, key, value
+
+Chaque token arrive avec un vecteur $x_i$ (son embedding, enrichi par les couches précédentes). Trois matrices apprises en tirent trois vecteurs :
+
+- une **query** $q_i = W_Q x_i$ : « ce que je cherche » ;
+- une **key** $k_i = W_K x_i$ : « ce que je propose, comme étiquette » ;
+- une **value** $v_i = W_V x_i$ : « l'information que je transmets si on me choisit ».
+
+Le token $i$ compare sa query à toutes les keys par **produit scalaire**, transforme ces scores en poids avec un softmax, puis fait la moyenne pondérée des values. En écrivant toutes les queries, keys et values comme les lignes des matrices $Q$, $K$, $V$ :
+
+$$
+\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{Q K^\top}{\sqrt{d_k}}\right) V
+$$
+
+C'est une **recherche floue dans une base de données** : au lieu de renvoyer la seule entrée dont la clé correspond exactement, on renvoie un mélange de toutes les entrées, pondéré par la ressemblance des clés avec la requête.
+
+Ci-dessous, les keys sont réduites à 2 dimensions pour qu'on puisse les voir. Oriente la query de « il » :
+
+<AttentionLab id="query" challenge="attn-focus" />
+
+La **direction** de la query choisit vers quelles keys regarder ; sa **norme** règle la netteté du softmax : une query longue concentre l'attention sur la meilleure key, une query courte la répartit. Dans un vrai modèle, $W_Q$ et $W_K$ sont appris pour que les queries des pronoms pointent vers les keys des noms qu'ils remplacent, entre mille autres relations.
+
+## Pourquoi diviser par √d
+
+<Exercise
+  id="variance"
+  question="Les composantes de q et k sont indépendantes, de moyenne 0 et de variance 1, en dimension d = 64. Quel est l'écart-type du produit scalaire q·k ?"
+  answer={8}
+  tolerance={0.01}
+  hint="q·k est une somme de 64 produits indépendants, chacun de variance 1."
+>
+La variance d'une somme de 64 termes indépendants de variance 1 vaut 64, donc l'écart-type vaut $\sqrt{64} = 8$. Des scores de l'ordre de ±8 ou ±16 font **saturer** le softmax : presque tout le poids va à un seul token, et le gradient des autres devient quasi nul. Diviser par $\sqrt{d_k}$ ramène les scores à un écart-type de 1.
+</Exercise>
+
+<AttentionMatrixLab id="matrice" />
+
+Passe « Diviser par √d » sur Non puis augmente $d$ : chaque ligne de la matrice devient un seul 100 entouré de 0, et l'entropie s'effondre. Active ensuite le **masque causal** : chaque token ne peut plus regarder que lui-même et les tokens **précédents**.
+
+## Le masque causal : génération token par token
+
+Un modèle qui génère du texte (GPT, Llama, Claude) est entraîné à prédire chaque token à partir des précédents uniquement. Pendant l'entraînement, on traite toute la séquence d'un coup, mais on **masque** le futur : les scores $j > i$ sont mis à $-\infty$ avant le softmax, ce qui leur donne un poids exactement nul. Les modèles **encodeurs** (BERT), eux, voient toute la phrase dans les deux sens : excellents pour comprendre ou classer, mais ils ne génèrent pas.
+
+```python
+import math
+import torch
+
+def attention(q, k, v, causal=False):
+    # q, k, v : (batch, têtes, n, d_k)
+    scores = q @ k.transpose(-2, -1) / math.sqrt(q.size(-1))   # (batch, têtes, n, n)
+    if causal:
+        n = q.size(-2)
+        futur = torch.triu(torch.ones(n, n, dtype=torch.bool, device=q.device), diagonal=1)
+        scores = scores.masked_fill(futur, float("-inf"))
+    poids = scores.softmax(dim=-1)        # chaque ligne somme à 1
+    return poids @ v                       # (batch, têtes, n, d_k)
+```
+
+<CodeChoice
+  id="scores"
+  question="Quelle ligne calcule correctement les scores d'attention ?"
+  code={`def attention(q, k, v):
+    scores = ___
+    return scores.softmax(dim=-1) @ v`}
+  options={[
+    "q @ k.transpose(-2, -1) / math.sqrt(q.size(-1))",
+    "q @ v.transpose(-2, -1) / math.sqrt(q.size(-1))",
+    "q * k / q.size(-1)",
+    "k @ q * math.sqrt(q.size(-1))",
+  ]}
+  answer={0}
+>
+On compare chaque query à chaque key : $QK^\top$, de forme $(n, n)$, divisé par $\sqrt{d_k}$. La value n'intervient qu'après le softmax. En production, on appelle directement `torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)`, qui choisit une implémentation optimisée (FlashAttention) sans jamais matérialiser la matrice $n \times n$ en mémoire.
+</CodeChoice>
+
+## Plusieurs têtes
+
+Une seule attention ne peut suivre qu'un type de relation à la fois. La **multi-head attention** fait tourner $h$ attentions en parallèle, chacune dans un sous-espace de dimension $d/h$ avec ses propres $W_Q$, $W_K$, $W_V$ : une tête peut suivre les accords sujet-verbe, une autre les coréférences, une autre la position relative. Les sorties sont concaténées puis mélangées par une matrice $W_O$.
+
+<Exercise
+  id="params"
+  question="Dans une couche d'attention multi-têtes de dimension d = 768 (sans biais), W_Q, W_K, W_V et W_O sont chacune de taille d × d. Combien de paramètres au total ?"
+  answer={2359296}
+  tolerance={0}
+  hint="Quatre matrices de 768 × 768. Le nombre de têtes ne change pas le total."
+>
+$4 \times 768^2 = 2\,359\,296$ paramètres. Découper en 12 têtes de 64 dimensions ne change rien au total : chaque tête utilise un douzième des colonnes. Dans un bloc Transformer, le MLP qui suit l'attention en a environ deux fois plus ($2 \times 768 \times 3\,072$).
+</Exercise>
+
+<Callout type="intuition">
+L'attention ne sait pas, par elle-même, dans quel **ordre** sont les tokens : permuter la phrase permute simplement les sorties. On ajoute donc une information de position, soit en l'additionnant aux embeddings, soit, dans la plupart des LLM récents, en faisant tourner les queries et les keys d'un angle qui dépend de la position (**RoPE**).
+</Callout>
+
+<Callout type="piege">
+Le coût de l'attention est **quadratique** en la longueur $n$ de la séquence : la matrice des scores a $n^2$ cases par tête et par couche. Doubler le contexte multiplie par quatre ce coût. C'est ce qui a longtemps limité la taille des fenêtres de contexte, et ce que contournent FlashAttention (même calcul, mais par blocs, sans stocker la matrice), l'attention à fenêtre glissante, ou le cache des keys et values à l'inférence (*KV cache*).
+</Callout>
+
+<Callout type="entretien">
+Question classique : « Pourquoi diviser par $\sqrt{d_k}$ ? » Réponse : les produits scalaires de vecteurs de dimension $d_k$ ont une variance proportionnelle à $d_k$ ; sans normalisation, le softmax sature, ses gradients s'annulent et l'entraînement devient instable.
+</Callout>
+
+<Callout type="astuce">
+Pour visualiser l'attention d'un vrai modèle, `model(..., output_attentions=True)` dans `transformers` renvoie les matrices de chaque couche et de chaque tête. Attention à ne pas sur-interpréter : un poids d'attention élevé n'est pas une explication causale de la prédiction.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Dans la self-attention, avec quoi la query d'un token est-elle comparée ?",
+      options: ["Avec les values des autres tokens", "Avec les keys de tous les tokens", "Avec sa propre value", "Avec l'embedding de position"],
+      answer: 1,
+      explain: "Scores = q·k pour chaque key ; les values sont ensuite moyennées avec ces poids.",
+    },
+    {
+      q: "Quelle est la forme de la matrice des scores QKᵀ pour une séquence de n tokens (une tête) ?",
+      options: ["(n, d)", "(d, d)", "(n, n)", "(1, n)"],
+      answer: 2,
+      explain: "Un score pour chaque paire (token qui regarde, token regardé) : d'où le coût quadratique en n.",
+    },
+    {
+      q: "À quoi sert le masque causal ?",
+      options: [
+        "À ignorer le padding",
+        "À empêcher chaque token de regarder les tokens suivants",
+        "À réduire le coût de l'attention",
+        "À choisir les têtes actives",
+      ],
+      answer: 1,
+      explain: "Un modèle génératif doit prédire le token suivant sans le voir : les scores du futur sont mis à −∞ avant le softmax.",
+    },
+    {
+      q: "Que se passe-t-il si on oublie de diviser les scores par √d_k avec d_k = 128 ?",
+      options: [
+        "Rien de notable",
+        "Le softmax sature : attention quasi one-hot et gradients presque nuls",
+        "L'attention devient uniforme",
+        "Le modèle ne peut plus utiliser le masque causal",
+      ],
+      answer: 1,
+      explain: "Les scores ont un écart-type d'environ √128 ≈ 11 : le softmax devient un argmax.",
+    },
+    {
+      q: "Pourquoi utiliser plusieurs têtes d'attention ?",
+      options: [
+        "Pour réduire le nombre de paramètres",
+        "Pour suivre plusieurs types de relations en parallèle, dans des sous-espaces différents",
+        "Pour gérer plusieurs langues",
+        "Pour remplacer le MLP",
+      ],
+      answer: 1,
+      explain: "Chaque tête a ses propres projections : syntaxe, coréférence, position… Le total de paramètres reste 4d².",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique la self-attention à un collègue développeur.">
+Chaque token produit trois vecteurs par des projections apprises : une query (ce qu'il cherche), une key (ce qu'il propose) et une value (ce qu'il transmet). Pour chaque token, on calcule le produit scalaire de sa query avec les keys de tous les tokens, on divise par $\sqrt{d_k}$, on applique un softmax pour obtenir des poids qui somment à 1, et on fait la moyenne pondérée des values. Tout se calcule en deux multiplications matricielles : softmax($QK^\top / \sqrt{d_k}$)$V$. En multi-head, on le fait en parallèle dans plusieurs sous-espaces, puis on concatène. Pour la génération, un masque causal empêche de regarder le futur. Avantages par rapport aux RNN : dépendances longues en un seul pas, et parallélisation totale sur la séquence à l'entraînement.
+</Interview>
+
+<Interview q="Quelle est la complexité de l'attention, et comment gère-t-on les longs contextes ?">
+En temps comme en mémoire naïve, c'est $O(n^2 \cdot d)$ par couche : chaque token est comparé à tous les autres. Plusieurs leviers : **FlashAttention** calcule exactement la même chose par blocs dans la mémoire rapide du GPU, sans matérialiser la matrice $n \times n$, ce qui rend la mémoire linéaire ; l'attention **à fenêtre glissante** ou **parcimonieuse** limite les paires comparées ; à l'inférence, le **KV cache** évite de recalculer les keys et values des tokens déjà traités, et **GQA/MQA** (plusieurs têtes de query partagent les mêmes keys et values) réduit sa taille. Pour la position, RoPE avec des techniques d'extension permet d'allonger le contexte après l'entraînement.
+</Interview>
+
+<Recap>
+- Chaque token : **query** (ce que je cherche), **key** (mon étiquette), **value** (mon contenu).
+- $\text{Attention}(Q,K,V) = \text{softmax}(QK^\top / \sqrt{d_k})\,V$ : une recherche floue.
+- Diviser par $\sqrt{d_k}$ évite la saturation du softmax (écart-type des scores ≈ $\sqrt{d_k}$).
+- **Masque causal** : pas de regard vers le futur (modèles génératifs). BERT : bidirectionnel.
+- **Multi-head** : $h$ attentions en parallèle dans des sous-espaces ; $4d^2$ paramètres.
+- Pas de notion d'ordre : encodage de position (RoPE).
+- Coût $O(n^2)$ : FlashAttention, fenêtres, KV cache, GQA.
+</Recap>
+
+<LessonComplete />

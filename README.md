@@ -59,7 +59,8 @@ src/
   content/fiches/*.mdx    fiches récap (une par leçon, débloquée à la fin de la leçon, export PDF via l'impression)
   components/
     pedago/               Predict, Quiz, Callout, LessonComplete (utilisables dans le MDX)
-    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab)
+    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab)
+    code/                 blocs de code colorés (les ``` du MDX), CodeChoice (complète le code), Parsons (remets les lignes dans l'ordre)
     pages/                écrans client (Today, SkillTree, Review, Profile)
     game/                 avatar et cadres, médailles, célébrations, onglets Succès et Vestiaire
   lib/
@@ -75,12 +76,14 @@ src/
     sims.ts               calculs des labos : Bayes, descente de gradient, TCL, IC, tests A/B, polynômes, ridge
     ml.ts                 validation croisée, fuite de données, k-NN, arbres de décision (CART)
     models.ts             régression logistique (Newton), forêt aléatoire, gradient boosting, k-means
+    nn.ts                 petit MLP avec backprop écrite à la main, Adam, boucle d'entraînement et ses bugs
+    llm.ts                tokenizer BPE, attention (softmax, masque causal, effet de √d)
 ```
 
 ## Ajouter une leçon
 
 1. Déclarer la leçon (et ses concepts) dans `src/lib/curriculum.ts`.
-2. Écrire `src/content/lessons/<slug>.mdx`. Les composants pédagogiques (`Predict`, `Exercise`, `Quiz`, `Interview`, `Recap`, `Callout`, `LessonComplete`) et tous les labos sont disponibles sans import.
+2. Écrire `src/content/lessons/<slug>.mdx`. Les composants pédagogiques (`Predict`, `Exercise`, `Quiz`, `Interview`, `Recap`, `Callout`, `CodeChoice`, `Parsons`, `LessonComplete`) et tous les labos sont disponibles sans import. Les blocs ``` sont colorés automatiquement.
 3. Ajouter l'import dans `src/lib/lessons.ts`.
 4. Ajouter 2 à 3 cartes par concept dans `src/lib/cards.ts`.
 5. Écrire la fiche récap `src/content/fiches/<slug>.mdx` (blocs `FicheSection` essentiel, formules, pieges, entretien, astuces) et l'ajouter dans `src/lib/fiches.ts`.
@@ -102,6 +105,9 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 - [x] Phase 3 — Bayes, descente de gradient, TCL, intervalles de confiance, tests A/B et p-values, bias-variance, régularisation
 - [x] Phase 3 (suite) — validation croisée, data leakage
 - [x] Phase 4 — Modèles classiques : régression logistique, k-NN, arbres, forêts et boosting, k-means
-- [ ] Phase 4 (suite) — ACP, Deep learning
-- [ ] Phase 5 — Transformers, LLM, IA agentique
-- [ ] Phase 6 — vitrine publique : landing, SEO, images de partage, accessibilité, version anglaise
+- [x] Phase 5 — Deep learning : neurones et MLP, backpropagation et autograd, boucle d'entraînement PyTorch
+- [x] Phase 6 — LLM : tokenisation BPE, self-attention
+- [ ] Phase 7 — LLM (suite) : architecture Transformer complète, pré-entraînement / fine-tuning / LoRA, décodage et sampling, inférence (KV cache, quantization), RAG
+- [ ] Phase 8 — ML en pratique : NumPy/pandas, pipelines scikit-learn, feature engineering, SQL, MLOps
+- [ ] Phase 9 — Deep learning (suite) : CNN, embeddings ; ACP ; IA agentique (tool use, ReAct, évaluation)
+- [ ] Phase 10 — vitrine publique : landing, SEO, images de partage, accessibilité, version anglaise

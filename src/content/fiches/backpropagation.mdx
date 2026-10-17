@@ -1,0 +1,40 @@
+<FicheSection kind="essentiel">
+- Backprop : règle de la chaîne appliquée de la loss vers les paramètres, sur le graphe de calcul.
+- **Forward** : calculer chaque nœud et mémoriser les valeurs ; **backward** : multiplier les dérivées locales en remontant.
+- Coût ≈ 2 à 3 forward, quel que soit le nombre de paramètres.
+- PyTorch : `loss.backward()` accumule les gradients dans `.grad` ; `optimizer.step()` met à jour ; `optimizer.zero_grad()` efface.
+- Vanishing / exploding gradients : produit de nombreuses dérivées locales.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\frac{\partial L}{\partial w} = \frac{\partial L}{\partial a}\cdot\frac{\partial a}{\partial z}\cdot\frac{\partial z}{\partial w}
+$$
+
+Sigmoïde + log-loss, ou softmax + cross-entropy : $\partial L / \partial z = \hat p - y$.
+
+$$
+z = Wx + b : \quad \frac{\partial L}{\partial W} = \delta x^\top \quad \frac{\partial L}{\partial b} = \delta \quad \frac{\partial L}{\partial x} = W^\top \delta
+$$
+
+$\sigma'(z) = \sigma(z)(1 - \sigma(z)) \le 0{,}25$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Oublier `zero_grad()` : les gradients s'additionnent d'un pas à l'autre.
+- Opérations en place sur un tenseur nécessaire au backward.
+- Évaluer sans `torch.no_grad()` : graphe inutile, mémoire gaspillée.
+- Stocker `loss` au lieu de `loss.item()` : tous les graphes restent en mémoire.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Expliquer la backprop ?** Différentiation automatique en mode inverse : forward avec mémorisation, backward avec règle de la chaîne, coût indépendant du nombre de paramètres.
+
+**Vanishing gradient ?** Dérivées < 1 multipliées sur la profondeur. Remèdes : ReLU/GELU, init He/Xavier, connexions résiduelles, normalisation, clipping (explosion).
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Vérifier un gradient à la main par différences finies, ou avec `torch.autograd.gradcheck`.
+- `clip_grad_norm_(model.parameters(), 1.0)` contre les explosions.
+- L'entraînement coûte plus de mémoire que l'inférence : les activations sont gardées pour le backward.
+</FicheSection>

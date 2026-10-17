@@ -1,0 +1,184 @@
+<Predict
+  id="hook"
+  question="Pourquoi un LLM pourtant brillant se trompe-t-il parfois en comptant les « r » de « strawberry » ?"
+  options={[
+    "Il n'a pas vu ce mot pendant l'entraînement",
+    "Il ne voit pas les lettres : il voit des tokens, des morceaux de mots représentés par des numéros",
+    "Les réseaux de neurones ne savent pas compter",
+    "C'est un bug corrigé depuis longtemps",
+  ]}
+  answer={1}
+>
+Avant d'entrer dans le modèle, le texte est découpé en **tokens** : des morceaux de mots, chacun remplacé par un numéro. « strawberry » peut devenir deux ou trois tokens, par exemple `str`, `aw`, `berry`. Le modèle reçoit ces numéros, jamais les lettres : compter les « r » lui demande de se souvenir de l'orthographe de chaque morceau. La tokenisation est la toute première étape d'un LLM, et elle explique beaucoup de ses bizarreries : le coût d'une requête, la taille du contexte, les difficultés en arithmétique ou dans certaines langues.
+</Predict>
+
+## Caractères, mots ou morceaux de mots ?
+
+Un réseau ne manipule que des nombres. Il faut donc un **vocabulaire** : une liste finie d'unités, chacune avec un identifiant. Trois choix possibles :
+
+- **Caractères** : vocabulaire minuscule (une centaine de symboles), mais des séquences très longues. Or le coût de l'attention croît comme le **carré** de la longueur.
+- **Mots** : séquences courtes, mais vocabulaire énorme, et tout mot absent (faute de frappe, nom propre, néologisme) devient un token « inconnu ».
+- **Sous-mots** : le compromis utilisé par tous les LLM. Les mots fréquents sont un seul token, les mots rares se décomposent en morceaux connus. Plus jamais de mot inconnu.
+
+## L'algorithme BPE
+
+Le **Byte Pair Encoding**, utilisé par GPT, Llama et la plupart des LLM, apprend son vocabulaire à partir d'un corpus :
+
+1. partir des caractères (ou des octets) comme vocabulaire initial ;
+2. compter toutes les paires de symboles **adjacents** dans le corpus ;
+3. fusionner la paire la plus fréquente en un nouveau symbole, et l'ajouter au vocabulaire ;
+4. recommencer jusqu'à la taille de vocabulaire voulue.
+
+Pour encoder un nouveau texte, on rejoue les fusions apprises, dans l'ordre. Essaie sur un petit corpus en français :
+
+<BpeLab id="fusions" merges={0} challenge="bpe-compress" />
+
+La taille du vocabulaire $V$ est un compromis direct : plus il est grand, plus les séquences sont courtes, mais plus la table d'**embeddings** (un vecteur de dimension $d$ par token) et la couche de sortie grossissent :
+
+$$
+\text{paramètres d'embedding} = V \times d
+$$
+
+<Exercise
+  id="embeddings"
+  question="Un modèle a un vocabulaire de 50 000 tokens et des embeddings de dimension 4 096. Combien de paramètres (en millions) contient sa table d'embeddings ?"
+  answer={204.8}
+  tolerance={0.1}
+  unit="millions"
+  hint="Un vecteur de 4 096 nombres par token."
+>
+$50\,000 \times 4\,096 = 204\,800\,000$, soit **204,8 millions** de paramètres, rien que pour la table d'entrée. Beaucoup de modèles réutilisent cette même matrice pour la couche de sortie (*weight tying*), qui transforme le dernier vecteur caché en un score par token du vocabulaire.
+</Exercise>
+
+## Les mots rares coûtent plus cher
+
+<BpeLab id="mot-rare" merges={999} text="anticonstitutionnellement" challenge="bpe-rare" />
+
+Un mot absent du corpus d'entraînement du tokenizer se découpe en beaucoup de petits morceaux. C'est vrai à l'échelle des **langues** : une langue peu représentée dans les données du tokenizer demande deux à trois fois plus de tokens qu'en anglais pour dire la même chose. Elle coûte donc plus cher, va moins loin dans la fenêtre de contexte, et est souvent moins bien traitée.
+
+## Dans le code
+
+Avec la bibliothèque `transformers` de Hugging Face :
+
+```python
+from transformers import AutoTokenizer
+
+tok = AutoTokenizer.from_pretrained("gpt2")
+ids = tok.encode("Le modèle apprend.")
+print(ids)                                  # une liste d'entiers
+print(tok.convert_ids_to_tokens(ids))       # les morceaux correspondants
+print(tok.decode(ids))                      # retour au texte : "Le modèle apprend."
+print(len(tok))                             # taille du vocabulaire : 50257
+```
+
+En pratique, on tokenise des **batches** de phrases de longueurs différentes. On les complète (*padding*) jusqu'à la même longueur, et un **masque d'attention** indique au modèle quels tokens sont réels :
+
+<CodeChoice
+  id="mask"
+  question="Deux phrases de longueurs différentes sont complétées avec du padding. Que faut-il passer au modèle en plus des input_ids ?"
+  code={`batch = tok(["Bonjour", "Une phrase bien plus longue"], padding=True, return_tensors="pt")
+out = model(input_ids=batch["input_ids"], ___)`}
+  options={['attention_mask=batch["attention_mask"]', 'labels=batch["input_ids"]', "padding=True", "max_length=512"]}
+  answer={0}
+>
+Le tenseur `attention_mask` vaut 1 sur les vrais tokens et 0 sur le padding. Sans lui, le modèle « lit » les tokens de remplissage comme du vrai texte, et les représentations de la phrase courte sont faussées. Les modèles de génération (GPT) complètent souvent **à gauche**, pour que le dernier token réel soit au bout de la séquence.
+</CodeChoice>
+
+<Callout type="intuition">
+Les tokenizers modernes travaillent sur les **octets** UTF-8 plutôt que sur les caractères (*byte-level BPE*) : le vocabulaire initial fait exactement 256 symboles, et n'importe quel texte, emoji ou langue est encodable, sans token inconnu. D'autres familles existent : **WordPiece** (BERT) et **Unigram** via SentencePiece (T5, ALBERT), qui part d'un grand vocabulaire et l'élague.
+</Callout>
+
+<Callout type="piege">
+Les nombres sont découpés de façon irrégulière (« 1234 » peut devenir `12` `34`, et « 1235 » `123` `5`) : c'est une des raisons pour lesquelles les LLM calculent mal sans outil. Autre piège classique : un **espace** fait partie du token qui le suit. « Paris » en début de phrase et « ▁Paris » au milieu sont deux tokens différents, ce qui compte quand on construit un prompt ou qu'on compare des probabilités de tokens.
+</Callout>
+
+<Callout type="entretien">
+La **fenêtre de contexte** et la **facturation** des API se comptent en tokens, pas en mots. En français, compte environ 1,3 à 1,5 token par mot avec un tokenizer récent ; un token fait en moyenne 3 à 4 caractères en anglais. Pour un devis, on compte toujours avec le vrai tokenizer du modèle.
+</Callout>
+
+<Exercise
+  id="cout"
+  question="Une application envoie 2 000 requêtes par jour, de 1 500 tokens d'entrée chacune, à un modèle facturé 3 $ par million de tokens d'entrée. Coût quotidien des entrées, en dollars ?"
+  answer={9}
+  tolerance={0.01}
+  unit="$"
+  hint="Total de tokens, divisé par un million, multiplié par le prix."
+>
+$2\,000 \times 1\,500 = 3$ millions de tokens, soit $3 \times 3 = 9$ \$ par jour pour les entrées. Les tokens de **sortie** sont en général facturés plusieurs fois plus cher. Réduire le prompt système, ou le mettre en cache côté fournisseur (*prompt caching*), est souvent la première optimisation de coût.
+</Exercise>
+
+<Callout type="astuce">
+Les tokens **spéciaux** structurent tout : début et fin de séquence (`<bos>`, `<eos>`), padding, et pour les modèles de chat, les marqueurs de rôles (système, utilisateur, assistant). Utilise toujours `tok.apply_chat_template(messages)` plutôt que de formater le prompt à la main : un modèle fine-tuné attend exactement son format.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Pourquoi les LLM utilisent-ils des sous-mots plutôt que des mots entiers ?",
+      options: [
+        "Pour réduire la taille du modèle à zéro",
+        "Pour couvrir n'importe quel mot avec un vocabulaire fini, sans séquences trop longues",
+        "Parce que les mots n'ont pas de sens",
+        "Pour aller plus vite à l'entraînement uniquement",
+      ],
+      answer: 1,
+      explain: "Les mots fréquents restent entiers, les rares se décomposent : pas de mot inconnu, et des séquences bien plus courtes qu'en caractères.",
+    },
+    {
+      q: "À chaque étape, BPE fusionne…",
+      options: [
+        "Les deux mots les plus fréquents",
+        "La paire de symboles adjacents la plus fréquente",
+        "Les deux tokens les plus rares",
+        "Les lettres identiques",
+      ],
+      answer: 1,
+      explain: "C'est un algorithme glouton de compression : la paire la plus fréquente devient un nouveau symbole.",
+    },
+    {
+      q: "On double la taille du vocabulaire. Qu'est-ce qui augmente certainement ?",
+      options: ["La longueur des séquences", "La taille de la table d'embeddings", "Le nombre de couches", "La taille de la fenêtre de contexte"],
+      answer: 1,
+      explain: "V × d paramètres en entrée (et en sortie, sauf weight tying). Les séquences, elles, raccourcissent.",
+    },
+    {
+      q: "À quoi sert l'attention_mask quand on tokenise un batch avec padding ?",
+      options: [
+        "À indiquer quels tokens sont réels et lesquels sont du remplissage",
+        "À masquer les tokens futurs",
+        "À choisir les tokens à prédire",
+        "À compresser la séquence",
+      ],
+      answer: 0,
+      explain: "1 pour les vrais tokens, 0 pour le padding, que le modèle doit ignorer. (Le masque des tokens futurs, c'est le masque causal, dans l'attention elle-même.)",
+    },
+    {
+      q: "Le même texte, traduit dans une langue peu présente dans les données du tokenizer, produit généralement…",
+      options: ["Moins de tokens", "Autant de tokens", "Plus de tokens", "Une erreur"],
+      answer: 2,
+      explain: "Ses mots se découpent en morceaux plus petits : plus de tokens, donc plus de coût et moins de place dans le contexte.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment fonctionne la tokenisation d'un LLM, et pourquoi des sous-mots ?">
+Le texte est converti en une suite d'identifiants entiers à partir d'un vocabulaire fixe, appris une fois pour toutes sur un gros corpus. Les mots entiers donnent un vocabulaire ingérable et des mots inconnus ; les caractères donnent des séquences trop longues pour l'attention, en coût quadratique. Les sous-mots sont le compromis : avec BPE, on part des octets et on fusionne itérativement la paire adjacente la plus fréquente jusqu'à la taille de vocabulaire voulue, typiquement 32 000 à 200 000 tokens. Chaque identifiant indexe ensuite une ligne de la matrice d'embeddings. Conséquences pratiques : les coûts et la fenêtre de contexte se comptent en tokens, le modèle ne voit pas les lettres, les nombres et les langues rares sont découpés de façon défavorable.
+</Interview>
+
+<Interview q="Quel est l'impact de la taille du vocabulaire sur un modèle ?">
+Un grand vocabulaire raccourcit les séquences, ce qui réduit le coût de l'attention, augmente la quantité de texte qui tient dans le contexte et accélère la génération (moins de tokens à produire). En contrepartie, la matrice d'embeddings et la couche de sortie grossissent ($V \times d$ chacune), le softmax final coûte plus cher, et les tokens rares sont vus peu souvent à l'entraînement, donc moins bien appris. Les modèles récents montent vers 100 000 à 250 000 tokens pour mieux couvrir le multilingue et le code.
+</Interview>
+
+<Recap>
+- Tokenisation : texte → suite d'identifiants entiers ; le modèle ne voit jamais les lettres.
+- Sous-mots : vocabulaire fini, aucun mot inconnu, séquences raisonnables.
+- **BPE** : fusionner itérativement la paire adjacente la plus fréquente ; byte-level = 256 symboles de départ.
+- Grand vocabulaire : séquences plus courtes, mais embeddings $V \times d$ plus gros.
+- Batch : padding + `attention_mask` ; formats de chat via `apply_chat_template`.
+- Coût et contexte se comptent en tokens ; langues rares et nombres sont défavorisés.
+</Recap>
+
+<LessonComplete />

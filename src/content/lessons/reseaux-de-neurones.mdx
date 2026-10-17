@@ -1,0 +1,171 @@
+<Predict
+  id="hook"
+  question="On empile 10 couches linéaires (z = W·x + b), sans aucune fonction d'activation entre elles. Ce réseau profond peut représenter…"
+  options={[
+    "Des frontières beaucoup plus complexes qu'une seule couche",
+    "Exactement la même chose qu'une seule couche linéaire",
+    "N'importe quelle fonction, d'après le théorème d'approximation universelle",
+    "Rien du tout : il ne peut pas s'entraîner",
+  ]}
+  answer={1}
+>
+Composer des fonctions linéaires donne une fonction linéaire : $W_2(W_1 x + b_1) + b_2 = (W_2 W_1)\,x + (W_2 b_1 + b_2)$. Dix couches, cent couches, c'est toujours **une** matrice et **un** biais. Tout ce qui rend un réseau de neurones plus puissant qu'une régression logistique tient dans un détail : la **fonction d'activation non linéaire** entre les couches. Tu vas le constater dans le lab.
+</Predict>
+
+## Un neurone, c'est une régression logistique
+
+Un neurone artificiel calcule une somme pondérée de ses entrées, puis applique une fonction d'**activation** $\varphi$ :
+
+$$
+a = \varphi(w^\top x + b)
+$$
+
+Avec $\varphi = \sigma$ (la sigmoïde), c'est exactement la régression logistique de la leçon précédente. Les activations les plus utilisées :
+
+- **ReLU** : $\max(0, z)$. Simple, rapide, gradient de 1 pour $z > 0$. Le choix par défaut des couches cachées.
+- **tanh** : comme la sigmoïde mais centrée sur 0, entre −1 et 1.
+- **GELU** / **SiLU** : des versions « adoucies » de ReLU, utilisées dans les Transformers.
+- **sigmoïde** / **softmax** : surtout en sortie, pour obtenir des probabilités.
+
+## Empiler des couches : le perceptron multicouche (MLP)
+
+Une **couche** applique plusieurs neurones en parallèle aux mêmes entrées. Avec une matrice de poids $W_1$ de taille $H \times d$ (une ligne par neurone), une couche cachée et une sortie binaire s'écrivent :
+
+$$
+h = \varphi(W_1 x + b_1) \qquad \hat p = \sigma(W_2\, h + b_2)
+$$
+
+Chaque neurone caché trace une **droite** (un hyperplan en dimension $d$) et dit de quel côté se trouve le point. La couche suivante **combine** ces réponses. Avec assez de droites, on peut enfermer n'importe quelle région.
+
+<NeuralLab id="lineaire" neurons={8} act="linear" challenge="nn-collapse" />
+
+Avec l'activation linéaire, la frontière reste une droite, quelle que soit la taille du réseau : on ne fait pas mieux que le hasard sur ces cercles. Passe en ReLU ou en tanh : les pointillés (un par neurone) se placent autour du disque central.
+
+<NeuralLab id="minimal" neurons={1} act="relu" challenge="nn-minimal" />
+
+<Callout type="intuition">
+Le **théorème d'approximation universelle** dit qu'une seule couche cachée, assez large, peut approcher n'importe quelle fonction continue. Il ne dit ni combien de neurones il faut, ni si l'entraînement les trouvera. En pratique, des réseaux **profonds** (plusieurs couches) représentent les mêmes fonctions avec beaucoup moins de paramètres, en réutilisant des motifs appris à chaque étage.
+</Callout>
+
+## En PyTorch
+
+Le même réseau, tel que tu l'écrirais au travail :
+
+```python
+import torch
+from torch import nn
+
+class MLP(nn.Module):
+    def __init__(self, d_in=2, hidden=16):
+        super().__init__()
+        self.hidden = nn.Linear(d_in, hidden)  # W1 : (hidden, d_in), b1 : (hidden,)
+        self.out = nn.Linear(hidden, 1)        # W2 : (1, hidden), b2 : (1,)
+
+    def forward(self, x):                      # x : (batch, d_in)
+        h = torch.relu(self.hidden(x))         # (batch, hidden)
+        return self.out(h)                     # (batch, 1) : des logits
+
+model = MLP()
+x = torch.randn(32, 2)          # un mini-batch de 32 exemples
+print(model(x).shape)           # torch.Size([32, 1])
+print(sum(p.numel() for p in model.parameters()))  # 65 paramètres
+```
+
+La première dimension est toujours celle du **batch** : le réseau traite 32 exemples d'un coup, en une multiplication matricielle. C'est ce qui rend les GPU si efficaces.
+
+<Exercise
+  id="params"
+  question="Combien de paramètres (poids et biais) contient la couche nn.Linear(784, 128), qui reçoit une image 28×28 aplatie ?"
+  answer={100480}
+  tolerance={0}
+  hint="Un poids par couple (entrée, neurone), plus un biais par neurone."
+>
+$784 \times 128 = 100\,352$ poids, plus $128$ biais : $100\,480$ paramètres. Compter les paramètres couche par couche est un réflexe d'entretien : il donne la mémoire nécessaire (4 octets par paramètre en float32, donc ~0,4 Mo ici) et une idée du risque d'overfitting.
+</Exercise>
+
+<CodeChoice
+  id="logits"
+  question="La loss utilisée est nn.BCEWithLogitsLoss. Que doit renvoyer forward ?"
+  code={`def forward(self, x):
+    h = torch.relu(self.hidden(x))
+    return ___`}
+  options={["self.out(h)", "torch.sigmoid(self.out(h))", "torch.relu(self.out(h))", "self.out(x)"]}
+  answer={0}
+>
+`BCEWithLogitsLoss` attend des **logits** (les scores avant sigmoïde) et applique la sigmoïde elle-même, de façon numériquement stable (le calcul de $\log \sigma(z)$ ne déborde jamais). Ajouter une sigmoïde dans `forward` l'appliquerait deux fois : le modèle apprend mal, sans aucun message d'erreur. Même logique en multiclasse : `nn.CrossEntropyLoss` prend des logits, pas un softmax. Pour obtenir des probabilités à l'inférence, on applique `torch.sigmoid` ou `softmax` à la sortie.
+</CodeChoice>
+
+<Callout type="piege">
+N'initialise jamais tous les poids à zéro : tous les neurones d'une couche calculeraient la même chose, recevraient le même gradient et resteraient identiques pour toujours (problème de **symétrie**). PyTorch initialise aléatoirement par défaut, avec une variance adaptée au nombre d'entrées (initialisations de Kaiming/He pour ReLU, de Xavier/Glorot pour tanh). Autre piège : avec ReLU, un neurone dont $z$ reste négatif sur toutes les données ne reçoit plus de gradient et « meurt ».
+</Callout>
+
+<Callout type="entretien">
+Pourquoi ReLU plutôt que la sigmoïde dans les couches cachées ? La dérivée de la sigmoïde ne dépasse jamais 0,25 : empilées sur plusieurs couches, ces petites dérivées se multiplient et le gradient s'évanouit (*vanishing gradient*). ReLU a une dérivée de 1 sur sa partie active, et se calcule en une comparaison.
+</Callout>
+
+<Callout type="astuce">
+90 % des bugs de deep learning sont des bugs de **forme** (*shape*). Écris la forme attendue en commentaire à chaque ligne, comme dans le code ci-dessus, et vérifie avec `print(x.shape)` ou un `assert x.shape == (B, H)` au premier passage.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que fait une couche nn.Linear(10, 4) sur un batch de forme (32, 10) ?",
+      options: ["Renvoie (32, 4)", "Renvoie (4, 10)", "Renvoie (10, 4)", "Erreur de forme"],
+      answer: 0,
+      explain: "Chaque exemple (10 valeurs) devient 4 sorties : x @ W.T + b, avec W de forme (4, 10).",
+    },
+    {
+      q: "Combien faut-il au minimum de neurones cachés (activation tanh) pour enfermer le disque central des cercles ?",
+      options: ["1", "2", "3", "16"],
+      answer: 2,
+      explain: "Une droite coupe le plan en deux, deux droites font une bande ; il en faut trois pour fermer une région (un triangle).",
+    },
+    {
+      q: "Pourquoi un réseau profond sans activation non linéaire n'est-il pas plus expressif qu'une couche ?",
+      options: [
+        "Parce que l'entraînement diverge",
+        "Parce qu'une composition de fonctions linéaires est linéaire",
+        "Parce qu'il a trop de paramètres",
+        "C'est faux, il est plus expressif",
+      ],
+      answer: 1,
+      explain: "W₂(W₁x + b₁) + b₂ se réécrit Wx + b : toutes les couches se fondent en une seule.",
+    },
+    {
+      q: "Tu entraînes un classifieur à 10 classes avec nn.CrossEntropyLoss. La dernière couche doit produire…",
+      options: ["10 probabilités (softmax)", "10 logits bruts", "1 logit", "La classe prédite (argmax)"],
+      answer: 1,
+      explain: "CrossEntropyLoss applique log-softmax en interne : on lui donne les logits.",
+    },
+    {
+      q: "Quelle activation est la plus courante dans les couches cachées d'un MLP classique ?",
+      options: ["Sigmoïde", "Softmax", "ReLU", "Aucune"],
+      answer: 2,
+      explain: "ReLU : simple, rapide, et pas de gradient qui s'évanouit sur sa partie active. Les Transformers utilisent souvent GELU ou SiLU, des cousines.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Pourquoi a-t-on besoin de fonctions d'activation non linéaires ?">
+Sans elles, empiler des couches ne sert à rien : la composition de transformations affines est affine, donc un réseau profond se réduit à une seule couche linéaire, c'est-à-dire à une régression linéaire ou logistique. La non-linéarité permet à chaque couche de plier l'espace : chaque neurone ReLU découpe l'espace selon un hyperplan, et la couche suivante combine ces morceaux. C'est ce qui donne aux réseaux leur capacité d'approximation universelle. En pratique : ReLU ou ses variantes (GELU, SiLU) dans les couches cachées, sigmoïde ou softmax uniquement en sortie, et souvent intégrées à la loss.
+</Interview>
+
+<Interview q="Qu'est-ce qu'un logit, et pourquoi les losses PyTorch prennent-elles des logits plutôt que des probabilités ?">
+Un logit est le score brut avant la sigmoïde ou le softmax ; pour une classe binaire, c'est le log des cotes $\ln \frac{p}{1-p}$. Les losses comme `BCEWithLogitsLoss` et `CrossEntropyLoss` fusionnent l'activation et le logarithme (*log-sum-exp trick*) : c'est plus stable numériquement, car calculer $\sigma(z)$ puis $\log$ séparément donne $\log 0 = -\infty$ dès que $z$ est très négatif en float32. C'est aussi un bug classique : appliquer soi-même un softmax avant `CrossEntropyLoss` l'applique deux fois et dégrade l'apprentissage sans erreur visible.
+</Interview>
+
+<Recap>
+- Neurone : $a = \varphi(w^\top x + b)$. Avec la sigmoïde, c'est une régression logistique.
+- Couche : $h = \varphi(Wx + b)$ ; MLP = couches empilées.
+- Sans activation non linéaire, toutes les couches se réduisent à une seule.
+- Chaque neurone ReLU ou tanh trace un hyperplan ; les couches suivantes les combinent.
+- ReLU (ou GELU) dans les couches cachées ; sigmoïde ou softmax en sortie, souvent dans la loss.
+- PyTorch : `nn.Linear(d_in, d_out)` a $d_{in} \cdot d_{out} + d_{out}$ paramètres ; la 1ʳᵉ dimension est le batch.
+- Les losses prennent des **logits**.
+</Recap>
+
+<LessonComplete />

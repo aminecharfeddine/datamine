@@ -1,4 +1,4 @@
-import { Sigma, ChartColumn, Scale, GitBranch, Target, Network, Sparkles, Bot, type LucideIcon } from "lucide-react";
+import { Code2, Sigma, ChartColumn, Scale, GitBranch, Target, Network, Sparkles, Bot, type LucideIcon } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
   maths: Sigma,
@@ -6,6 +6,7 @@ const ICONS: Record<string, LucideIcon> = {
   fondamentaux: Scale,
   modeles: GitBranch,
   evaluation: Target,
+  pratique: Code2,
   "deep-learning": Network,
   transformers: Sparkles,
   agents: Bot,

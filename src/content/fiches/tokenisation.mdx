@@ -1,0 +1,40 @@
+<FicheSection kind="essentiel">
+- Le texte est découpé en **tokens** (sous-mots), chacun remplacé par un identifiant entier.
+- **BPE** : partir des octets ou caractères, fusionner la paire adjacente la plus fréquente, répéter jusqu'à $V$ tokens.
+- Sous-mots : pas de mot inconnu, séquences bien plus courtes qu'en caractères.
+- Contexte et facturation se comptent en **tokens**.
+- Le modèle ne voit pas les lettres ; nombres et langues rares sont mal découpés.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{embeddings} = V \times d \text{ paramètres}
+$$
+
+$$
+\text{coût} = \frac{n_{\text{entrée}} \cdot p_{\text{entrée}} + n_{\text{sortie}} \cdot p_{\text{sortie}}}{10^6} \quad (\text{prix par million de tokens})
+$$
+
+Ordres de grandeur : $V$ de 32 000 à 200 000 ; un token ≈ 3 à 4 caractères en anglais.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Formater un prompt de chat à la main au lieu de `apply_chat_template`.
+- Oublier l'`attention_mask` avec du padding.
+- L'espace fait partie du token suivant : « Paris » ≠ « ▁Paris ».
+- Estimer un coût en mots plutôt qu'avec le vrai tokenizer.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Pourquoi des sous-mots ?** Mots : vocabulaire énorme et mots inconnus. Caractères : séquences trop longues (attention quadratique).
+
+**Taille de vocabulaire ?** Plus grand : séquences courtes, contexte mieux utilisé ; mais embeddings et softmax plus gros, tokens rares moins appris.
+
+**Pourquoi « strawberry » pose problème ?** Le modèle voit des morceaux, pas des lettres.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `tok.encode`, `tok.convert_ids_to_tokens`, `tok.decode` pour inspecter un découpage.
+- Padding à gauche pour la génération avec les modèles décodeurs.
+- Le prompt caching réduit fortement le coût d'un long prompt système répété.
+</FicheSection>

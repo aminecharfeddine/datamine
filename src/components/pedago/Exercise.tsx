@@ -59,7 +59,7 @@ export function Exercise({
   // Exercice déjà réussi : on réaffiche la bonne réponse et la correction.
   useEffect(() => {
     if (saved !== undefined && state === "idle" && value === "") {
-      setValue(String(percent && Math.abs(saved) <= 1 ? `${+(saved * 100).toFixed(2)} %` : +saved.toFixed(4)).replace(".", ","));
+      setValue(String(percent && Math.abs(saved) <= 1 ? `${+(saved * 100).toFixed(2)} %` : saved !== 0 && Math.abs(saved) < 1e-3 ? saved.toExponential(2) : +saved.toFixed(4)).replace(".", ","));
       setState("right");
     }
   }, [saved, state, value, percent]);

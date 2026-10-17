@@ -109,7 +109,7 @@ export function Today() {
             Voir le parcours détaillé
           </Link>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
           {MODULES.map((m) => {
             const available = m.lessons.some((l) => l.available);
             const v = mastery(m);

@@ -1,0 +1,218 @@
+<Predict
+  id="hook"
+  question="Dans ta boucle d'entraînement PyTorch, tu as oublié optimizer.zero_grad(). Que se passe-t-il ?"
+  options={[
+    "PyTorch lève une erreur",
+    "Les gradients s'additionnent d'un batch à l'autre : les pas deviennent énormes et l'entraînement devient instable",
+    "Rien, PyTorch remet les gradients à zéro automatiquement",
+    "Le modèle n'apprend rien du tout, la loss reste plate",
+  ]}
+  answer={1}
+>
+Aucune erreur, aucun avertissement : le code tourne, la loss baisse un peu, puis se met à faire des pics. C'est tout le problème des bugs de deep learning : ils ne plantent pas, ils **dégradent** silencieusement. La compétence qui distingue un ML engineer, c'est de savoir lire une courbe de loss et d'en déduire le bug. C'est l'objet de cette leçon.
+</Predict>
+
+## Les cinq ingrédients
+
+Tout entraînement PyTorch assemble les mêmes pièces :
+
+1. des **données** : un `Dataset` (accès à l'exemple $i$) et un `DataLoader` (mini-batches, mélange) ;
+2. un **modèle** : un `nn.Module` ;
+3. une **loss** : `nn.CrossEntropyLoss`, `nn.MSELoss`… ;
+4. un **optimiseur** : `torch.optim.AdamW`, `SGD`… qui sait mettre à jour les paramètres ;
+5. la **boucle** : pour chaque mini-batch, forward, loss, backward, step.
+
+```python
+import torch
+from torch import nn
+from torch.utils.data import DataLoader, TensorDataset
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+# 1. Données : normalisées avec les statistiques du jeu d'entraînement uniquement
+mu, sigma = X_train.mean(0), X_train.std(0)
+train_ds = TensorDataset((X_train - mu) / sigma, y_train)
+val_ds = TensorDataset((X_val - mu) / sigma, y_val)
+train_loader = DataLoader(train_ds, batch_size=64, shuffle=True)
+val_loader = DataLoader(val_ds, batch_size=256)
+
+# 2, 3, 4. Modèle, loss, optimiseur
+model = nn.Sequential(nn.Linear(20, 64), nn.ReLU(), nn.Linear(64, 10)).to(device)
+loss_fn = nn.CrossEntropyLoss()
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-2)
+```
+
+<Exercise
+  id="steps"
+  question="50 000 exemples d'entraînement, batch_size = 64. Combien de pas d'optimisation (mises à jour) par époque ?"
+  answer={782}
+  tolerance={0}
+  hint="Le dernier batch, incomplet, compte aussi (sauf avec drop_last=True)."
+>
+$50\,000 / 64 = 781{,}25$, donc 781 batches complets et un dernier de 16 exemples : **782** pas. Une **époque** est un passage complet sur les données ; un **pas** (*step*, ou itération) est une mise à jour des poids. Les papiers et les schedulers de learning rate raisonnent souvent en pas, pas en époques.
+</Exercise>
+
+## La boucle
+
+<Parsons
+  id="boucle"
+  prompt="Remets la boucle d'entraînement dans l'ordre (zero_grad juste avant le calcul de la loss)."
+  lines={[
+    "for epoch in range(n_epochs):",
+    "    model.train()",
+    "    for X, y in train_loader:",
+    "        X, y = X.to(device), y.to(device)",
+    "        optimizer.zero_grad()",
+    "        loss = loss_fn(model(X), y)",
+    "        loss.backward()",
+    "        optimizer.step()",
+  ]}
+>
+`model.train()` active les comportements propres à l'entraînement (dropout, statistiques de BatchNorm). Les données doivent être sur le même `device` que le modèle. Puis les quatre gestes : effacer les anciens gradients, calculer la loss (forward), calculer les nouveaux gradients (backward), mettre à jour les poids (step).
+</Parsons>
+
+Et la validation, à chaque époque :
+
+```python
+model.eval()                     # désactive dropout, fige BatchNorm
+correct = 0
+with torch.no_grad():            # pas de graphe : plus rapide, moins de mémoire
+    for X, y in val_loader:
+        X, y = X.to(device), y.to(device)
+        correct += (model(X).argmax(dim=1) == y).sum().item()
+print(f"val acc : {correct / len(val_ds):.3f}")
+```
+
+## Les optimiseurs
+
+La **descente de gradient stochastique** (SGD) fait $\theta \leftarrow \theta - \eta\, g$ avec le gradient $g$ d'un mini-batch : bruité, mais bon marché. Le **momentum** lisse ce bruit avec une moyenne mobile des gradients. **Adam** ajoute un pas adaptatif par paramètre :
+
+$$
+m_t = \beta_1 m_{t-1} + (1 - \beta_1)\, g_t
+\qquad
+v_t = \beta_2 v_{t-1} + (1 - \beta_2)\, g_t^2
+\qquad
+\theta_t = \theta_{t-1} - \eta\, \frac{\hat m_t}{\sqrt{\hat v_t} + \varepsilon}
+$$
+
+($\hat m_t$ et $\hat v_t$ sont corrigés du biais de démarrage à zéro.) Un paramètre au gradient toujours petit reçoit des pas relativement plus grands. **AdamW** applique en plus le *weight decay* (régularisation L2) correctement, séparé du pas adaptatif : c'est l'optimiseur par défaut des Transformers, souvent avec un **warmup** (le learning rate monte progressivement sur les premiers pas) puis une décroissance en cosinus.
+
+<Callout type="intuition">
+Pourquoi des mini-batches plutôt que tout le jeu de données ? Un gradient estimé sur 64 exemples est bruité, mais 782 petits pas bruités avancent bien plus vite qu'un seul grand pas exact. Ce bruit aide même à sortir des zones plates et à trouver des minimums qui généralisent mieux.
+</Callout>
+
+## Lire une courbe de loss
+
+Voici une vraie boucle (réseau 2 → 16 → 1 sur les cercles concentriques) et quatre versions buguées, chacune différente d'une seule ligne. Compare chaque courbe à la boucle correcte, en gris.
+
+<TrainLoopLab id="bugs" challenge="loop-mystery" />
+
+Le guide de diagnostic à garder en tête :
+
+| Ce que tu vois | Suspect principal |
+|---|---|
+| Pics qui reviennent et s'amplifient | gradients non remis à zéro, learning rate trop grand |
+| Chaos ou `nan` dès les premiers pas | learning rate trop grand, données non normalisées, log de 0 |
+| Plateau dès le début, loss ≈ valeur initiale | entrées non normalisées, neurones saturés ou morts, bug de labels |
+| Dents de scie régulières à chaque époque | données non mélangées |
+| Train baisse, validation remonte | overfitting : régularisation, plus de données, early stopping |
+
+<Exercise
+  id="loss-init"
+  question="Un classifieur à 10 classes équilibrées, fraîchement initialisé, prédit à peu près 1/10 pour chaque classe. Quelle cross-entropy attends-tu au premier pas (3 décimales) ?"
+  answer={2.303}
+  tolerance={0.002}
+  hint="La cross-entropy vaut −ln de la probabilité donnée à la bonne classe."
+>
+$-\ln(1/10) = \ln 10 \approx 2{,}303$. C'est un contrôle de santé à faire **avant** d'entraîner : si ta loss initiale vaut 15 ou 0,01, il y a un bug (logits démesurés à l'initialisation, softmax appliqué deux fois, labels décalés…).
+</Exercise>
+
+<Callout type="piege">
+`model.eval()` et `torch.no_grad()` ne font pas la même chose, et il faut **les deux** à l'évaluation. `model.eval()` change le comportement de certaines couches (le dropout s'éteint, BatchNorm utilise ses statistiques globales). `torch.no_grad()` désactive l'enregistrement du graphe. Oublier `eval()` donne des métriques bruitées et faussées ; oublier `no_grad()` gaspille de la mémoire.
+</Callout>
+
+<Callout type="astuce">
+Avant d'entraîner sur tout le jeu de données, vérifie que ton modèle sait **sur-apprendre un seul mini-batch** : sur 8 exemples, la loss doit tomber près de 0 en quelques centaines de pas. Si elle n'y arrive pas, le bug est dans le modèle, la loss ou la boucle, pas dans les données ou la capacité. C'est la première étape de la célèbre recette d'Andrej Karpathy.
+</Callout>
+
+<Callout type="entretien">
+Adam converge vite et marche bien sans réglage fin ; SGD avec momentum demande plus de réglages mais généralise parfois mieux (historiquement en vision). Pour les Transformers et les LLM, AdamW avec warmup et décroissance cosinus est le standard. Bonne réponse en entretien : commencer avec AdamW à `lr=3e-4` ou `1e-3`, puis ajuster le learning rate en premier.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Dans quel ordre s'enchaînent les étapes d'un pas d'entraînement ?",
+      options: [
+        "step → backward → loss → zero_grad",
+        "zero_grad → loss (forward) → backward → step",
+        "backward → zero_grad → step → loss",
+        "loss → step → backward → zero_grad",
+      ],
+      answer: 1,
+      explain: "On efface les anciens gradients, on calcule la loss, on rétropropage, puis l'optimiseur met à jour les poids.",
+    },
+    {
+      q: "Ta loss d'entraînement fait des dents de scie régulières, une par époque. Premier suspect ?",
+      options: ["Learning rate trop petit", "shuffle=False dans le DataLoader", "Trop de couches", "Le weight decay"],
+      answer: 1,
+      explain: "Si les données arrivent toujours dans le même ordre (par exemple triées par classe), le modèle oscille au rythme de cet ordre.",
+    },
+    {
+      q: "Pourquoi normaliser les entrées (moyenne 0, écart-type 1) ?",
+      options: [
+        "Pour réduire la taille du dataset",
+        "Pour que toutes les variables aient une échelle comparable et que les neurones ne saturent pas",
+        "Parce que PyTorch l'exige",
+        "Pour éviter l'overfitting",
+      ],
+      answer: 1,
+      explain: "Des entrées de l'ordre de 50 saturent tanh dès l'initialisation (gradient ≈ 0) et rendent le paysage de la loss très mal conditionné.",
+    },
+    {
+      q: "Avec quelles statistiques normaliser le jeu de validation ?",
+      options: [
+        "Celles du jeu de validation",
+        "Celles du jeu d'entraînement",
+        "Celles de toutes les données réunies",
+        "Aucune, on ne normalise pas la validation",
+      ],
+      answer: 1,
+      explain: "La validation doit être traitée exactement comme les futures données de production : avec les statistiques apprises sur l'entraînement. Sinon, c'est une fuite de données.",
+    },
+    {
+      q: "Que fait AdamW de plus qu'Adam ?",
+      options: [
+        "Il utilise un momentum plus fort",
+        "Il découple le weight decay du pas adaptatif",
+        "Il ne calcule pas de moyenne des carrés",
+        "Il est réservé aux CNN",
+      ],
+      answer: 1,
+      explain: "Dans Adam, la pénalité L2 passe par le pas adaptatif et perd son effet ; AdamW l'applique directement aux poids.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Ta loss ne descend pas. Quelle est ta démarche ?">
+Je procède du plus simple au plus coûteux. D'abord des contrôles de santé : la loss initiale correspond-elle à la valeur attendue ($\ln C$ pour $C$ classes) ? Les entrées sont-elles normalisées, les labels alignés avec les exemples, les formes correctes ? Ensuite je vérifie que le modèle peut sur-apprendre un seul petit batch : si non, le bug est dans la boucle (zero_grad, loss appliquée sur des probabilités au lieu de logits, `model.eval()` oublié…). Puis je joue sur le learning rate, sur une échelle logarithmique, et je regarde la forme de la courbe : pics et `nan` signifient trop grand, plateau signifie trop petit ou saturation. Je surveille aussi la norme des gradients par couche. Enfin seulement, je touche à l'architecture ou aux données.
+</Interview>
+
+<Interview q="Quelle différence entre model.eval() et torch.no_grad() ?">
+`model.eval()` met le module en mode évaluation : le dropout est désactivé et BatchNorm utilise ses moyennes et variances accumulées au lieu de celles du batch. Il ne touche pas à autograd. `torch.no_grad()` est un contexte qui désactive l'enregistrement du graphe de calcul : moins de mémoire, plus rapide, mais aucun effet sur le dropout. À l'évaluation, on utilise les deux. Et il ne faut pas oublier de revenir à `model.train()` avant la prochaine époque d'entraînement (ou `torch.inference_mode()`, une variante encore plus rapide de `no_grad`, en production).
+</Interview>
+
+<Recap>
+- Cinq ingrédients : Dataset/DataLoader, `nn.Module`, loss, optimiseur, boucle.
+- Pas : `zero_grad()` → forward + loss → `backward()` → `step()`.
+- Évaluation : `model.eval()` **et** `torch.no_grad()` ; revenir à `model.train()`.
+- Époque = un passage sur les données ; pas = une mise à jour.
+- Adam : momentum + pas adaptatif ; **AdamW** + warmup + cosinus pour les Transformers.
+- Contrôles : loss initiale ≈ $\ln C$, sur-apprendre un batch, normaliser avec les stats du train, `shuffle=True`.
+- Lire la courbe : pics, chaos, plateau, dents de scie, divergence train/val.
+</Recap>
+
+<LessonComplete />

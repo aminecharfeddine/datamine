@@ -9,22 +9,37 @@ import { MOON_DOMAIN, type P2 } from "@/lib/ml";
 
 export const CLASS_COLORS = ["var(--fn)", "var(--fp)"] as const;
 
+type Domain = { x: [number, number]; y: [number, number] };
+
+/** Segment visible de la droite a·x + b·y + c = 0 dans le domaine, ou null. */
+function clipLine(a: number, b: number, c: number, d: Domain): [number, number, number, number] | null {
+  const pts: [number, number][] = [];
+  if (Math.abs(b) > 1e-12) for (const x of d.x) { const y = -(a * x + c) / b; if (y >= d.y[0] && y <= d.y[1]) pts.push([x, y]); }
+  if (Math.abs(a) > 1e-12) for (const y of d.y) { const x = -(b * y + c) / a; if (x >= d.x[0] && x <= d.x[1]) pts.push([x, y]); }
+  return pts.length >= 2 ? [pts[0][0], pts[0][1], pts[pts.length - 1][0], pts[pts.length - 1][1]] : null;
+}
+
 export function DecisionMap({
   predict,
   cols,
   rows,
   points,
   title,
+  domain = MOON_DOMAIN,
+  lines = [],
 }: {
   predict: (0 | 1)[];
   cols: number;
   rows: number;
   points: P2[];
   title: string;
+  domain?: Domain;
+  /** Droites a·x + b·y + c = 0 à superposer (ex. un neurone caché chacune). */
+  lines?: [number, number, number][];
 }) {
-  const W = 480, H = Math.round((W * (MOON_DOMAIN.y[1] - MOON_DOMAIN.y[0])) / (MOON_DOMAIN.x[1] - MOON_DOMAIN.x[0]));
-  const x = scaleLinear().domain(MOON_DOMAIN.x).range([0, W]);
-  const y = scaleLinear().domain(MOON_DOMAIN.y).range([H, 0]);
+  const W = 480, H = Math.round((W * (domain.y[1] - domain.y[0])) / (domain.x[1] - domain.x[0]));
+  const x = scaleLinear().domain(domain.x).range([0, W]);
+  const y = scaleLinear().domain(domain.y).range([H, 0]);
   const cw = W / cols, ch = H / rows;
   return (
     <div>
@@ -47,6 +62,10 @@ export function DecisionMap({
             opacity={0.16}
           />
         ))}
+        {lines.map(([a, b, c], i) => {
+          const seg = clipLine(a, b, c, domain);
+          return seg ? <line key={`l${i}`} x1={x(seg[0])} y1={y(seg[1])} x2={x(seg[2])} y2={y(seg[3])} stroke="var(--ink)" strokeOpacity={0.45} strokeWidth={1.5} strokeDasharray="5 4" /> : null;
+        })}
         {points.map((p, i) => (
           <circle key={i} cx={x(p.x)} cy={y(p.y)} r={4.2} fill={CLASS_COLORS[p.c]} stroke="white" strokeWidth={1.4} />
         ))}

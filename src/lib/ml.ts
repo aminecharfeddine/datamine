@@ -234,8 +234,8 @@ export function knnAccuracyCurve(neigh: Uint8Array[], pts: P2[]) {
 }
 
 /** Grille régulière sur le domaine des demi-lunes, pour colorier les régions de décision. */
-export function moonGrid(cols = 64, rows = 44) {
-  const { x, y } = MOON_DOMAIN;
+export function moonGrid(cols = 64, rows = 44, domain: { x: [number, number]; y: [number, number] } = MOON_DOMAIN) {
+  const { x, y } = domain;
   const cells: { x: number; y: number; i: number; j: number }[] = [];
   for (let j = 0; j < rows; j++)
     for (let i = 0; i < cols; i++)

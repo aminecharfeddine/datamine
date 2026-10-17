@@ -1,0 +1,42 @@
+<FicheSection kind="essentiel">
+- Cinq ingrédients : `Dataset` + `DataLoader`, `nn.Module`, loss, optimiseur, boucle.
+- Un pas : `zero_grad()` → forward + loss → `backward()` → `step()`.
+- Évaluation : `model.eval()` + `torch.no_grad()`, puis `model.train()` pour reprendre.
+- Normaliser avec les statistiques du **train** ; `shuffle=True` à l'entraînement.
+- Les bugs ne plantent pas : ils se lisent sur la courbe de loss.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+m_t = \beta_1 m_{t-1} + (1-\beta_1) g_t \qquad v_t = \beta_2 v_{t-1} + (1-\beta_2) g_t^2
+$$
+
+$$
+\theta_t = \theta_{t-1} - \eta \frac{\hat m_t}{\sqrt{\hat v_t} + \varepsilon}
+$$
+
+Pas par époque : $\lceil n / B \rceil$. Loss initiale attendue : $\ln C$ pour $C$ classes équilibrées.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Oublier `zero_grad()` : pics qui s'amplifient.
+- Learning rate trop grand : chaos, `nan`.
+- Entrées non normalisées : plateau (neurones saturés).
+- `shuffle=False` : dents de scie à chaque époque.
+- `model.eval()` oublié : dropout actif à l'évaluation.
+- Données et modèle sur des `device` différents.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**La loss ne descend pas ?** Loss initiale ≈ ln C, normalisation, labels, formes ; sur-apprendre un batch ; balayer le learning rate ; lire la forme de la courbe ; normes des gradients.
+
+**eval() vs no_grad() ?** Le premier change les couches (dropout, BatchNorm), le second coupe autograd. Il faut les deux.
+
+**Adam ou SGD ?** AdamW + warmup + cosinus par défaut ; SGD momentum parfois meilleur en généralisation.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Sur-apprendre un mini-batch de 8 exemples avant tout entraînement.
+- Point de départ : AdamW, `lr=3e-4` ou `1e-3`, puis régler le learning rate en premier.
+- Tracer `loss.item()` à chaque pas et la métrique de validation à chaque époque.
+</FicheSection>

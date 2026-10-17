@@ -1,0 +1,204 @@
+<Predict
+  id="hook"
+  question="Un réseau a un milliard de paramètres. Calculer le gradient de la loss par rapport à chacun d'eux coûte environ…"
+  options={[
+    "Un milliard de passes forward (une par paramètre)",
+    "L'équivalent de 2 à 3 passes forward, quel que soit le nombre de paramètres",
+    "Une seule multiplication matricielle",
+    "C'est impossible, on approxime toujours",
+  ]}
+  answer={1}
+>
+C'est le tour de force de la **rétropropagation** (*backpropagation*) : en parcourant le calcul **à l'envers** une seule fois, on obtient la dérivée de la loss par rapport à **tous** les paramètres en même temps, pour un coût du même ordre que le calcul de la loss elle-même. Sans elle, entraîner un réseau moderne serait des milliards de fois trop lent. C'est exactement ce que fait `loss.backward()` en PyTorch.
+</Predict>
+
+## La règle de la chaîne, sur un graphe de calcul
+
+Tout calcul se décompose en opérations élémentaires : multiplications, additions, sigmoïdes… On peut les dessiner comme un **graphe de calcul**. Pour un neurone qui prédit $y = 1$ avec la log-loss :
+
+$$
+z = w x + b \;\longrightarrow\; a = \sigma(z) \;\longrightarrow\; L = -\ln a
+$$
+
+Pour savoir comment $L$ varie quand on touche à $w$, on multiplie les dérivées **locales** le long du chemin (règle de la chaîne) :
+
+$$
+\frac{\partial L}{\partial w} = \frac{\partial L}{\partial a} \cdot \frac{\partial a}{\partial z} \cdot \frac{\partial z}{\partial w} = \Big(-\frac{1}{a}\Big) \cdot a(1 - a) \cdot x = (a - 1)\, x
+$$
+
+Plus généralement, pour la sigmoïde combinée à la log-loss, $\frac{\partial L}{\partial z} = a - y$ : l'erreur de prédiction, tout simplement. C'est l'une des raisons pour lesquelles cette paire est si utilisée.
+
+Les deux temps de l'algorithme :
+
+1. **Forward** : on calcule chaque nœud de gauche à droite, et on **mémorise** les valeurs intermédiaires.
+2. **Backward** : on part de $\partial L / \partial L = 1$ et on remonte de droite à gauche ; chaque nœud multiplie le gradient reçu par sa dérivée locale et le transmet à ses entrées.
+
+<BackpropLab id="graphe" challenge="bp-descend" />
+
+<Exercise
+  id="grad"
+  question="Pour ce même neurone, avec x = 3, y = 1 et une sortie a = 0,8 après le forward, que vaut ∂L/∂w ?"
+  answer={-0.6}
+  tolerance={0.001}
+  hint="∂L/∂w = (a − y) · x."
+>
+$(0{,}8 - 1) \times 3 = -0{,}6$. Le gradient est négatif : augmenter $w$ fait baisser la loss. La mise à jour $w \leftarrow w - \eta \cdot (-0{,}6)$ augmente donc $w$, ce qui pousse $a$ vers 1.
+</Exercise>
+
+## En version matricielle
+
+Dans un réseau, chaque couche $z = W x + b$ reçoit de la couche suivante le gradient $\delta = \partial L / \partial z$ (un vecteur) et calcule :
+
+$$
+\frac{\partial L}{\partial W} = \delta\, x^\top
+\qquad
+\frac{\partial L}{\partial b} = \delta
+\qquad
+\frac{\partial L}{\partial x} = W^\top \delta
+$$
+
+Le dernier terme est transmis à la couche précédente, qui fait de même. Le backward d'une couche linéaire, ce sont donc deux multiplications matricielles : à peu près deux fois le coût du forward. D'où les « 2 à 3 passes forward » de l'introduction.
+
+<Callout type="intuition">
+Le forward doit **garder en mémoire** toutes les activations intermédiaires, car le backward en a besoin ($x$ pour $\partial L / \partial W$, $a$ pour la dérivée de la sigmoïde…). C'est pour cela que l'entraînement consomme beaucoup plus de mémoire GPU que l'inférence, et que la taille du batch est souvent limitée par la mémoire.
+</Callout>
+
+## Autograd : PyTorch le fait pour toi
+
+PyTorch enregistre le graphe pendant le forward, dès qu'un tenseur a `requires_grad=True`. `backward()` le parcourt à l'envers et **ajoute** chaque gradient dans l'attribut `.grad` des feuilles :
+
+```python
+import torch
+
+x, y = torch.tensor(2.0), 1.0
+w = torch.tensor(-0.5, requires_grad=True)
+b = torch.tensor(0.1, requires_grad=True)
+
+a = torch.sigmoid(w * x + b)      # forward : le graphe est enregistré
+loss = -torch.log(a)
+loss.backward()                   # backward : remplit w.grad et b.grad
+
+print(w.grad, b.grad)             # tensor(-1.4219) tensor(-0.7109)
+
+with torch.no_grad():             # la mise à jour ne doit pas être enregistrée
+    w -= 0.3 * w.grad
+    b -= 0.3 * b.grad
+w.grad.zero_(); b.grad.zero_()    # sinon le prochain backward s'ajoute à celui-ci
+```
+
+Ce sont exactement les valeurs de ton premier backward dans le lab.
+
+<CodeChoice
+  id="zero-grad"
+  question="Il manque une ligne dans cette boucle d'entraînement. Laquelle ?"
+  code={`for X, y in loader:
+    loss = loss_fn(model(X), y)
+    loss.backward()
+    optimizer.step()
+    ___`}
+  options={["optimizer.zero_grad()", "loss.zero_grad()", "model.eval()", "torch.no_grad()"]}
+  answer={0}
+>
+`backward()` **additionne** les gradients dans `.grad` au lieu de les remplacer (pratique pour accumuler sur plusieurs mini-batches quand le batch ne tient pas en mémoire). Sans `optimizer.zero_grad()`, chaque pas utilise la somme de tous les gradients passés : les pas grandissent et l'entraînement devient instable. On le place soit à la fin de la boucle, soit, plus souvent, juste avant `backward()`.
+</CodeChoice>
+
+## Quand le gradient s'évanouit ou explose
+
+Dans un réseau profond, le gradient qui arrive à la première couche est un **produit** de dizaines de dérivées locales. Si elles sont toutes petites, il s'évanouit ; si elles sont grandes, il explose.
+
+<Exercise
+  id="vanishing"
+  question="La dérivée de la sigmoïde vaut au plus 0,25. Après 10 couches sigmoïdes, par combien au plus le gradient a-t-il été multiplié ? (notation scientifique acceptée, ex. 1e-6)"
+  answer={0.00000095367}
+  tolerance={0.00000001}
+  hint="0,25 multiplié par lui-même 10 fois."
+>
+$0{,}25^{10} \approx 9{,}5 \times 10^{-7}$ : les premières couches ne reçoivent presque plus de signal et n'apprennent plus. C'est le **vanishing gradient**, qui a longtemps empêché d'entraîner des réseaux profonds.
+</Exercise>
+
+Les remèdes, que tu retrouveras dans tous les Transformers :
+
+- des activations à dérivée 1 sur leur partie active (**ReLU**, GELU) ;
+- une **initialisation** adaptée (He, Xavier) qui préserve la variance d'une couche à l'autre ;
+- des **connexions résiduelles** $x + f(x)$ : le gradient passe directement par le $+ x$ ;
+- la **normalisation** (BatchNorm, LayerNorm) qui garde les activations dans une plage raisonnable ;
+- le **gradient clipping** contre l'explosion : `torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)`.
+
+<Callout type="piege">
+Trois erreurs d'autograd fréquentes : modifier un tenseur **en place** dont le backward a besoin (`RuntimeError: ... modified by an inplace operation`) ; oublier `torch.no_grad()` à l'évaluation, ce qui enregistre un graphe inutile et fait exploser la mémoire ; et stocker `loss` (au lieu de `loss.item()`) dans une liste pour tracer la courbe, ce qui garde en mémoire tous les graphes.
+</Callout>
+
+<Callout type="entretien">
+On te demandera parfois de dériver à la main le gradient d'une couche linéaire suivie d'un softmax et de la cross-entropy. Le résultat à retenir : $\partial L / \partial z = \hat p - y$ (probabilités prédites moins le vecteur one-hot), puis $\partial L / \partial W = (\hat p - y)\, x^\top$.
+</Callout>
+
+<Callout type="astuce">
+Si tu écris toi-même un backward (couche custom), vérifie-le par **différences finies** : $\frac{L(w + \varepsilon) - L(w - \varepsilon)}{2\varepsilon}$ doit coïncider avec ton gradient. `torch.autograd.gradcheck` le fait pour toi, en float64.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Pendant le backward, chaque nœud du graphe…",
+      options: [
+        "Recalcule sa valeur depuis les entrées",
+        "Multiplie le gradient reçu par sa dérivée locale et le transmet à ses entrées",
+        "Met à jour ses poids",
+        "Calcule la loss",
+      ],
+      answer: 1,
+      explain: "C'est la règle de la chaîne appliquée de la sortie vers les entrées. La mise à jour des poids est une étape séparée (optimizer.step()).",
+    },
+    {
+      q: "Pourquoi l'entraînement consomme-t-il plus de mémoire que l'inférence ?",
+      options: [
+        "Parce que les poids sont dupliqués",
+        "Parce que les activations du forward doivent être gardées pour le backward",
+        "Parce que le batch est plus petit",
+        "Ce n'est pas le cas",
+      ],
+      answer: 1,
+      explain: "Le backward a besoin des valeurs intermédiaires. À l'inférence (torch.no_grad()), on les libère au fur et à mesure.",
+    },
+    {
+      q: "Que vaut ∂L/∂z pour une sigmoïde suivie de la log-loss ?",
+      options: ["a(1 − a)", "−1/a", "a − y", "y − a"],
+      answer: 2,
+      explain: "Les deux dérivées locales se simplifient : l'erreur de prédiction, tout simplement.",
+    },
+    {
+      q: "Que se passe-t-il si on appelle loss.backward() deux fois sans remettre les gradients à zéro ?",
+      options: ["Erreur", "Les gradients sont remplacés", "Les gradients s'additionnent dans .grad", "Les poids sont mis à jour deux fois"],
+      answer: 2,
+      explain: "backward() accumule. (Un second backward sur le même graphe demande aussi retain_graph=True.)",
+    },
+    {
+      q: "Quel mécanisme laisse passer le gradient presque intact à travers des dizaines de couches ?",
+      options: ["La sigmoïde", "Les connexions résiduelles x + f(x)", "Un learning rate plus grand", "Le dropout"],
+      answer: 1,
+      explain: "La dérivée de x + f(x) par rapport à x vaut 1 + f'(x) : il existe toujours un chemin direct pour le gradient.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique la backpropagation.">
+C'est un algorithme pour calculer efficacement le gradient de la loss par rapport à tous les paramètres. On représente le calcul comme un graphe d'opérations élémentaires. Le forward calcule chaque nœud et garde les valeurs intermédiaires ; le backward part de la loss, de gradient 1, et remonte le graphe en appliquant la règle de la chaîne : chaque nœud multiplie le gradient reçu par sa dérivée locale et le propage à ses entrées, en sommant quand un nœud a plusieurs sorties. Le coût est de l'ordre de deux à trois forward, indépendamment du nombre de paramètres. C'est une différentiation automatique en mode inverse ; en PyTorch, `loss.backward()` le fait et remplit les `.grad`, puis l'optimiseur met à jour les poids.
+</Interview>
+
+<Interview q="Qu'est-ce que le vanishing gradient, et comment le combat-on ?">
+Le gradient qui atteint les premières couches est un produit de dérivées locales ; si elles sont souvent inférieures à 1 (sigmoïde, tanh saturées), il décroît exponentiellement avec la profondeur et ces couches n'apprennent plus. L'inverse, l'explosion, rend l'entraînement instable. Remèdes : activations ReLU/GELU, initialisation He ou Xavier, connexions résiduelles (ResNet, Transformers), normalisation (BatchNorm, LayerNorm), gradient clipping pour l'explosion, et pour les séquences, les architectures à portes (LSTM) puis l'attention.
+</Interview>
+
+<Recap>
+- Backprop = règle de la chaîne appliquée à l'envers sur le graphe de calcul.
+- Forward : calculer et **mémoriser** ; backward : multiplier les dérivées locales de la sortie vers les entrées.
+- Coût ≈ 2 à 3 forward, quel que soit le nombre de paramètres.
+- Sigmoïde + log-loss : $\partial L / \partial z = a - y$. Couche linéaire : $\partial L / \partial W = \delta x^\top$, $\partial L / \partial x = W^\top \delta$.
+- PyTorch : `loss.backward()` **accumule** dans `.grad` → `optimizer.zero_grad()`.
+- Vanishing/exploding : ReLU, bonne init, résidus, normalisation, clipping.
+</Recap>
+
+<LessonComplete />

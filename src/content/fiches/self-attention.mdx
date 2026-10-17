@@ -1,0 +1,43 @@
+<FicheSection kind="essentiel">
+- Chaque token produit une **query**, une **key** et une **value** par projections apprises.
+- Poids d'attention = softmax des produits scalaires query · keys ; sortie = moyenne pondérée des values.
+- Division par $\sqrt{d_k}$ : sinon le softmax sature.
+- **Masque causal** pour la génération ; attention bidirectionnelle pour les encodeurs (BERT).
+- **Multi-head** : plusieurs relations suivies en parallèle.
+- Coût quadratique en la longueur de la séquence.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right) V
+$$
+
+$$
+\text{MultiHead}(X) = \text{Concat}(\text{head}_1, \dots, \text{head}_h)\, W_O
+$$
+
+Paramètres d'une couche d'attention : $4d^2$ (sans biais). Scores : $n^2$ par tête et par couche.
+
+Écart-type de $q \cdot k$ pour des composantes de variance 1 : $\sqrt{d_k}$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Oublier $\sqrt{d_k}$ : attention one-hot, gradients nuls.
+- Softmax sur la mauvaise dimension : les poids doivent sommer à 1 sur les keys (`dim=-1`).
+- Confondre masque causal (futur) et masque de padding.
+- Interpréter un poids d'attention comme une explication causale.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Expliquer l'attention ?** Recherche floue : query comparée aux keys, softmax, moyenne des values ; deux produits matriciels ; multi-têtes ; masque causal.
+
+**Pourquoi $\sqrt{d_k}$ ?** Variance des scores proportionnelle à $d_k$.
+
+**Longs contextes ?** FlashAttention, fenêtres glissantes, KV cache, GQA/MQA, RoPE étendu.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `F.scaled_dot_product_attention(q, k, v, is_causal=True)` en production.
+- `output_attentions=True` pour inspecter les matrices d'un modèle Hugging Face.
+- Formes : q, k, v en `(batch, têtes, n, d_k)` ; scores en `(batch, têtes, n, n)`.
+</FicheSection>

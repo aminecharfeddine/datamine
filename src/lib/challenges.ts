@@ -36,6 +36,11 @@ export type LogRegState = { degree: number; testAcc: number; linearAcc: number }
 export type ForestState = { trees: number; testAcc: number; singleAcc: number };
 export type BoostState = { lr: number; rounds: number; trainAcc: number; testAcc: number; bestAcc: number };
 export type KMeansState = { k: number; mode: "random" | "pp"; converged: boolean; inertia: number; best: number };
+export type NnState = { H: number; act: string; trained: boolean; testAcc: number };
+export type BackpropState = { loss: number; updates: number };
+export type MysteryState = { guessed: boolean };
+export type BpeState = { merges: number; ratio: number; words: number; tokens: number; allMerges: boolean };
+export type AttnState = { weight: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -322,4 +327,56 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Le coude est le dernier k qui fait vraiment baisser l'inertie. k-means++ évite la plupart des mauvais départs.",
     check: (s: KMeansState) => s.k === 4 && s.converged && s.inertia <= s.best * 1.01,
   } satisfies Challenge<KMeansState>,
+  // ---------------------------------------------------------------- Deep learning
+  "nn-collapse": {
+    id: "nn-collapse",
+    title: "L'empilement inutile",
+    goal: "Avec l'activation linéaire, entraîne un réseau d'au moins 16 neurones et constate qu'il ne fait pas mieux que le hasard (moins de 60 %).",
+    hint: "Choisis « linéaire », pousse le nombre de neurones, puis lance l'entraînement jusqu'au bout.",
+    check: (s: NnState) => s.act === "linear" && s.H >= 16 && s.trained && s.testAcc < 0.6,
+  } satisfies Challenge<NnState>,
+  "nn-minimal": {
+    id: "nn-minimal",
+    title: "Le plus petit réseau",
+    goal: "Atteins au moins 95 % de précision de test avec 3 neurones cachés ou moins.",
+    hint: "Combien de droites faut-il au minimum pour enfermer le disque central ? Essaie aussi les deux activations non linéaires.",
+    check: (s: NnState) => s.trained && s.H <= 3 && s.act !== "linear" && s.testAcc >= 0.95,
+  } satisfies Challenge<NnState>,
+  "bp-descend": {
+    id: "bp-descend",
+    title: "Trois gestes",
+    goal: "Fais descendre la loss sous 0,05 en au plus 10 mises à jour, en enchaînant forward, backward et step.",
+    hint: "Le gradient indique la direction ; le learning rate, la longueur du pas. Avec un pas trop petit, 10 mises à jour ne suffiront pas.",
+    check: (s: BackpropState) => s.loss <= 0.05 && s.updates <= 10,
+  } satisfies Challenge<BackpropState>,
+  "loop-mystery": {
+    id: "loop-mystery",
+    title: "La courbe mystère",
+    goal: "Identifie le bug caché derrière la courbe de loss mystère.",
+    hint: "Compare-la aux courbes de chaque bug ci-dessus : pics qui s'amplifient, plateau, dents de scie ou chaos initial ?",
+    check: (s: MysteryState) => s.guessed,
+  } satisfies Challenge<MysteryState>,
+
+  // ---------------------------------------------------------------- LLM
+  "bpe-compress": {
+    id: "bpe-compress",
+    title: "Compresser le texte",
+    goal: "Atteins en moyenne 2,5 caractères par token sur le corpus, avec 150 fusions au plus.",
+    hint: "Chaque fusion crée un token plus long ; les premières sont les plus rentables.",
+    check: (s: BpeState) => s.merges <= 150 && s.ratio >= 2.5,
+  } satisfies Challenge<BpeState>,
+  "bpe-rare": {
+    id: "bpe-rare",
+    title: "Le mot qui coûte cher",
+    goal: "Avec toutes les fusions, tape un seul mot qui se découpe en au moins 8 tokens.",
+    hint: "Un mot long, rare, absent du corpus. Le plus long mot du dictionnaire français fera l'affaire.",
+    check: (s: BpeState) => s.allMerges && s.words === 1 && s.tokens >= 8,
+  } satisfies Challenge<BpeState>,
+  "attn-focus": {
+    id: "attn-focus",
+    title: "À qui renvoie « il » ?",
+    goal: "Oriente la query de « il » pour qu'au moins 80 % de son attention se porte sur « chat ».",
+    hint: "La direction choisit vers quelle clé regarder ; la norme rend le softmax plus ou moins tranché.",
+    check: (s: AttnState) => s.weight >= 0.8,
+  } satisfies Challenge<AttnState>,
 };
