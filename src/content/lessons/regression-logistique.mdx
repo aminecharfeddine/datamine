@@ -1,0 +1,189 @@
+<Predict
+  id="hook"
+  question="Tu veux prédire si un étudiant réussit son examen (1) ou non (0) à partir de ses heures de révision. Tu traces la meilleure droite à travers ces 0 et ces 1. Quel est le problème principal ?"
+  options={[
+    "Une droite ne peut pas passer par des points",
+    "La droite sort de l'intervalle [0, 1] : elle prédit des « probabilités » de −0,3 ou de 1,4",
+    "Il faudrait plus de données",
+    "Aucun, c'est exactement la régression logistique",
+  ]}
+  answer={1}
+>
+Une droite monte indéfiniment : pour 20 heures de révision, elle annonce une probabilité de réussite supérieure à 1, et négative pour 0 heure. Ce dont on a besoin, c'est d'une courbe qui reste coincée entre 0 et 1 et qui passe en douceur de « presque sûr d'échouer » à « presque sûr de réussir ». C'est exactement ce que fait la **régression logistique** : une droite, passée dans une fonction en S.
+</Predict>
+
+## La régression linéaire en trois minutes
+
+Pour prédire une valeur **continue** (un prix, une durée), le modèle le plus simple est une combinaison linéaire des variables :
+
+$$
+\hat y = w_1 x_1 + w_2 x_2 + \dots + w_d x_d + b = w^\top x + b
+$$
+
+On choisit $w$ et $b$ qui minimisent l'erreur quadratique moyenne (MSE) sur les données d'entraînement. Ce problème a une solution exacte, les **moindres carrés** : $\hat w = (X^\top X)^{-1} X^\top y$. Chaque coefficient se lit directement : $w_j$ est la variation de $\hat y$ quand $x_j$ augmente d'une unité, **toutes les autres variables restant fixes**.
+
+<Callout type="rappel">
+La régression linéaire n'est linéaire que **dans ses paramètres** : rien n'interdit de lui donner $x^2$, $\log x$ ou $x_1 x_2$ comme variables. C'est ce que faisait le lab des polynômes dans la leçon sur le bias-variance.
+</Callout>
+
+## De la droite à la probabilité
+
+La régression logistique garde la même combinaison linéaire $z = w^\top x + b$ (appelée *logit*), puis l'écrase dans $]0, 1[$ avec la **sigmoïde** :
+
+$$
+\sigma(z) = \frac{1}{1 + e^{-z}}
+\qquad
+P(y = 1 \mid x) = \sigma(w^\top x + b)
+$$
+
+Quand $z = 0$, la probabilité vaut exactement 0,5 : c'est le **point de bascule**. Plus $|w|$ est grand, plus la transition est brutale.
+
+Ci-dessous, 40 étudiants : leurs heures de révision, et s'ils ont réussi (en haut) ou échoué (en bas). Règle la sigmoïde à la main.
+
+<SigmoidLab id="ajuster" challenge="logit-fit" />
+
+<Predict
+  id="raide"
+  question="Garde le point de bascule vers 5 h et pousse la pente au maximum (w = 4). La précision ne bouge presque pas, mais la log-loss grimpe. Pourquoi ?"
+  options={[
+    "La précision est mal calculée",
+    "Le modèle devient quasi certain partout, et les quelques étudiants « surprenants » coûtent alors énormément",
+    "Une pente raide fait sortir la courbe de [0, 1]",
+    "La log-loss augmente toujours avec la pente",
+  ]}
+  answer={1}
+>
+La précision ne regarde que le côté du seuil où tombe chaque point. La log-loss regarde **la confiance** : un étudiant qui réussit alors que le modèle lui donnait 2 % de chances coûte $-\ln 0{,}02 \approx 3{,}9$, soit autant que des dizaines de bonnes prédictions. Une pente trop douce coûte aussi : le modèle reste vague même quand c'est évident. Le minimum est un compromis, et il est unique.
+</Predict>
+
+## La log-loss : punir les certitudes fausses
+
+Pour un exemple d'étiquette $y \in \{0, 1\}$ et de probabilité prédite $p$, la **log-loss** (ou *binary cross-entropy*) vaut :
+
+$$
+\mathcal L = -\frac{1}{n} \sum_{i=1}^{n} \Big[ y_i \ln p_i + (1 - y_i) \ln (1 - p_i) \Big]
+$$
+
+Seul un des deux termes est actif : $-\ln p$ si l'exemple est positif, $-\ln(1-p)$ s'il est négatif. Annoncer 0,9 pour un vrai positif coûte 0,11 ; annoncer 0,01 coûte 4,6. Minimiser cette perte revient à choisir les paramètres qui rendent les données observées **les plus probables** : c'est le **maximum de vraisemblance**.
+
+<Exercise
+  id="logloss"
+  question="Le modèle annonce p = 0,8 pour un exemple réellement positif. Quelle est sa contribution à la log-loss (logarithme népérien, 3 décimales) ?"
+  answer={0.223}
+  tolerance={0.002}
+  hint="L'exemple est positif : seul le terme −ln p compte."
+>
+$-\ln 0{,}8 \approx 0{,}223$. Si l'exemple avait été **négatif**, le coût aurait été $-\ln(1 - 0{,}8) = -\ln 0{,}2 \approx 1{,}609$, sept fois plus.
+</Exercise>
+
+<Callout type="intuition">
+Pourquoi pas la MSE, comme en régression linéaire ? Combinée à la sigmoïde, la MSE donne une fonction de coût **non convexe** et des gradients minuscules quand le modèle se trompe avec assurance : il apprend lentement précisément là où il devrait corriger le plus. La log-loss est convexe en $w$ : la descente de gradient trouve le minimum global.
+</Callout>
+
+## Lire un coefficient : les cotes
+
+En réarrangeant la sigmoïde, on obtient une relation linéaire sur le **logarithme des cotes** (*log-odds*) :
+
+$$
+\ln \frac{p}{1 - p} = w^\top x + b
+$$
+
+Augmenter $x_j$ d'une unité ajoute $w_j$ au log des cotes, donc **multiplie les cotes** par $e^{w_j}$. C'est la phrase qu'on attend en entretien.
+
+<Exercise
+  id="odds"
+  question="Le coefficient des heures de révision vaut w = 0,7. Par combien chaque heure supplémentaire multiplie-t-elle les cotes de réussite (2 décimales) ?"
+  answer={2.01}
+  tolerance={0.02}
+  hint="Les cotes sont multipliées par e^w."
+>
+$e^{0{,}7} \approx 2{,}01$ : chaque heure **double environ** les cotes de réussite. Attention, ce n'est pas la probabilité qui double. Passer de cotes 1 contre 1 (p = 0,5) à 2 contre 1 donne p ≈ 0,67.
+</Exercise>
+
+## Une frontière droite… dans l'espace qu'on lui donne
+
+La frontière de décision est l'ensemble des points où $p = 0{,}5$, c'est-à-dire où $w^\top x + b = 0$ : une **droite** en 2D, un hyperplan en général. La régression logistique est un classifieur **linéaire**, malgré la sigmoïde. Sur les demi-lunes, ça ne suffit pas… sauf si on lui donne de meilleures variables.
+
+<LogRegLab id="frontiere" challenge="logit-poly" />
+
+Avec $x^2$, $xy$, $y^3$… comme entrées, la frontière reste un hyperplan dans l'espace de ces nouvelles variables, mais redevient une **courbe** dans le plan d'origine. C'est le *feature engineering*, et c'est aussi l'idée qui mène aux réseaux de neurones : apprendre ces variables au lieu de les inventer à la main.
+
+<Callout type="piege">
+Si les classes sont **parfaitement séparables**, la log-loss peut toujours baisser en rendant la sigmoïde plus raide : les coefficients partent vers l'infini et l'optimiseur ne converge pas. La parade est la **régularisation** L2 (activée par défaut dans scikit-learn, où le paramètre `C` vaut $1/\lambda$). Comme toujours avec une pénalité, standardise les variables d'abord.
+</Callout>
+
+<Callout type="entretien">
+Plus de deux classes ? On remplace la sigmoïde par le **softmax** : un logit $z_k$ par classe, puis $P(y = k) = e^{z_k} / \sum_j e^{z_j}$. Avec deux classes, c'est exactement la sigmoïde. Tu retrouveras le softmax à la sortie de tous les LLM, pour choisir le token suivant.
+</Callout>
+
+<Callout type="astuce">
+La régression logistique est la **baseline** à battre sur des données tabulaires : rapide, interprétable, et ses probabilités sont en général bien **calibrées** (« 70 % » veut vraiment dire 7 fois sur 10). Si un modèle plus complexe ne la bat pas nettement en validation croisée, garde-la.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "La frontière de décision d'une régression logistique sur deux variables brutes x et y est…",
+      options: ["Une courbe en S", "Une droite", "Un cercle", "Des rectangles"],
+      answer: 1,
+      explain: "p = 0,5 quand w₁x + w₂y + b = 0 : c'est l'équation d'une droite. La sigmoïde ne fait que transformer la distance à cette droite en probabilité.",
+    },
+    {
+      q: "Le modèle annonce p = 0,99 pour un exemple négatif. Sa contribution à la log-loss est d'environ…",
+      options: ["0,01", "0,99", "4,6", "99"],
+      answer: 2,
+      explain: "Exemple négatif : coût −ln(1 − 0,99) = −ln 0,01 ≈ 4,6. Une erreur confiante coûte très cher.",
+    },
+    {
+      q: "Un coefficient vaut −0,5 pour la variable « nombre de retards de paiement ». Chaque retard supplémentaire…",
+      options: [
+        "Retire 0,5 à la probabilité",
+        "Multiplie les cotes par e^(−0,5) ≈ 0,61",
+        "Divise la probabilité par 2",
+        "N'a pas d'effet interprétable",
+      ],
+      answer: 1,
+      explain: "Le coefficient agit additivement sur le log des cotes, donc multiplicativement sur les cotes.",
+    },
+    {
+      q: "Pourquoi entraîne-t-on la régression logistique avec la log-loss plutôt que la MSE ?",
+      options: [
+        "La MSE est plus lente à calculer",
+        "Avec la sigmoïde, la log-loss est convexe et donne de forts gradients sur les erreurs confiantes",
+        "La MSE ne fonctionne qu'en régression",
+        "Par convention historique",
+      ],
+      answer: 1,
+      explain: "La log-loss est convexe en w (minimum unique) et correspond au maximum de vraisemblance d'une loi de Bernoulli.",
+    },
+    {
+      q: "Tes deux classes sont parfaitement séparables et l'entraînement ne converge pas. Que faire ?",
+      options: ["Retirer la constante b", "Ajouter une régularisation L2", "Passer à la MSE", "Augmenter le learning rate"],
+      answer: 1,
+      explain: "Sans pénalité, rendre la sigmoïde plus raide fait toujours baisser la perte : les poids explosent. La pénalité L2 les retient.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique la régression logistique à quelqu'un qui connaît la régression linéaire.">
+On garde une combinaison linéaire des variables, $z = w^\top x + b$, mais au lieu de la prendre comme prédiction on la passe dans la sigmoïde pour obtenir une probabilité entre 0 et 1. On l'entraîne en maximisant la vraisemblance, ce qui revient à minimiser la log-loss (cross-entropy), une fonction convexe. La frontière $p = 0{,}5$ correspond à $z = 0$ : c'est un classifieur linéaire. Les coefficients s'interprètent en **log-odds** : $+1$ sur $x_j$ multiplie les cotes par $e^{w_j}$. On ajoute en pratique une régularisation L2, et on standardise les variables.
+</Interview>
+
+<Interview q="Ta régression logistique a 0,92 de précision mais les équipes métier se plaignent de ses probabilités. Que regardes-tu ?">
+La **calibration** : sur les exemples où le modèle annonce 80 %, observe-t-on vraiment 80 % de positifs ? Je tracerais une courbe de fiabilité (*reliability diagram*) et je regarderais la log-loss ou le Brier score plutôt que la précision. Causes fréquentes : un rééquilibrage des classes à l'entraînement (sur-échantillonnage, `class_weight`) qui gonfle les probabilités de la classe rare, une régularisation trop forte qui les écrase vers 0,5, ou une dérive des données depuis l'entraînement. Correctifs : recalibrer sur un jeu de validation (Platt scaling, régression isotonique), ou corriger la prévalence a posteriori.
+</Interview>
+
+<Recap>
+- Régression linéaire : $\hat y = w^\top x + b$, entraînée par moindres carrés (MSE).
+- Régression logistique : $P(y=1 \mid x) = \sigma(w^\top x + b)$, entraînée par **log-loss** (maximum de vraisemblance, convexe).
+- La log-loss punit surtout les **erreurs confiantes** : $-\ln 0{,}01 \approx 4{,}6$.
+- Frontière **linéaire** ($z = 0$) ; des variables polynomiales la courbent.
+- Coefficient $w_j$ : les **cotes** sont multipliées par $e^{w_j}$ pour +1 sur $x_j$.
+- Classes séparables ⇒ poids infinis sans régularisation L2. Standardiser d'abord.
+- Plusieurs classes : softmax.
+</Recap>
+
+<LessonComplete />

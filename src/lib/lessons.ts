@@ -2,6 +2,9 @@
 export const LESSON_CONTENT: Record<string, () => Promise<{ default: React.ComponentType }>> = {
   "validation-croisee": () => import("@/content/lessons/validation-croisee.mdx"),
   knn: () => import("@/content/lessons/knn.mdx"),
+  "regression-logistique": () => import("@/content/lessons/regression-logistique.mdx"),
+  "forets-et-boosting": () => import("@/content/lessons/forets-et-boosting.mdx"),
+  "k-means": () => import("@/content/lessons/k-means.mdx"),
   "arbres-de-decision": () => import("@/content/lessons/arbres-de-decision.mdx"),
   "intervalles-de-confiance": () => import("@/content/lessons/intervalles-de-confiance.mdx"),
   "tests-et-p-values": () => import("@/content/lessons/tests-et-p-values.mdx"),

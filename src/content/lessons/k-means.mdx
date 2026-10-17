@@ -1,0 +1,167 @@
+<Predict
+  id="hook"
+  question="Une boutique en ligne veut regrouper ses 50 000 clients en profils d'achat. Personne n'a jamais étiqueté de « type de client ». De quel type d'apprentissage s'agit-il ?"
+  options={["Supervisé : classification", "Supervisé : régression", "Non supervisé : clustering", "Apprentissage par renforcement"]}
+  answer={2}
+>
+Il n'y a **aucune réponse à prédire** : seulement des données. Le **clustering** cherche des groupes d'exemples qui se ressemblent entre eux et diffèrent des autres groupes. Les profils obtenus (« gros paniers rares », « petits achats fréquents »…) ne sont pas une vérité à retrouver : ce sont des hypothèses utiles, que le métier valide ou non. L'algorithme le plus utilisé pour cela est **k-means**.
+</Predict>
+
+## Ce que k-means cherche
+
+On fixe à l'avance le nombre de groupes $k$. k-means cherche $k$ **centres** $\mu_1, \dots, \mu_k$ et affecte chaque point au centre le plus proche, de façon à minimiser l'**inertie** (*within-cluster sum of squares*) :
+
+$$
+J = \sum_{j=1}^{k} \; \sum_{x_i \in C_j} \lVert x_i - \mu_j \rVert^2
+$$
+
+Autrement dit : des groupes **compacts**, où chaque point est proche de son centre.
+
+## L'algorithme de Lloyd : deux étapes en boucle
+
+Trouver le minimum exact est très difficile. L'algorithme de Lloyd alterne deux étapes simples :
+
+1. **Assigner** : chaque point rejoint le centre le plus proche.
+2. **Recentrer** : chaque centre se déplace au **barycentre** (la moyenne) de ses points.
+
+Et on recommence jusqu'à ce que plus aucun point ne change de groupe.
+
+<Exercise
+  id="centre"
+  question="Un groupe contient les points (1, 2), (3, 4) et (5, 0). Après l'étape « recentrer », quelle est l'ordonnée (y) de son centre ?"
+  answer={2}
+  tolerance={0.001}
+  hint="Le centre est la moyenne des points, coordonnée par coordonnée."
+>
+$y = (2 + 4 + 0) / 3 = 2$, et $x = (1 + 3 + 5) / 3 = 3$ : le centre est en (3, 2). La moyenne est exactement le point qui minimise la somme des distances au carré : c'est pour cela que l'étape « recentrer » fait toujours baisser l'inertie.
+</Exercise>
+
+Les deux étapes font chacune baisser (ou stagner) l'inertie : l'algorithme **converge toujours**, en général en quelques itérations. Mais vers quoi ? Avance pas à pas, puis tire plusieurs initialisations.
+
+<KMeansLab id="pas-a-pas" k={4} mode="random" seed={2} challenge="kmeans-local" />
+
+<Callout type="intuition">
+Lloyd est une descente : chaque étape améliore la solution **localement**. Si deux centres démarrent dans le même groupe, ils se le partagent, et un autre centre doit couvrir seul deux groupes éloignés. Aucune étape ne peut corriger ça, car déplacer un seul centre ferait d'abord monter l'inertie. C'est un **minimum local**.
+</Callout>
+
+## Bien démarrer : k-means++
+
+Deux parades, utilisées ensemble par défaut dans scikit-learn :
+
+- **k-means++** : le premier centre est tiré au hasard parmi les points, puis chaque centre suivant est tiré avec une probabilité proportionnelle au **carré de sa distance** au centre déjà choisi le plus proche. Les centres démarrent donc éloignés les uns des autres, souvent un par groupe.
+- **Plusieurs essais** (`n_init`) : on lance l'algorithme avec plusieurs initialisations et on garde la solution de plus faible inertie.
+
+<Exercise
+  id="inertie"
+  question="Un groupe a pour centre (2, 1) et contient les points (1, 1), (3, 1) et (2, 3). Quelle est l'inertie de ce groupe ?"
+  answer={6}
+  tolerance={0.001}
+  hint="Somme des distances AU CARRÉ : pas de racine."
+>
+$\lVert(1,1) - (2,1)\rVert^2 + \lVert(3,1) - (2,1)\rVert^2 + \lVert(2,3) - (2,1)\rVert^2 = 1 + 1 + 4 = 6$. Le point (2, 3), deux fois plus loin que les autres, pèse quatre fois plus : k-means est sensible aux points éloignés.
+</Exercise>
+
+## Combien de groupes ?
+
+<Predict
+  id="choisir-k"
+  question="Pourquoi ne pas simplement choisir le k qui donne l'inertie la plus faible ?"
+  options={[
+    "Parce que l'inertie est trop longue à calculer",
+    "Parce que l'inertie baisse toujours quand k augmente, jusqu'à 0 avec un groupe par point",
+    "Parce qu'elle augmente avec k",
+    "C'est justement la bonne méthode",
+  ]}
+  answer={1}
+>
+Avec autant de centres que de points, chaque point est son propre centre et l'inertie vaut 0 : un « clustering » parfait et inutile. Comme l'erreur d'entraînement face à la complexité d'un modèle, l'inertie ne peut pas choisir $k$ toute seule. On cherche plutôt le **coude** : le $k$ au-delà duquel ajouter un groupe ne fait presque plus baisser l'inertie.
+</Predict>
+
+<KMeansLab id="coude" k={2} mode="pp" seed={1} challenge="kmeans-elbow" />
+
+D'autres critères complètent le coude : le **score de silhouette** compare, pour chaque point, la distance moyenne à son propre groupe et celle au groupe voisin le plus proche (entre −1 et 1, plus c'est haut mieux c'est). Mais le critère final reste souvent métier : des groupes **interprétables et actionnables**.
+
+<Callout type="piege">
+k-means suppose des groupes à peu près **ronds, de tailles comparables**, et utilise la distance euclidienne. Il échoue sur des formes allongées ou imbriquées (comme les demi-lunes), sur des groupes de densités très différentes, et se laisse tirer par les valeurs aberrantes. Il faut aussi **standardiser** les variables, exactement comme pour le k-NN. Alternatives : **DBSCAN** (groupes de forme libre, détecte le bruit), les **mélanges gaussiens** (groupes elliptiques, appartenance probabiliste), le clustering hiérarchique.
+</Callout>
+
+<Callout type="entretien">
+k-means sert bien au-delà de la segmentation : la **quantification vectorielle** remplace chaque vecteur par son centre le plus proche. C'est le principe des index IVF de FAISS (vus dans la leçon sur le k-NN) : on ne cherche les voisins que dans les quelques groupes les plus proches de la requête.
+</Callout>
+
+<Callout type="astuce">
+Sur des millions de points, utilise **Mini-Batch k-means** : chaque itération met à jour les centres à partir d'un petit échantillon. C'est beaucoup plus rapide, pour une inertie à peine moins bonne. Et réduis la dimension avant (ACP) si tu as des centaines de variables.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que fait l'étape « recentrer » de k-means ?",
+      options: [
+        "Elle déplace chaque centre vers le point le plus éloigné",
+        "Elle place chaque centre à la moyenne des points qui lui sont affectés",
+        "Elle tire de nouveaux centres au hasard",
+        "Elle fusionne les deux groupes les plus proches",
+      ],
+      answer: 1,
+      explain: "La moyenne minimise la somme des distances au carré : cette étape ne peut que faire baisser l'inertie.",
+    },
+    {
+      q: "Tu relances k-means avec une autre graine et obtiens des groupes différents. C'est…",
+      options: [
+        "Un bug de la bibliothèque",
+        "Normal : l'algorithme converge vers un minimum local qui dépend de l'initialisation",
+        "Le signe que k est trop petit",
+        "Impossible avec k-means++",
+      ],
+      answer: 1,
+      explain: "k-means++ et plusieurs essais (n_init) rendent les mauvais minimums rares, sans les supprimer.",
+    },
+    {
+      q: "Variables : revenu annuel (en euros) et nombre d'enfants. Sans standardisation, k-means va surtout…",
+      options: ["Grouper selon le nombre d'enfants", "Grouper selon le revenu", "Équilibrer les deux", "Refuser de converger"],
+      answer: 1,
+      explain: "Les écarts de revenu, en milliers, dominent la distance euclidienne.",
+    },
+    {
+      q: "Sur les deux demi-lunes imbriquées, k-means avec k = 2…",
+      options: [
+        "Retrouve parfaitement les deux lunes",
+        "Coupe le plan en deux moitiés par une droite, sans suivre les lunes",
+        "Ne converge pas",
+        "Trouve automatiquement k = 2",
+      ],
+      answer: 1,
+      explain: "Avec deux centres, la frontière entre groupes est la médiatrice des centres : une droite. Les formes non convexes demandent DBSCAN ou un clustering spectral.",
+    },
+    {
+      q: "Le coût d'une itération de k-means sur n points en dimension d avec k groupes est de l'ordre de…",
+      options: ["O(n²)", "O(n · k · d)", "O(k²)", "O(d³)"],
+      answer: 1,
+      explain: "Chaque point calcule sa distance aux k centres, en d dimensions. Linéaire en n : k-means passe à l'échelle.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique k-means et ses limites.">
+k-means partitionne les données en $k$ groupes en minimisant la somme des distances au carré de chaque point à son centre (l'inertie). L'algorithme de Lloyd alterne affectation au centre le plus proche et recalcul des centres comme moyennes, jusqu'à stabilité ; il converge toujours, mais vers un minimum local, d'où l'initialisation k-means++ et plusieurs essais. Limites : il faut fixer $k$ ; il suppose des groupes convexes, de tailles et densités comparables ; il est sensible à l'échelle des variables (standardiser) et aux valeurs aberrantes ; en très grande dimension les distances perdent leur sens. Selon le cas, je regarderais DBSCAN, les mélanges gaussiens ou un clustering hiérarchique.
+</Interview>
+
+<Interview q="Comment choisirais-tu le nombre de clusters pour une segmentation client ?">
+Je combinerais plusieurs signaux. Statistiques : la courbe du coude (inertie selon $k$) et le score de silhouette, calculés sur des variables standardisées, avec plusieurs initialisations pour chaque $k$. Stabilité : les groupes doivent rester similaires si je ré-échantillonne les données ou change la graine. Métier : des groupes de taille raisonnable, décrits par quelques traits clairs, et sur lesquels l'équipe marketing peut agir différemment. Entre $k = 4$ et $k = 5$ statistiquement proches, je choisirais celui que le métier sait exploiter.
+</Interview>
+
+<Recap>
+- Clustering = apprentissage **non supervisé** : pas d'étiquette, on cherche des groupes.
+- k-means minimise l'**inertie** $\sum \lVert x_i - \mu_j \rVert^2$.
+- Lloyd : **assigner** au centre le plus proche, **recentrer** à la moyenne, répéter. Converge toujours, vers un **minimum local**.
+- **k-means++** et plusieurs essais (`n_init`) évitent les mauvais départs.
+- Choisir $k$ : coude, silhouette, stabilité, utilité métier. L'inertie seule baisse toujours.
+- Limites : groupes ronds et comparables, standardisation obligatoire, sensible aux valeurs aberrantes.
+- Alternatives : DBSCAN, mélanges gaussiens, clustering hiérarchique.
+</Recap>
+
+<LessonComplete />

@@ -1,0 +1,41 @@
+<FicheSection kind="essentiel">
+- Ensemble : combiner beaucoup de modèles imparfaits mais **aux erreurs différentes**.
+- **Bagging** : chaque arbre sur un échantillon bootstrap (tirage avec remise), puis vote ou moyenne. Réduit la **variance**.
+- **Forêt aléatoire** : bagging d'arbres profonds + sous-ensemble aléatoire de variables à chaque nœud. Plus d'arbres n'overfitte pas.
+- **Gradient boosting** : petits arbres ajoutés un par un, chacun corrigeant les erreurs du modèle actuel. Réduit le **biais**, peut overfitter.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\operatorname{Var}(\bar f) = \rho\,\sigma^2 + \frac{1-\rho}{B}\,\sigma^2
+$$
+
+$$
+F_m(x) = F_{m-1}(x) + \eta\, h_m(x)
+$$
+
+Out-of-bag : $(1 - 1/n)^n \to e^{-1} \approx 0{,}37$.
+
+Forêt, variables par nœud : $\sqrt{d}$ en classification, environ $d/3$ en régression.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Régler le nombre d'arbres d'une forêt comme un hyperparamètre critique : il suffit d'en mettre assez.
+- Boosting sans early stopping avec un grand learning rate : overfitting rapide.
+- Importance par impureté : biaisée vers les variables continues ou à nombreuses modalités.
+- Erreur OOB sur des données temporelles ou groupées : optimiste.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Forêt ou boosting ?** Forêt : robuste, sans réglage, parallèle. Boosting : souvent meilleur sur données tabulaires, mais à régler (learning rate, profondeur, itérations, early stopping).
+
+**Pourquoi un sous-ensemble de variables ?** Pour décorréler les arbres, sinon la moyenne ne réduit plus la variance.
+
+**Évaluer une forêt sans validation ?** Erreur out-of-bag.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Baseline tabulaire solide : forêt aléatoire, puis LightGBM, XGBoost ou CatBoost (ce dernier gère bien les catégorielles).
+- Learning rate 0,01 à 0,1 et early stopping après 50 itérations sans progrès.
+- Les arbres n'ont pas besoin de standardisation des variables.
+</FicheSection>

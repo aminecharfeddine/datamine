@@ -31,6 +31,11 @@ export type CvState = { degree: number; k: number; cv: number[] };
 export type LeakState = { leakyAcc: number | null; cleanAcc: number | null };
 export type KnnState = { k: number; scaled: boolean; testAcc: number; bestAcc: number };
 export type TreeState = { depth: number; trainAcc: number; testAcc: number; bestAcc: number };
+export type LogitState = { w: number; x0: number; loss: number; bestLoss: number };
+export type LogRegState = { degree: number; testAcc: number; linearAcc: number };
+export type ForestState = { trees: number; testAcc: number; singleAcc: number };
+export type BoostState = { lr: number; rounds: number; trainAcc: number; testAcc: number; bestAcc: number };
+export type KMeansState = { k: number; mode: "random" | "pp"; converged: boolean; inertia: number; best: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -270,4 +275,51 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Regarde où la courbe de test atteint son sommet, pas celle d'entraînement.",
     check: (s: TreeState) => s.testAcc >= s.bestAcc - 0.005,
   } satisfies Challenge<TreeState>,
+  // ---------------------------------------------------------------- Régression logistique
+  "logit-fit": {
+    id: "logit-fit",
+    title: "La bonne sigmoïde",
+    goal: "Règle la pente et le point de bascule pour amener la log-loss à moins de 0,005 de son minimum.",
+    hint: "Place d'abord le point de bascule là où les échecs laissent place aux réussites, puis ajuste la pente : trop raide, les quelques surprises coûtent très cher.",
+    check: (s: LogitState) => s.loss <= s.bestLoss + 0.005,
+  } satisfies Challenge<LogitState>,
+  "logit-poly": {
+    id: "logit-poly",
+    title: "Courber une droite",
+    goal: "Gagne au moins 3 points de précision de test par rapport au modèle linéaire, sans changer de modèle.",
+    hint: "La frontière d'une régression logistique est linéaire… dans l'espace des variables qu'on lui donne. Donne-lui des variables plus riches.",
+    check: (s: LogRegState) => s.testAcc >= s.linearAcc + 0.03,
+  } satisfies Challenge<LogRegState>,
+
+  // ---------------------------------------------------------------- Ensembles
+  "forest-gain": {
+    id: "forest-gain",
+    title: "La sagesse des arbres",
+    goal: "Fais mieux d'au moins 5 points de précision de test qu'un arbre seul, sans limiter la profondeur.",
+    hint: "Chaque arbre seul overfitte à sa façon. Combien d'avis faut-il pour que les erreurs se compensent ?",
+    check: (s: ForestState) => s.testAcc >= s.singleAcc + 0.05,
+  } satisfies Challenge<ForestState>,
+  "boost-best": {
+    id: "boost-best",
+    title: "Savoir s'arrêter",
+    goal: "Trouve un taux d'apprentissage et un nombre d'itérations dont la précision de test est à 0,5 point de la meilleure possible.",
+    hint: "Avec un taux élevé, le sommet arrive très tôt puis le modèle apprend le bruit. Avec un petit taux, il faut plus d'itérations.",
+    check: (s: BoostState) => s.testAcc >= s.bestAcc - 0.005,
+  } satisfies Challenge<BoostState>,
+
+  // ---------------------------------------------------------------- k-means
+  "kmeans-local": {
+    id: "kmeans-local",
+    title: "Coincé dans un creux",
+    goal: "Avec k = 4 et l'initialisation aléatoire, fais converger l'algorithme vers une solution au moins 25 % moins bonne que la meilleure (inertie).",
+    hint: "Tire de nouvelles initialisations jusqu'à ce que deux centres démarrent dans le même groupe, puis lance la convergence.",
+    check: (s: KMeansState) => s.k === 4 && s.mode === "random" && s.converged && s.inertia >= s.best * 1.25,
+  } satisfies Challenge<KMeansState>,
+  "kmeans-elbow": {
+    id: "kmeans-elbow",
+    title: "Le coude",
+    goal: "Choisis le k indiqué par le coude de la courbe, puis converge vers la meilleure solution (inertie à 1 % du minimum).",
+    hint: "Le coude est le dernier k qui fait vraiment baisser l'inertie. k-means++ évite la plupart des mauvais départs.",
+    check: (s: KMeansState) => s.k === 4 && s.converged && s.inertia <= s.best * 1.01,
+  } satisfies Challenge<KMeansState>,
 };

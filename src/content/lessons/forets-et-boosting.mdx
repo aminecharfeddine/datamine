@@ -1,0 +1,176 @@
+<Predict
+  id="hook"
+  question="En 1906, à une foire agricole, près de 800 visiteurs estiment le poids d'un bœuf. Aucun n'est expert. Que vaut la médiane de toutes leurs estimations ?"
+  options={[
+    "Elle est très mauvaise : la foule se trompe en moyenne",
+    "Elle tombe à moins de 1 % du vrai poids, mieux que presque chaque individu",
+    "Elle vaut exactement l'estimation du meilleur visiteur",
+    "On ne peut rien en dire",
+  ]}
+  answer={1}
+>
+Francis Galton a relevé une médiane de 1 207 livres pour un poids réel de 1 198 : moins de 1 % d'écart. Chaque estimation est bruitée, mais les erreurs partent dans tous les sens et **se compensent**. C'est le principe des **méthodes d'ensemble** : combiner beaucoup de modèles imparfaits pour obtenir un modèle bien meilleur que chacun d'eux. À une condition : que leurs erreurs ne soient pas toutes les mêmes.
+</Predict>
+
+## Pourquoi moyenner fonctionne
+
+Prenons $B$ modèles dont les prédictions ont chacune une variance $\sigma^2$, avec une corrélation $\rho$ entre deux modèles. La variance de leur moyenne vaut :
+
+$$
+\operatorname{Var}\Big(\frac{1}{B}\sum_{b=1}^{B} f_b\Big) = \rho\,\sigma^2 + \frac{1 - \rho}{B}\,\sigma^2
+$$
+
+Le second terme disparaît quand $B$ grandit. Le premier reste : si tous les modèles font les mêmes erreurs ($\rho = 1$), en ajouter ne sert à rien. Tout l'art est donc de fabriquer des modèles **à la fois bons et différents**.
+
+<Callout type="intuition">
+Un arbre de décision profond est le candidat idéal : peu de biais (il peut tout apprendre) mais énormément de variance (un petit changement des données change tout l'arbre). La moyenne s'attaque précisément à la variance, sans toucher au biais.
+</Callout>
+
+## Bagging et forêts aléatoires
+
+Le **bagging** (*bootstrap aggregating*) entraîne chaque arbre sur un **échantillon bootstrap** : $n$ tirages **avec remise** parmi les $n$ exemples. Chaque arbre voit donc des données un peu différentes, avec des doublons et des absents.
+
+<Exercise
+  id="oob"
+  question="Avec n = 100 exemples, quelle est la probabilité qu'un exemple donné ne soit jamais tiré dans un échantillon bootstrap (3 décimales) ?"
+  answer={0.366}
+  tolerance={0.003}
+  hint="À chaque tirage, il a 99 chances sur 100 de ne pas être choisi, et il y a 100 tirages indépendants."
+>
+$(1 - 1/100)^{100} \approx 0{,}366$. Quand $n$ grandit, cette probabilité tend vers $e^{-1} \approx 0{,}368$ : chaque arbre ignore environ **un tiers** des données. Ces exemples *out-of-bag* (OOB) servent de jeu de validation gratuit : on évalue chaque exemple uniquement avec les arbres qui ne l'ont pas vu.
+</Exercise>
+
+La **forêt aléatoire** ajoute un second hasard : à chaque nœud, l'arbre ne peut choisir sa coupe que parmi un **sous-ensemble aléatoire de variables** (souvent $\sqrt{d}$ en classification). Sans cela, une variable très prédictive serait choisie en premier par tous les arbres, qui se ressembleraient. Ici, avec deux variables, chaque nœud n'en a qu'une au hasard. Les arbres poussent sans limite de profondeur.
+
+<ForestLab id="foret" challenge="forest-gain" />
+
+Regarde les arbres 1, 2 et 3 séparément : chacun overfitte, à sa manière, avec des rectangles absurdes autour de points bruités. Leur vote, lui, dessine une frontière beaucoup plus raisonnable.
+
+<Predict
+  id="plus-arbres"
+  question="Dans une forêt aléatoire, ajouter des arbres (500, 1 000, 5 000…) peut-il provoquer de l'overfitting ?"
+  options={[
+    "Oui, comme augmenter la profondeur",
+    "Non : la performance se stabilise, ajouter des arbres ne coûte que du temps de calcul",
+    "Oui, au-delà de 100 arbres",
+    "Seulement en régression",
+  ]}
+  answer={1}
+>
+Chaque arbre est entraîné indépendamment des autres ; en ajouter ne fait que réduire la variance de la moyenne, jusqu'au plancher $\rho\sigma^2$. Le nombre d'arbres n'est donc pas un hyperparamètre à optimiser finement : on en met « assez ». C'est la grande différence avec le boosting, que tu vas voir maintenant.
+</Predict>
+
+<Callout type="piege">
+L'**importance des variables** fournie par défaut (baisse moyenne de l'impureté) favorise les variables continues ou à nombreuses modalités, même inutiles : elles offrent plus de seuils où couper. Préfère l'**importance par permutation**, calculée sur des données de validation : on mélange une colonne et on mesure la perte de performance.
+</Callout>
+
+## Le boosting : corriger ses erreurs pas à pas
+
+Le **boosting** prend le chemin inverse : au lieu d'arbres profonds indépendants, il entraîne des arbres **petits** (souvent de profondeur 2 à 6) **l'un après l'autre**, chacun chargé de corriger ce que la somme des précédents rate encore. Pour le *gradient boosting* :
+
+$$
+F_m(x) = F_{m-1}(x) + \eta\, h_m(x)
+$$
+
+où $h_m$ est un arbre ajusté sur le **gradient de la perte** (pour la MSE, ce sont simplement les résidus $y - F_{m-1}(x)$) et $\eta$ le **taux d'apprentissage** (*learning rate*). C'est une descente de gradient, mais dans l'espace des fonctions.
+
+<Exercise
+  id="somme"
+  question="Pour un exemple, le score initial est F₀ = 0,2 et le taux d'apprentissage η = 0,1. Les trois premiers arbres proposent les corrections 1,5, puis 1,0, puis 0,5. Que vaut F₃ ?"
+  answer={0.5}
+  tolerance={0.001}
+  hint="Chaque correction est multipliée par η avant d'être ajoutée."
+>
+$F_3 = 0{,}2 + 0{,}1 \times (1{,}5 + 1{,}0 + 0{,}5) = 0{,}2 + 0{,}3 = 0{,}5$. Les corrections diminuent à mesure que le modèle s'améliore : il reste de moins en moins d'erreur à expliquer.
+</Exercise>
+
+<BoostLab id="boosting" challenge="boost-best" />
+
+Avec $\eta = 1$, la précision d'entraînement atteint vite 100 %, mais la précision de test s'effondre : chaque nouvel arbre s'acharne sur les quelques points bruités. Avec $\eta = 0{,}05$, la progression est lente et régulière. Ici, contrairement à la forêt, **le nombre d'itérations est un hyperparamètre critique**.
+
+<Callout type="astuce">
+En pratique : un petit learning rate (0,01 à 0,1), un grand nombre maximal d'itérations, et l'**early stopping** : on surveille la perte sur un jeu de validation et on s'arrête quand elle ne s'améliore plus depuis, disons, 50 itérations. XGBoost, LightGBM et CatBoost le font en une option.
+</Callout>
+
+## Bagging ou boosting ?
+
+| | Forêt aléatoire (bagging) | Gradient boosting |
+|---|---|---|
+| Arbres | profonds, indépendants | petits, séquentiels |
+| Réduit surtout | la variance | le biais |
+| Plus d'arbres | ne fait pas overfitter | peut overfitter |
+| Réglage | presque rien | learning rate, profondeur, itérations |
+| Parallélisable | oui, totalement | pas entre les itérations |
+| Performance typique | très bonne | souvent la meilleure sur données tabulaires |
+
+<Callout type="entretien">
+Sur des **données tabulaires**, les bibliothèques de gradient boosting (XGBoost, LightGBM, CatBoost) restent en général devant les réseaux de neurones. Le deep learning domine sur les données non structurées : images, texte, audio. Savoir le dire, et pourquoi, est un classique d'entretien.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Pourquoi une forêt aléatoire tire-t-elle un sous-ensemble de variables à chaque nœud ?",
+      options: [
+        "Pour aller plus vite uniquement",
+        "Pour décorréler les arbres, afin que la moyenne réduise davantage la variance",
+        "Pour réduire le biais de chaque arbre",
+        "Pour gérer les valeurs manquantes",
+      ],
+      answer: 1,
+      explain: "Si tous les arbres commencent par la même variable dominante, ils se ressemblent (ρ élevé) et la moyenne n'aide plus beaucoup.",
+    },
+    {
+      q: "Quel ensemble réduit principalement le biais ?",
+      options: ["Le bagging", "Le boosting", "Les deux autant", "Aucun"],
+      answer: 1,
+      explain: "Le boosting part de modèles faibles, très biaisés (petits arbres), et les additionne pour corriger progressivement leurs erreurs.",
+    },
+    {
+      q: "Ton gradient boosting a 99 % en entraînement et 82 % en validation. Quelle action est la plus pertinente ?",
+      options: [
+        "Augmenter le learning rate",
+        "Ajouter des itérations",
+        "Activer l'early stopping et réduire le learning rate ou la profondeur des arbres",
+        "Passer à une forêt de 10 arbres",
+      ],
+      answer: 2,
+      explain: "C'est de l'overfitting : moins d'itérations effectives (early stopping), des pas plus petits, des arbres plus simples.",
+    },
+    {
+      q: "Environ quelle part des exemples un arbre de forêt aléatoire ne voit-il pas à l'entraînement ?",
+      options: ["0 %", "Environ 10 %", "Environ 37 %", "Environ 50 %"],
+      answer: 2,
+      explain: "(1 − 1/n)ⁿ → e⁻¹ ≈ 0,37 : ce sont les exemples out-of-bag, utilisables pour estimer l'erreur.",
+    },
+    {
+      q: "Dans le gradient boosting avec la MSE, sur quoi chaque nouvel arbre est-il entraîné ?",
+      options: ["Sur les étiquettes y d'origine", "Sur les résidus y − F(x) du modèle actuel", "Sur un échantillon bootstrap", "Sur les erreurs du premier arbre seulement"],
+      answer: 1,
+      explain: "Les résidus sont l'opposé du gradient de la MSE : chaque arbre apprend ce qui manque encore.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Random forest ou gradient boosting : lequel choisirais-tu, et pourquoi ?">
+Les deux combinent des arbres, mais différemment. La forêt aléatoire moyenne des arbres profonds indépendants, entraînés sur des échantillons bootstrap avec un sous-ensemble de variables par nœud : elle réduit la variance, se règle à peine, se parallélise et overfitte peu. Le gradient boosting ajoute séquentiellement de petits arbres qui corrigent les erreurs résiduelles : il réduit le biais et atteint souvent la meilleure performance sur données tabulaires, mais demande de régler learning rate, profondeur et nombre d'itérations (avec early stopping) et peut overfitter. Je commencerais par une forêt comme baseline robuste, puis un LightGBM ou XGBoost bien validé si le gain en vaut la peine.
+</Interview>
+
+<Interview q="Comment estimer la performance d'une forêt aléatoire sans jeu de validation séparé ?">
+Avec l'**erreur out-of-bag** : chaque arbre n'a vu qu'environ 63 % des exemples (tirage bootstrap). Pour chaque exemple, on fait voter uniquement les arbres qui ne l'ont pas vu, et on compare à la vraie étiquette. On obtient une estimation proche de la validation croisée, gratuitement. Attention : si les données ont une structure temporelle ou des groupes (plusieurs lignes par client), l'OOB est optimiste, comme une validation croisée naïve, et il faut un découpage adapté.
+</Interview>
+
+<Recap>
+- Ensemble : combiner des modèles **bons et différents** ; la variance de la moyenne vaut $\rho\sigma^2 + (1-\rho)\sigma^2/B$.
+- **Bagging** : arbres sur échantillons bootstrap ; ~37 % des exemples sont *out-of-bag*.
+- **Forêt aléatoire** : bagging + sous-ensemble de variables par nœud ⇒ arbres décorrélés. Plus d'arbres n'overfitte pas.
+- **Boosting** : petits arbres séquentiels sur les résidus (gradients), $F_m = F_{m-1} + \eta h_m$ ; réduit le biais, peut overfitter.
+- Boosting : petit learning rate + early stopping sur validation.
+- Importance des variables : préférer la permutation.
+- Données tabulaires : gradient boosting souvent en tête.
+</Recap>
+
+<LessonComplete />

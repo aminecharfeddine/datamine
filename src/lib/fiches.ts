@@ -11,5 +11,8 @@ export const FICHE_CONTENT: Record<string, () => Promise<{ default: React.Compon
   regularisation: () => import("@/content/fiches/regularisation.mdx"),
   "validation-croisee": () => import("@/content/fiches/validation-croisee.mdx"),
   knn: () => import("@/content/fiches/knn.mdx"),
+  "regression-logistique": () => import("@/content/fiches/regression-logistique.mdx"),
+  "forets-et-boosting": () => import("@/content/fiches/forets-et-boosting.mdx"),
+  "k-means": () => import("@/content/fiches/k-means.mdx"),
   "arbres-de-decision": () => import("@/content/fiches/arbres-de-decision.mdx"),
 };

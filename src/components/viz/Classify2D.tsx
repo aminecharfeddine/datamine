@@ -101,8 +101,8 @@ export function AccCurve({
           <text key={v} x={x(v)} y={H - M.b + 16} fontSize={10} textAnchor="middle" fill="var(--muted)" className="num">{v}</text>
         ))}
         <text x={(M.l + W - M.r) / 2} y={H - 4} fontSize={11} textAnchor="middle" fill="var(--muted)">{xLabel}</text>
-        <text x={M.l + 4} y={M.t + 10} fontSize={10} fill="var(--muted)">{leftNote}</text>
-        <text x={W - M.r - 4} y={M.t + 10} fontSize={10} textAnchor="end" fill="var(--muted)">{rightNote}</text>
+        <text x={M.l + 4} y={H - M.b - 6} fontSize={10} fill="var(--muted)">{leftNote}</text>
+        <text x={W - M.r - 4} y={H - M.b - 6} fontSize={10} textAnchor="end" fill="var(--muted)">{rightNote}</text>
         <path d={mk(train)} fill="none" stroke="var(--ink)" strokeWidth={2} />
         <path d={mk(test)} fill="none" stroke="var(--mod)" strokeWidth={2.5} />
         {ci >= 0 && (

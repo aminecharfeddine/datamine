@@ -1,0 +1,42 @@
+<FicheSection kind="essentiel">
+- **Non supervisé** : pas d'étiquettes, on cherche $k$ groupes de points qui se ressemblent.
+- k-means minimise l'**inertie** : la somme des distances au carré de chaque point à son centre.
+- Lloyd : **assigner** chaque point au centre le plus proche, **recentrer** chaque centre à la moyenne de ses points, répéter.
+- Converge toujours, mais vers un **minimum local** qui dépend de l'initialisation.
+- **k-means++** + plusieurs essais (`n_init`) pour bien démarrer.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+J = \sum_{j=1}^{k} \sum_{x_i \in C_j} \lVert x_i - \mu_j \rVert^2
+\qquad
+\mu_j = \frac{1}{|C_j|} \sum_{x_i \in C_j} x_i
+$$
+
+k-means++ : $P(x) \propto D(x)^2$, distance au carré au centre déjà choisi le plus proche.
+
+Silhouette d'un point : $s = \frac{b - a}{\max(a, b)}$, avec $a$ la distance moyenne à son groupe et $b$ au groupe voisin.
+
+Coût d'une itération : $O(n \cdot k \cdot d)$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Choisir $k$ qui minimise l'inertie : elle baisse toujours (0 quand $k = n$).
+- Oublier de standardiser : la variable aux plus grandes valeurs décide seule.
+- Formes non convexes, densités différentes, valeurs aberrantes : k-means échoue.
+- Une seule initialisation aléatoire : risque de minimum local.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**k-means et limites ?** Minimise l'inertie par Lloyd ; minimum local ; $k$ à fixer ; groupes ronds de tailles comparables ; sensible à l'échelle et aux aberrants.
+
+**Choisir $k$ ?** Coude, silhouette, stabilité au ré-échantillonnage, utilité métier.
+
+**Alternatives ?** DBSCAN (forme libre, bruit), mélanges gaussiens (elliptiques, probabilistes), hiérarchique.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Mini-Batch k-means pour des millions de points.
+- Réduire la dimension (ACP) avant si les variables se comptent en centaines.
+- Quantification vectorielle : k-means est au cœur des index IVF (FAISS) des bases vectorielles.
+</FicheSection>

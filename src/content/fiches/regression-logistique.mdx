@@ -1,0 +1,45 @@
+<FicheSection kind="essentiel">
+- Régression linéaire : prédire une valeur continue par une combinaison linéaire des variables, entraînée par **moindres carrés**.
+- Régression logistique : la même combinaison passée dans une **sigmoïde** donne une probabilité.
+- Entraînée en minimisant la **log-loss** (cross-entropy), équivalent au maximum de vraisemblance. Convexe : minimum unique.
+- Frontière de décision **linéaire** ($w^\top x + b = 0$). Des variables polynomiales la courbent.
+- Coefficient $w_j$ : +1 sur $x_j$ multiplie les **cotes** par $e^{w_j}$.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\hat y = w^\top x + b \qquad \hat w = (X^\top X)^{-1} X^\top y
+$$
+
+$$
+\sigma(z) = \frac{1}{1 + e^{-z}} \qquad P(y = 1 \mid x) = \sigma(w^\top x + b)
+$$
+
+$$
+\mathcal L = -\frac{1}{n} \sum_i \big[ y_i \ln p_i + (1 - y_i) \ln(1 - p_i) \big]
+$$
+
+Log-odds : $\ln \frac{p}{1-p} = w^\top x + b$. Softmax : $P(y = k) = e^{z_k} / \sum_j e^{z_j}$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Juger le modèle à la seule précision : la log-loss voit les erreurs confiantes, la précision non.
+- Classes parfaitement séparables sans régularisation : les poids divergent.
+- Lire $w_j$ comme un effet sur la probabilité : il agit sur le **log des cotes**.
+- Oublier de standardiser avant une pénalité L2 : la pénalité dépend des unités.
+- Rééquilibrer les classes puis utiliser les probabilités brutes : elles sont décalibrées.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Pourquoi pas la MSE ?** Avec la sigmoïde elle est non convexe et donne de faibles gradients sur les erreurs confiantes ; la log-loss est convexe et vient du maximum de vraisemblance.
+
+**Interpréter un coefficient ?** $e^{w_j}$ est le facteur multiplicatif des cotes pour +1 sur $x_j$, les autres variables fixées.
+
+**Probabilités suspectes ?** Vérifier la calibration (courbe de fiabilité, Brier score), recalibrer avec Platt ou isotonique.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- La baseline à battre sur données tabulaires : rapide, interprétable, probabilités bien calibrées.
+- `C` de scikit-learn = $1/\lambda$ : plus `C` est petit, plus la régularisation est forte.
+- $-\ln 0{,}5 \approx 0{,}69$ : la log-loss d'un modèle qui répond toujours 0,5 sur des classes équilibrées.
+</FicheSection>
