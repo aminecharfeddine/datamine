@@ -25,7 +25,7 @@ export function WeeklyGoal({ compact = false }: { compact?: boolean }) {
   const weeksDone = hydrated ? Object.values(activeDaysByWeek(dailyXp)).filter((n) => n >= WEEKLY_GOAL).length : 0;
 
   return (
-    <div className={clsx("card", compact ? "p-5" : "p-6")}>
+    <div className={clsx("card flex flex-col", compact ? "p-5" : "h-full p-6")}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 font-display text-lg font-bold">
@@ -42,12 +42,12 @@ export function WeeklyGoal({ compact = false }: { compact?: boolean }) {
           {done}/{WEEKLY_GOAL}
         </span>
       </div>
-      <div className="mt-4 flex gap-1.5">
+      <div className={clsx("flex gap-1.5", compact ? "mt-4" : "mt-auto pt-5")}>
         {week.map((w, i) => (
           <div key={w.key} className="flex flex-1 flex-col items-center gap-1">
             <span
               className={clsx(
-                "flex h-8 w-full items-center justify-center rounded-lg text-xs font-bold transition-colors",
+                compact ? "h-8" : "h-11", "flex w-full items-center justify-center rounded-lg text-xs font-bold transition-colors",
                 w.active ? (reached ? "bg-good-bg text-white" : "bg-accent text-white") : w.future ? "bg-paper text-muted" : "bg-sunken text-muted",
                 w.isToday && !w.active && "ring-2 ring-accent/40",
               )}

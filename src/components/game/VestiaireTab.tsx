@@ -146,7 +146,7 @@ export function VestiaireTab() {
                 onClick={() => choose(c)}
                 onHover={(on) => setHover(on ? c : null)}
               >
-                <Preview c={c} color={theme[0]} letter={me.letter} />
+                <CosmeticPreview c={c} color={theme[0]} letter={me.letter} />
               </Tile>
             );
           })}
@@ -216,7 +216,7 @@ function Tile({
   );
 }
 
-function Preview({ c, color, letter }: { c: Cosmetic; color: string; letter: string }) {
+export function CosmeticPreview({ c, color, letter }: { c: Cosmetic; color: string; letter: string }) {
   switch (c.slot) {
     case "glyph":
       return <Avatar size={64} letter={letter} glyph={c.glyph} color={color} />;
