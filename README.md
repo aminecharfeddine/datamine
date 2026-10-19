@@ -118,5 +118,6 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 - [x] Phase 7 — LLM (suite) : architecture Transformer complète, pré-entraînement / fine-tuning / LoRA, décodage et sampling, inférence (KV cache, quantization), RAG
 - [x] Phase 8 — ML en pratique : NumPy/pandas, pipelines scikit-learn, feature engineering, SQL (vrai SQLite dans le navigateur via sql.js), MLOps
 - [x] Phase 9 — Deep learning (suite) : régularisation, CNN, transfer learning, embeddings, RNN et LSTM
-- [ ] Phase 9 (suite) — ACP ; IA agentique (tool use, ReAct, évaluation)
+- [x] Phase 9 (suite) — IA agentique : tool use (schémas JSON, MCP), boucle ReAct, mémoire et contexte, évaluation d'agents (pass@k, pass^k), sécurité (injection de prompt, moindre privilège)
+- [ ] Phase 9 (suite) — ACP
 - [ ] Phase 10 — vitrine publique : landing, SEO, images de partage, accessibilité, version anglaise

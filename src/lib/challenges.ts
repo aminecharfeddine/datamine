@@ -57,6 +57,11 @@ export type ConvState = { custom: boolean; vertical: number; horizontal: number;
 export type TransferState = { mode: string; n: number; acc: number };
 export type EmbState = { a: string; b: string; c: string; top: string; expected: string | null };
 export type RnnState = { model: string; T: number; grad: number };
+export type ToolUseState = { solved: number; total: number };
+export type ReactState = { answered: number | null; correct: number; steps: number; coverage: boolean };
+export type ContextState = { window: number; used: number; fits: boolean; hasKey: boolean };
+export type EvalState = { k: number; pValues: number[]; diffs: number[] };
+export type SecurityState = { attacksBlocked: number; attacks: number; legitOk: number; legit: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -531,4 +536,40 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Pour le RNN, le gradient est multiplié par le même facteur à chaque pas. Le LSTM a une autre route.",
     check: (s: RnnState) => s.T >= 100 && s.grad >= 0.1 && s.grad <= 10,
   } satisfies Challenge<RnnState>,
+  // ---------------------------------------------------------------- IA agentique
+  "tool-calls": {
+    id: "tool-calls",
+    title: "Penser comme le modèle",
+    goal: "Produis un appel d'outil valide et correct pour chacune des trois demandes.",
+    hint: "Un nom d'outil exact, un objet « arguments », les bons types (un entier sans guillemets) et une valeur permise pour le motif.",
+    check: (s: ToolUseState) => s.solved === s.total,
+  } satisfies Challenge<ToolUseState>,
+  "react-efficient": {
+    id: "react-efficient",
+    title: "L'agent économe",
+    goal: "Réponds correctement à la question en au plus 9 appels d'outils, en ayant vérifié les dépenses de chaque client lyonnais.",
+    hint: "Commence par découvrir qui sont les clients de Lyon. Ensuite, un seul appel par client suffit pour connaître ses dépenses.",
+    check: (s: ReactState) => s.answered === s.correct && s.steps <= 9 && s.coverage,
+  } satisfies Challenge<ReactState>,
+  "ctx-budget": {
+    id: "ctx-budget",
+    title: "Tout tenir dans 3 000 tokens",
+    goal: "Avec une fenêtre de 4 000 tokens, envoie au plus 3 000 tokens au modèle, sans perdre le numéro de commande donné au tour 2.",
+    hint: "Les définitions d'outils pèsent lourd. Et une fenêtre glissante oublie toujours le début.",
+    check: (s: ContextState) => s.window === 4000 && s.fits && s.hasKey && s.used <= 3000,
+  } satisfies Challenge<ContextState>,
+  "eval-signif": {
+    id: "eval-signif",
+    title: "Une conclusion qui tient",
+    goal: "Trouve le nombre d'essais par tâche pour que les trois évaluations indépendantes concluent toutes que la v2 est meilleure (p < 0,05).",
+    hint: "Les agents sont aléatoires : avec un seul essai par tâche, une évaluation peut conclure par chance, ou rater une vraie amélioration.",
+    check: (s: EvalState) => s.pValues.length === 3 && s.pValues.every((p) => p < 0.05) && s.diffs.every((d) => d > 0),
+  } satisfies Challenge<EvalState>,
+  "agent-guard": {
+    id: "agent-guard",
+    title: "Sécurisé et utile",
+    goal: "Bloque les deux attaques tout en laissant l'agent traiter les trois demandes légitimes.",
+    hint: "Une consigne dans le prompt ne garantit rien. Les vraies protections sont dans les outils et dans la validation humaine des actions à risque.",
+    check: (s: SecurityState) => s.attacksBlocked === s.attacks && s.legitOk === s.legit,
+  } satisfies Challenge<SecurityState>,
 };

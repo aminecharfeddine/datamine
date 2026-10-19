@@ -1,0 +1,148 @@
+<Predict
+  id="hook"
+  question="Quelle est la différence essentielle entre un chatbot qui sait appeler un outil et un agent ?"
+  options={[
+    "L'agent utilise un modèle plus gros",
+    "L'agent enchaîne lui-même plusieurs tours (raisonner, agir, observer) jusqu'à atteindre un objectif",
+    "L'agent n'utilise pas d'outils",
+    "Aucune, c'est du marketing",
+  ]}
+  answer={1}
+>
+Un **agent**, c'est un LLM dans une **boucle** : il observe la situation, décide d'une action (souvent un appel d'outil), observe le résultat, et recommence, jusqu'à juger la tâche terminée. Le nombre d'étapes et leur ordre ne sont pas écrits à l'avance : c'est le modèle qui les choisit. Cette autonomie permet des tâches ouvertes (chercher, recouper, corriger), mais elle a un coût : plus d'appels, plus de tokens, plus d'occasions de se tromper.
+</Predict>
+
+## ReAct : raisonner, agir, observer
+
+Le schéma **ReAct** (*Reason + Act*) structure chaque tour :
+
+1. **Raisonnement** : où en suis-je, que me manque-t-il ?
+2. **Action** : un appel d'outil, avec ses arguments.
+3. **Observation** : le résultat de l'outil, ajouté au contexte.
+
+La boucle s'arrête quand le modèle répond sans demander d'outil, ou quand un **garde-fou** l'arrête (nombre maximal d'étapes, budget de tokens, délai). Dans le lab, c'est toi la politique de l'agent : choisis chaque action ; les outils s'exécutent réellement sur les données de la boutique.
+
+<AgentLoopLab id="agent" challenge="react-efficient" />
+
+Observe la colonne de droite : chaque observation reste dans le contexte et sera relue à chaque tour suivant. Un agent qui appelle `commandes_client` plutôt que `total_depenses` obtient la même information, mais avec des observations bien plus longues.
+
+## Le coût d'une boucle
+
+À chaque tour, le modèle relit **tout** le contexte : le prompt de base $B$ plus les observations accumulées. Avec des observations d'environ $o$ tokens, le total de tokens traités sur $n$ tours vaut :
+
+$$
+C = \sum_{t=1}^{n} (B + t\,o) = nB + o\,\frac{n(n+1)}{2}
+$$
+
+Le coût croît comme le **carré** du nombre d'étapes.
+
+<Exercise
+  id="cout"
+  question="Prompt de base de 650 tokens, observations de 100 tokens, 9 tours. Combien de tokens d'entrée traités au total ?"
+  answer={10350}
+  tolerance={0}
+  hint="9 × 650 + 100 × (1 + 2 + … + 9)."
+>
+$9 \times 650 + 100 \times 45 = 5\,850 + 4\,500 = 10\,350$ tokens, pour une seule question. À 50 tours, ce serait $32\,500 + 127\,500 = 160\,000$ tokens. D'où l'intérêt d'outils qui renvoient des résultats **courts et utiles**, et de la gestion du contexte (leçon suivante).
+</Exercise>
+
+## Le code d'un agent
+
+<Parsons
+  id="boucle"
+  prompt="Remets dans l'ordre la boucle d'un agent, avec un nombre maximal d'étapes."
+  lines={[
+    "for etape in range(MAX_ETAPES):",
+    "    reponse = llm.generate(messages=messages, tools=SCHEMAS)",
+    "    messages.append(reponse.message)",
+    "    if not reponse.tool_calls:",
+    "        return reponse.text",
+    "    for call in reponse.tool_calls:",
+    "        messages.append(executer(call))",
+    "raise RuntimeError(\"Nombre maximal d'étapes atteint\")",
+  ]}
+>
+Appeler le modèle, garder sa réponse dans l'historique, s'arrêter s'il n'appelle plus d'outil, sinon exécuter chaque appel et ajouter les résultats. Si la boucle va au bout sans réponse, on s'arrête explicitement plutôt que de tourner indéfiniment : c'est le garde-fou le plus simple et le plus indispensable.
+</Parsons>
+
+## Workflow ou agent ?
+
+Tout système avec un LLM n'a pas besoin d'être un agent. On distingue :
+
+- les **workflows** : les étapes sont fixées par le code (enchaîner des prompts, router vers un traitement selon la catégorie, paralléliser puis agréger, faire relire une réponse par un second appel) ;
+- les **agents** : le modèle décide lui-même des étapes et de leur nombre.
+
+Un workflow est plus prévisible, moins cher, plus facile à tester. Un agent est utile quand on ne peut pas prévoir les étapes : recherche ouverte, débogage, tâches dont le chemin dépend de ce qu'on découvre.
+
+<Callout type="intuition">
+Les variantes d'architecture répondent toutes à la même question : qui décide de la suite ? Le **plan-and-execute** fait d'abord écrire un plan, puis exécute chaque étape ; l'**orchestrateur-travailleurs** confie des sous-tâches à des sous-agents qui travaillent chacun avec un contexte propre ; l'**évaluateur-optimiseur** fait critiquer et améliorer une production en boucle.
+</Callout>
+
+<Callout type="piege">
+Les échecs typiques d'un agent : **boucler** (rappeler le même outil avec les mêmes arguments), **abandonner trop tôt** (répondre sans avoir vérifié), **inventer** un résultat d'outil, ou se perdre dans un contexte trop long. Garde-fous : limite d'étapes et de budget, détection des appels répétés, outils qui renvoient des erreurs claires, et journalisation de chaque trajectoire pour l'analyse.
+</Callout>
+
+<Callout type="entretien">
+« Quand utiliser un agent plutôt qu'un workflow ? » La réponse attendue : commencer par le plus simple. Un seul appel bien conçu, puis un workflow si la tâche se découpe en étapes connues, et un agent seulement quand les étapes ne sont pas prévisibles et que la tâche justifie le coût, la latence et le risque supplémentaires. Et toujours avec une évaluation qui prouve que la complexité ajoutée améliore le résultat.
+</Callout>
+
+<Callout type="astuce">
+Lis les **trajectoires** de ton agent, pas seulement ses réponses finales : quels outils, dans quel ordre, avec quels arguments, combien d'étapes. La plupart des améliorations viennent de là : un outil mal décrit, un résultat trop verbeux, une étape inutile répétée.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Dans ReAct, que se passe-t-il après chaque action ?",
+      options: ["La boucle s'arrête", "Le résultat de l'outil (l'observation) est ajouté au contexte, puis le modèle décide de la suite", "Le modèle est réentraîné", "L'utilisateur doit valider"],
+      answer: 1,
+      explain: "Raisonner, agir, observer, et recommencer jusqu'à la réponse finale.",
+    },
+    {
+      q: "Quand la boucle d'un agent s'arrête-t-elle normalement ?",
+      options: ["Après exactement 10 tours", "Quand le modèle répond sans demander d'outil, ou qu'un garde-fou l'arrête", "Jamais", "Quand le contexte est vide"],
+      answer: 1,
+      explain: "Il faut toujours une limite d'étapes ou de budget en plus de la fin naturelle.",
+    },
+    {
+      q: "Pourquoi le coût d'un agent croît-il plus vite que le nombre d'étapes ?",
+      options: ["Les modèles ralentissent", "Chaque tour relit tout le contexte, qui grossit à chaque observation", "Les outils sont payants", "Il ne croît pas"],
+      answer: 1,
+      explain: "La somme des contextes successifs est quadratique en le nombre de tours.",
+    },
+    {
+      q: "Une tâche se découpe toujours en : extraire les champs, vérifier dans la base, rédiger la réponse. Que choisir ?",
+      options: ["Un agent autonome", "Un workflow : trois étapes enchaînées par le code", "Un fine-tuning", "Un modèle plus gros"],
+      answer: 1,
+      explain: "Les étapes sont connues : un workflow est plus fiable, moins cher, plus facile à tester.",
+    },
+    {
+      q: "Ton agent rappelle sans cesse le même outil avec les mêmes arguments. Quel garde-fou ?",
+      options: ["Augmenter la température", "Détecter les appels répétés et limiter le nombre d'étapes", "Supprimer l'outil", "Allonger le prompt système"],
+      answer: 1,
+      explain: "Et analyser la trajectoire : souvent, le résultat de l'outil est ambigu ou l'erreur mal formulée.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment fonctionne un agent LLM ?">
+C'est un LLM placé dans une boucle avec des outils. À chaque tour, il reçoit l'objectif, l'historique et les résultats précédents, raisonne sur la suite, et soit appelle un outil (l'application l'exécute et ajoute le résultat au contexte), soit produit la réponse finale. C'est le schéma ReAct : raisonnement, action, observation. Autour, on ajoute des garde-fous : nombre maximal d'étapes, budget de tokens et de temps, détection de boucles, validation des actions sensibles. Les difficultés : la composition des erreurs sur de longues trajectoires, le coût qui croît avec le contexte, et l'évaluation d'un système non déterministe.
+</Interview>
+
+<Interview q="Ton agent est trop lent et trop cher. Que fais-tu ?">
+J'analyse d'abord des trajectoires réelles pour voir où partent les étapes et les tokens. Pistes : remplacer l'agent par un workflow là où les étapes sont prévisibles ; des outils plus puissants qui font en un appel ce qui en demandait cinq ; des résultats d'outils plus courts (filtrer, résumer, paginer) ; gérer le contexte (résumer l'historique, ne charger que les outils utiles) ; utiliser un modèle plus petit pour les étapes simples (routage, extraction) et le gros modèle seulement pour le raisonnement ; paralléliser les appels indépendants ; mettre en cache le préfixe commun du prompt. Et vérifier sur le jeu d'évaluation que la qualité ne baisse pas.
+</Interview>
+
+<Recap>
+- Agent = LLM + outils + **boucle** ; ReAct : raisonner, agir, observer.
+- Arrêt : réponse sans appel d'outil, ou garde-fou (étapes, budget, délai).
+- Coût $\approx nB + o\,n(n+1)/2$ : quadratique en le nombre de tours.
+- **Workflow** (étapes fixées par le code) avant **agent** (étapes choisies par le modèle).
+- Variantes : plan-and-execute, orchestrateur-travailleurs, évaluateur-optimiseur.
+- Échecs : boucles, abandon prématuré, résultats inventés ; lire les trajectoires.
+</Recap>
+
+<LessonComplete />

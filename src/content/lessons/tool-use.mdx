@@ -1,0 +1,157 @@
+<Predict
+  id="hook"
+  question="Un assistant répond « Votre commande 42 a été expédiée hier » en consultant la base de données de la boutique. Que s'est-il passé techniquement ?"
+  options={[
+    "Le LLM s'est connecté lui-même à la base de données",
+    "Le LLM a écrit une demande structurée (nom d'outil + arguments), que l'application a exécutée avant de lui renvoyer le résultat",
+    "Le LLM connaissait déjà la réponse depuis son entraînement",
+    "Le LLM a deviné",
+  ]}
+  answer={1}
+>
+Un LLM ne fait qu'une chose : produire du texte. Le **tool use** (ou *function calling*) consiste à lui décrire des outils, et à le laisser produire, au lieu d'une réponse, un **appel d'outil** au format JSON. C'est l'**application** qui exécute l'appel (une requête SQL, une API, un calcul), puis renvoie le résultat au modèle, qui s'en sert pour répondre. Le modèle décide ; le code agit. C'est la brique de base de tous les agents.
+</Predict>
+
+## Le cycle d'un appel d'outil
+
+1. L'application envoie au modèle la conversation **et la liste des outils** : un nom, une description en langage naturel, et un **schéma JSON** des arguments.
+2. Le modèle répond soit par du texte, soit par un ou plusieurs **appels d'outils** : `{"name": "suivre_livraison", "arguments": {"commande_id": 42}}`.
+3. L'application **valide** l'appel (outil connu, arguments conformes au schéma, droits de l'utilisateur), l'**exécute**, et ajoute le résultat à la conversation.
+4. Le modèle reprend avec cette nouvelle information : nouvelle réponse, ou nouvel appel.
+
+Les modèles récents sont entraînés spécifiquement à produire ces appels, et les API garantissent souvent un JSON valide. Mais le **choix** de l'outil et des valeurs reste une prédiction, qui peut être fausse.
+
+<ToolCallLab id="appels" challenge="tool-calls" />
+
+## Ce que fait l'application
+
+Une boucle minimale, quel que soit le fournisseur de modèle (les noms exacts varient d'une bibliothèque à l'autre) :
+
+```python
+import json
+
+OUTILS = {"suivre_livraison": suivre_livraison, "rembourser": rembourser, "rechercher_faq": rechercher_faq}
+
+def repondre(question):
+    messages = [{"role": "user", "content": question}]
+    while True:
+        reponse = llm.generate(messages=messages, tools=SCHEMAS)    # SCHEMAS : nom, description, paramètres
+        messages.append(reponse.message)
+        if not reponse.tool_calls:                                   # plus d'outil demandé : réponse finale
+            return reponse.text
+        for call in reponse.tool_calls:
+            try:
+                resultat = executer(call)
+            except Exception as e:                                   # l'erreur est renvoyée au modèle, qui peut corriger
+                resultat = {"erreur": str(e)}
+            messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(resultat)})
+```
+
+<CodeChoice
+  id="valider"
+  question="Avant d'exécuter un appel d'outil, comment obtenir les arguments ?"
+  code={`def executer(call):
+    outil = OUTILS[call.name]
+    args = ___
+    return outil(**args.model_dump())`}
+  options={["SCHEMAS_PYDANTIC[call.name].model_validate(call.arguments)", "eval(call.arguments)", "call.arguments", 'json.loads(str(call))'] }
+  answer={0}
+>
+Les arguments viennent du modèle : c'est une **entrée non fiable**, au même titre qu'un formulaire web. On la **valide** contre un schéma (ici avec Pydantic : types, valeurs permises, bornes), et on vérifie les droits de l'utilisateur dans le code de l'outil. `eval` exécuterait n'importe quel code fourni par le modèle, ou injecté dans un document qu'il a lu : à ne jamais faire.
+</CodeChoice>
+
+## Plusieurs appels, plusieurs risques
+
+Chaque appel est une prédiction qui peut échouer : mauvais outil, argument halluciné, mauvaise interprétation du résultat. Quand une tâche enchaîne $n$ appels de fiabilités $p_i$ indépendantes, la probabilité que tout se passe bien est :
+
+$$
+P(\text{succès}) = \prod_{i=1}^{n} p_i
+$$
+
+<Exercise
+  id="chaine"
+  question="Chaque appel d'outil est correct dans 95 % des cas. Probabilité qu'une tâche de 10 appels se déroule sans aucune erreur (3 décimales) ?"
+  answer={0.599}
+  tolerance={0.002}
+  hint="0,95 puissance 10."
+>
+$0{,}95^{10} \approx 0{,}599$ : à peine 6 fois sur 10. D'où trois réflexes : réduire le nombre d'étapes (des outils plus puissants, qui font plus en un appel), rendre chaque appel plus fiable (de bonnes descriptions, des schémas stricts), et permettre la **correction** (renvoyer les erreurs au modèle pour qu'il réessaie).
+</Exercise>
+
+<Callout type="intuition">
+Le LLM est le **cerveau**, l'application les **mains**. Le modèle ne voit jamais la base de données, il ne voit que ce que les outils lui renvoient. C'est ce qui permet de contrôler précisément ce qu'un agent peut faire : un outil qui n'existe pas ne peut pas être appelé, et un outil peut refuser une action quoi que demande le modèle.
+</Callout>
+
+<Callout type="piege">
+Les arguments peuvent être **inventés** : un numéro de commande que l'utilisateur n'a jamais donné, un montant arrondi, un identifiant d'un autre client. Le code de chaque outil doit vérifier ce qui compte vraiment (la commande appartient-elle à cet utilisateur ? le montant correspond-il à la commande ?), comme pour n'importe quelle API exposée.
+</Callout>
+
+<Callout type="entretien">
+Le **Model Context Protocol** (MCP) est un protocole ouvert qui standardise la façon d'exposer des outils, des données et des prompts à des applications d'IA : un même « serveur MCP » (pour une base de données, un CRM, un dépôt de code) peut être branché à différents agents sans réécrire l'intégration. Bon à citer, en précisant qu'un serveur MCP tiers est du code et des descriptions à auditer comme toute dépendance.
+</Callout>
+
+<Callout type="astuce">
+Écris la description d'un outil comme pour un nouveau collègue : à quoi il sert, quand **ne pas** l'utiliser, le format des arguments avec un exemple, ce qu'il renvoie. C'est souvent le réglage le plus rentable d'un agent. Et préfère quelques outils clairs et bien distincts à des dizaines d'outils qui se recouvrent.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Qui exécute réellement un appel d'outil ?",
+      options: ["Le modèle", "L'application qui appelle le modèle", "Le fournisseur de cloud", "L'utilisateur"],
+      answer: 1,
+      explain: "Le modèle produit l'appel en JSON ; le code de l'application le valide et l'exécute.",
+    },
+    {
+      q: "Que contient la définition d'un outil donnée au modèle ?",
+      options: ["Son code source", "Un nom, une description et un schéma JSON des arguments", "Une clé d'API", "Des exemples d'entraînement"],
+      answer: 1,
+      explain: "Le modèle ne voit que cette interface : la qualité de la description guide ses choix.",
+    },
+    {
+      q: "Un outil lève une erreur (« commande introuvable »). Que faire ?",
+      options: ["Arrêter l'agent", "Renvoyer le message d'erreur au modèle comme résultat de l'outil", "Réessayer en boucle sans rien dire", "Inventer un résultat"],
+      answer: 1,
+      explain: "Le modèle peut alors corriger : demander le bon numéro, essayer un autre outil, ou expliquer le problème.",
+    },
+    {
+      q: "Pourquoi valider les arguments produits par le modèle ?",
+      options: [
+        "Parce que le JSON est toujours invalide",
+        "Parce qu'ils peuvent être faux, inventés ou manipulés : c'est une entrée non fiable",
+        "Pour accélérer l'exécution",
+        "Ce n'est pas nécessaire avec les modèles récents",
+      ],
+      answer: 1,
+      explain: "Un JSON valide n'est pas un JSON correct : types, valeurs, droits doivent être vérifiés dans le code.",
+    },
+    {
+      q: "Une tâche nécessite 20 appels fiables à 97 %. Probabilité de succès sans erreur ?",
+      options: ["≈ 97 %", "≈ 84 %", "≈ 54 %", "≈ 20 %"],
+      answer: 2,
+      explain: "0,97²⁰ ≈ 0,54. Les erreurs se composent : d'où l'intérêt de pouvoir corriger en cours de route.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique le function calling (tool use) d'un LLM.">
+On fournit au modèle, avec la conversation, une liste d'outils décrits par un nom, une description et un schéma JSON de leurs arguments. Le modèle, entraîné pour cela, peut répondre par un appel structuré plutôt que par du texte. L'application valide cet appel contre le schéma et les droits de l'utilisateur, l'exécute (API, base de données, calcul), puis ajoute le résultat à la conversation ; le modèle continue jusqu'à une réponse finale. Le modèle ne fait que décider, l'application garde le contrôle de ce qui est exécuté. Les points d'attention : la qualité des descriptions, la validation des arguments, la gestion des erreurs renvoyées au modèle, et la sécurité des outils qui modifient des données.
+</Interview>
+
+<Interview q="Comment concevrais-tu les outils d'un assistant de service client ?">
+Je partirais des tâches réelles et je créerais peu d'outils, clairement séparés, en lecture d'abord : consulter une commande, suivre une livraison, chercher dans la FAQ. Chaque outil vérifie côté serveur que la ressource appartient bien au client authentifié, quoi que demande le modèle. Les actions qui engagent l'entreprise (remboursement, annulation) ont des schémas stricts (montant borné par celui de la commande, motif dans une liste), des plafonds, et une validation humaine au-delà d'un seuil. Descriptions rédigées avec exemples et contre-exemples, erreurs explicites renvoyées au modèle, journalisation de chaque appel, et un jeu d'évaluation de conversations pour mesurer le bon choix d'outil et d'arguments.
+</Interview>
+
+<Recap>
+- Tool use : le modèle produit un appel structuré (nom + arguments JSON) ; l'application l'exécute et renvoie le résultat.
+- Un outil = nom, description, schéma JSON des paramètres.
+- Arguments = entrée non fiable : validation par schéma, vérification des droits, jamais `eval`.
+- Erreurs renvoyées au modèle pour qu'il corrige.
+- Fiabilité d'une chaîne : $\prod p_i$ ; moins d'étapes, appels plus fiables, correction possible.
+- MCP : protocole ouvert pour exposer des outils et des données aux agents.
+</Recap>
+
+<LessonComplete />

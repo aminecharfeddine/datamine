@@ -1,0 +1,35 @@
+<FicheSection kind="essentiel">
+- Injection indirecte : des instructions cachées dans ce que l'agent lit.
+- Trio dangereux : données privées, contenu non fiable, capacité d'agir vers l'extérieur.
+- Moindre privilège et contraintes déterministes dans les outils.
+- Validation humaine des actions irréversibles.
+- Bac à sable, aucun secret dans le contexte, journalisation.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+P(\geq 1 \text{ succès}) = 1 - (1-p)^n
+$$
+
+$p = 2\,\%$, $n = 50$ : 0,636.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Compter sur une consigne dans le prompt.
+- Règles de sécurité modifiables par le modèle ou par le contenu lu.
+- Secrets visibles dans le contexte.
+- Serveurs MCP ou outils tiers non audités.
+- Validation humaine trop fréquente, approuvée machinalement.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Contre l'injection ?** Limiter les conséquences : moindre privilège, contraintes dans les outils, humain pour l'irréversible, isolation, journaux, red teaming.
+
+**Humain dans la boucle ?** Actions irréversibles, faible confiance, début de déploiement ; assouplir par paliers mesurés.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Séparer l'agent qui lit le web de celui qui accède aux données sensibles.
+- Cas d'attaque dans le banc d'évaluation.
+- Plafonds et listes blanches définis côté serveur.
+</FicheSection>

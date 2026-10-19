@@ -1,0 +1,35 @@
+<FicheSection kind="essentiel">
+- Le LLM est sans état : toute mémoire est construite par l'application.
+- Contexte : système, outils, historique, documents, souvenirs, question.
+- Fenêtre glissante (oublie), résumé (compacte), mémoire long terme (faits retrouvés), outils à la demande.
+- Chaque token coûte, ralentit et peut diluer l'information.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+S + T + \sum_{\text{gardés}} h_i + R + q \le W
+$$
+
+Coût d'entrée = appels × tokens moyens × prix par token.
+
+30 appels × 6 000 tokens à 3 \$/M : 0,54 \$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Fenêtre glissante qui perd un identifiant donné au début.
+- Résumé qui oublie une contrainte ou une décision.
+- Mémoire long terme non filtrée par utilisateur.
+- Fait mémorisé devenu faux, impossible à corriger.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Mémoire d'un assistant ?** Travail (contexte compacté), structurée (base via outils), épisodique (faits + embeddings, filtrés), corrigeable, RGPD.
+
+**Context engineering ?** Choisir ce que le modèle voit à chaque appel pour maximiser la pertinence par token.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Mesurer la composition du contexte sur des conversations réelles.
+- Prompt caching pour les préfixes stables.
+- Notes structurées et sous-agents pour les tâches longues.
+</FicheSection>

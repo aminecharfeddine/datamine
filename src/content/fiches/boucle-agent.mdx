@@ -1,0 +1,34 @@
+<FicheSection kind="essentiel">
+- Agent : un LLM dans une boucle avec des outils, qui choisit lui-même ses étapes.
+- ReAct : raisonnement, action (appel d'outil), observation ajoutée au contexte.
+- Arrêt : réponse finale, ou garde-fou (étapes, budget, délai).
+- Workflow (étapes fixées) avant agent (étapes libres).
+- Lire les trajectoires pour améliorer.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+C = \sum_{t=1}^{n}(B + t\,o) = nB + o\,\frac{n(n+1)}{2}
+$$
+
+9 tours, $B = 650$, $o = 100$ : 10 350 tokens d'entrée.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Pas de limite d'étapes : boucle infinie, facture illimitée.
+- Observations trop longues qui saturent le contexte.
+- Agent là où un workflow suffit.
+- Juger seulement la réponse finale, pas la trajectoire.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Fonctionnement d'un agent ?** Boucle ReAct, outils exécutés par l'application, garde-fous, erreurs composées, évaluation non déterministe.
+
+**Agent lent et cher ?** Workflow quand possible, outils plus puissants, résultats courts, gestion du contexte, petits modèles pour les étapes simples, parallélisme, cache.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Détecter les appels répétés à l'identique.
+- Orchestrateur et sous-agents à contexte propre pour les tâches longues.
+- Journaliser chaque trajectoire.
+</FicheSection>

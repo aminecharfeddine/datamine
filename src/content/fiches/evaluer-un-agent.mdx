@@ -1,0 +1,36 @@
+<FicheSection kind="essentiel">
+- Agents non déterministes : plusieurs essais, intervalles de confiance, tests.
+- Succès vérifié sur l'état final, dans un environnement isolé.
+- Trajectoire, coût, latence, sécurité.
+- Correcteurs : code, LLM juge calibré, humains.
+- Banc en CI, jeu caché, enrichi des échecs de production.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{pass@}k = 1 - (1-p)^k \qquad \text{pass}^k = p^k
+$$
+
+$p = 0{,}6$ : pass@3 = 0,936 ; pass^3 = 0,216.
+
+IC à 95 % d'un taux : $\hat p \pm 1{,}96\sqrt{\hat p(1-\hat p)/n}$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Conclure sur 10 tâches et un essai.
+- Vérifier la réponse au lieu de l'effet réel.
+- LLM juge non calibré (biais de longueur, d'ordre, de style).
+- Banc sur-optimisé, jamais renouvelé.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Évaluer avant production ?** Tâches réelles, état final vérifié, bac à sable, essais multiples, trajectoire, coût, sécurité, comparaison statistique, CI, jeu caché.
+
+**pass@k ou pass^k ?** Potentiel avec vérification contre fiabilité perçue ; pass^k en production.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Test apparié tâche par tâche pour comparer deux versions.
+- Réinitialiser l'environnement à chaque essai.
+- Suivre le coût et la latence avec la qualité.
+</FicheSection>

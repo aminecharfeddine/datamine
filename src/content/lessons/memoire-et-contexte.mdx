@@ -1,0 +1,157 @@
+<Predict
+  id="hook"
+  question="Hier, tu as donné ton numéro de commande à un assistant LLM. Aujourd'hui, dans une nouvelle conversation, il s'en souvient. Comment ?"
+  options={[
+    "Le modèle a appris ton numéro pendant la nuit",
+    "L'application a stocké ce fait et l'a réinjecté dans le contexte de la nouvelle conversation",
+    "Les LLM ont une mémoire interne permanente",
+    "C'est impossible",
+  ]}
+  answer={1}
+>
+Un LLM est **sans état** : à chaque appel, il ne sait que ce qui se trouve dans le texte qu'on lui envoie (le **contexte**). Il n'apprend rien d'une conversation à l'autre. Toute « mémoire » est construite par l'application : garder l'historique, le résumer, extraire des faits, les stocker et les réinjecter au bon moment. Pour un agent qui travaille longtemps, décider de **ce qui entre dans le contexte** devient un travail d'ingénierie à part entière, parfois appelé *context engineering*.
+</Predict>
+
+## Ce qu'il y a dans un appel
+
+À chaque appel, l'application assemble :
+
+- le **prompt système** (rôle, règles, ton) ;
+- les **définitions des outils** ;
+- l'**historique** de la conversation (messages, appels d'outils et leurs résultats) ;
+- d'éventuels **documents** retrouvés (RAG) ou **souvenirs** ;
+- la **question** courante.
+
+Le tout doit tenir dans la **fenêtre de contexte** $W$ du modèle :
+
+$$
+S + T + \sum_{\text{tours gardés}} h_i + R + q \;\le\; W
+$$
+
+Et la fenêtre n'est pas qu'une limite dure : chaque token se paie à chaque appel, augmente la latence, et un contexte encombré dégrade la qualité (l'information utile se perd au milieu, surtout loin dans le passé).
+
+## Les stratégies
+
+- **Tout garder** : simple, jusqu'au jour où ça déborde.
+- **Fenêtre glissante** : garder les derniers tours qui tiennent. Les plus anciens disparaissent, avec ce qu'ils contenaient.
+- **Résumer** (*compaction*) : remplacer les anciens tours par un résumé produit par le modèle, en demandant explicitement de garder les décisions, les identifiants, les préférences.
+- **Mémoire long terme** : extraire des **faits** au fil de l'eau (« commande n° 4521 », « préfère être contacté par e-mail »), les stocker (base de données, index vectoriel), et ne réinjecter que ceux qui sont pertinents pour la question.
+- **Charger les outils à la demande** : ne déclarer que les outils utiles à l'étape en cours.
+
+<ContextLab id="fenetre" challenge="ctx-budget" />
+
+## La mémoire long terme, en pratique
+
+```python
+def repondre(utilisateur, question, historique):
+    souvenirs = memoire.chercher(utilisateur, question, k=5)           # faits pertinents, par similarité
+    contexte = construire_contexte(
+        systeme=PROMPT_SYSTEME,
+        souvenirs=souvenirs,
+        historique=compacter(historique, budget_tokens=2_000),         # résumé des anciens tours + derniers tours
+        question=question,
+    )
+    reponse = llm.generate(messages=contexte, tools=outils_utiles(question))
+    for fait in extraire_faits(question, reponse):                      # un appel LLM qui extrait les faits durables
+        memoire.ajouter(utilisateur, fait)
+    return reponse
+```
+
+<CodeChoice
+  id="souvenirs"
+  question="Avec quelle requête interroger la mémoire long terme ?"
+  code={`souvenirs = memoire.chercher(utilisateur, ___, k=5)`}
+  options={["question", "historique_complet", "PROMPT_SYSTEME", '""']}
+  answer={0}
+>
+On cherche les souvenirs **pertinents pour la question en cours**, comme dans un RAG : par similarité d'embeddings, éventuellement avec des filtres (utilisateur, date, type de fait). Rechercher avec tout l'historique ramènerait des souvenirs liés à des sujets déjà traités ; une requête vide ne ramènerait rien d'utile. Et le filtre par utilisateur est indispensable : la mémoire d'un client ne doit jamais apparaître chez un autre.
+</CodeChoice>
+
+<Exercise
+  id="cout"
+  question="Un agent fait 30 appels au modèle pour une tâche, avec en moyenne 6 000 tokens de contexte par appel, facturés 3 $ par million de tokens d'entrée. Coût des entrées, en dollars (2 décimales) ?"
+  answer={0.54}
+  tolerance={0.005}
+  unit="$"
+  hint="30 × 6 000 tokens, divisé par un million, multiplié par 3."
+>
+$30 \times 6\,000 = 180\,000$ tokens, soit $0{,}18 \times 3 = 0{,}54$ \$ par tâche. Sur 10 000 tâches par jour : 5 400 \$. Diviser le contexte moyen par deux (résumé, outils à la demande) divise ce poste par deux ; le **prompt caching** réduit aussi fortement le coût des préfixes répétés (prompt système, définitions d'outils).
+</Exercise>
+
+<Callout type="intuition">
+Pense au contexte comme à la **mémoire de travail** du modèle : petite, chère, et dont la qualité baisse quand elle est encombrée. La mémoire long terme est un **classeur** externe : vaste, bon marché, mais il faut savoir quoi y ranger et quoi en ressortir. Un bon agent passe son temps à déplacer l'information entre les deux.
+</Callout>
+
+<Callout type="piege">
+Un résumé **perd de l'information**, et ce qu'il perd n'est pas toujours prévisible : un identifiant, une contrainte donnée au début (« jamais le vendredi »), un refus de l'utilisateur. Demande explicitement de conserver décisions, identifiants et contraintes, et garde les données critiques dans une **structure** (un état de tâche, une base) plutôt que dans du texte libre. Autre piège : une mémoire long terme qui conserve un fait devenu faux (« adresse : Lyon », alors que l'utilisateur a déménagé) ; il faut pouvoir mettre à jour et oublier.
+</Callout>
+
+<Callout type="entretien">
+Pour les tâches très longues, une technique efficace consiste à faire tenir à l'agent des **notes** dans un fichier ou un outil dédié (plan, décisions, état d'avancement) qu'il relit au besoin, ou à confier des sous-tâches à des **sous-agents** qui travaillent dans un contexte propre et ne renvoient qu'un résumé. Le contexte principal reste court et lisible.
+</Callout>
+
+<Callout type="astuce">
+Mesure la composition de ton contexte (combien de tokens pour le système, les outils, l'historique, les documents) sur des conversations réelles. Les surprises sont fréquentes : des définitions d'outils qui pèsent plus que la conversation, ou un résultat d'outil de 5 000 tokens dont trois lignes servent.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que sait un LLM au moment d'un appel ?",
+      options: ["Tout ce qu'on lui a dit dans les conversations précédentes", "Ce qu'il a appris à l'entraînement, plus ce qui est dans le contexte de cet appel", "Uniquement le dernier message", "Tout ce qui est sur internet"],
+      answer: 1,
+      explain: "Le modèle est sans état : la mémoire est construite par l'application.",
+    },
+    {
+      q: "Quel est le défaut principal d'une fenêtre glissante ?",
+      options: ["Elle est coûteuse", "Elle oublie les informations anciennes, même essentielles", "Elle dépasse la fenêtre", "Elle invente des faits"],
+      answer: 1,
+      explain: "Un identifiant donné au début disparaît dès que les tours récents remplissent le budget.",
+    },
+    {
+      q: "Comment fonctionne une mémoire long terme typique ?",
+      options: [
+        "On réentraîne le modèle chaque nuit",
+        "On extrait des faits, on les stocke, et on réinjecte ceux qui sont pertinents pour la question",
+        "On garde tout l'historique dans le prompt",
+        "On augmente la taille du modèle",
+      ],
+      answer: 1,
+      explain: "C'est un RAG sur les souvenirs de l'utilisateur.",
+    },
+    {
+      q: "Les définitions de 40 outils occupent 8 000 tokens. Quelle optimisation ?",
+      options: ["Augmenter la fenêtre", "Ne charger que les outils utiles à la tâche ou à l'étape", "Supprimer le prompt système", "Passer en température 0"],
+      answer: 1,
+      explain: "Le chargement à la demande (ou un routage préalable) économise beaucoup de contexte.",
+    },
+    {
+      q: "Pourquoi un contexte très long peut-il dégrader les réponses, même s'il tient dans la fenêtre ?",
+      options: ["Il ne peut pas", "L'information utile est diluée, et le modèle l'exploite moins bien au milieu d'un long contexte", "Les tokens deviennent invalides", "La température augmente"],
+      answer: 1,
+      explain: "Plus long n'est pas mieux : il faut le bon contexte, pas le plus grand.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment gérerais-tu la mémoire d'un assistant qui suit des clients sur plusieurs semaines ?">
+Je séparerais trois niveaux. La mémoire de travail : le contexte de la conversation en cours, compacté au-delà d'un budget (résumé des anciens tours qui conserve décisions, identifiants et contraintes, plus les derniers tours en entier). La mémoire structurée : les faits fiables (commandes, préférences déclarées, tickets ouverts) dans une base, consultés par des outils plutôt que recopiés dans le prompt. La mémoire épisodique : des faits extraits des conversations, stockés avec embeddings et métadonnées, et réinjectés par recherche selon la question, toujours filtrés par client. Avec une possibilité de corriger ou d'oublier un fait, une durée de conservation conforme au RGPD, et une évaluation sur des conversations longues.
+</Interview>
+
+<Interview q="Qu'est-ce que le context engineering ?">
+C'est l'art de décider, à chaque appel, de ce que le modèle voit : instructions, outils, historique, documents, souvenirs, état de la tâche. Le modèle est sans état et sa fenêtre est limitée, chère, et de moins en moins bien exploitée quand elle se remplit. On optimise donc la pertinence par token : résumés, outils chargés à la demande, résultats d'outils filtrés, notes structurées, sous-agents à contexte propre, mise en cache des préfixes stables. Pour un agent sur des tâches longues, c'est souvent plus déterminant que le choix du modèle.
+</Interview>
+
+<Recap>
+- Un LLM est **sans état** : il ne sait que ce qui est dans le contexte de l'appel.
+- Contexte = système + outils + historique + documents/souvenirs + question ≤ fenêtre $W$.
+- Chaque token coûte, ralentit et peut diluer l'information.
+- Stratégies : fenêtre glissante (oublie le début), **résumé** (garde l'essentiel), **mémoire long terme** (faits extraits, stockés, retrouvés), outils à la demande.
+- Mémoire filtrée par utilisateur, corrigeable, avec durée de conservation.
+- Tâches longues : notes structurées, sous-agents, prompt caching.
+</Recap>
+
+<LessonComplete />

@@ -1,0 +1,36 @@
+<FicheSection kind="essentiel">
+- Le modèle produit un appel d'outil (nom + arguments JSON) ; l'application valide, exécute, renvoie le résultat.
+- Définition d'un outil : nom, description, schéma JSON des paramètres.
+- Arguments = entrée non fiable : schéma, droits, bornes vérifiés dans le code.
+- Les erreurs sont renvoyées au modèle comme résultat.
+- MCP : protocole ouvert pour exposer outils et données aux agents.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+P(\text{succès}) = \prod_{i=1}^{n} p_i
+$$
+
+$0{,}95^{10} \approx 0{,}60$ ; $0{,}97^{20} \approx 0{,}54$.
+
+Format type : `{"name": "outil", "arguments": {"param": valeur}}`.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Exécuter sans valider (`eval`, arguments pris tels quels).
+- Arguments inventés : identifiants, montants.
+- Outils nombreux et redondants, descriptions vagues.
+- Faire confiance au modèle pour les droits d'accès.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Function calling ?** Schémas d'outils fournis, appel structuré produit, exécution et validation par l'application, boucle jusqu'à la réponse.
+
+**Outils d'un assistant client ?** Peu d'outils, lecture d'abord, contrôle des droits côté serveur, schémas stricts, validation humaine des actions à risque, journalisation.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Décrire chaque outil comme pour un nouveau collègue, avec exemples et cas d'exclusion.
+- Pydantic pour valider les arguments.
+- Des outils qui font plus en un appel réduisent les erreurs composées.
+</FicheSection>

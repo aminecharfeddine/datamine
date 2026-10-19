@@ -1,0 +1,151 @@
+<Predict
+  id="hook"
+  question="Ton agent réussit 7 tâches sur 10 de ton jeu de test. La nouvelle version en réussit 8 sur 10. Peux-tu conclure qu'elle est meilleure ?"
+  options={[
+    "Oui, 80 % contre 70 %",
+    "Non : avec 10 tâches et un agent aléatoire, un tel écart peut venir du hasard",
+    "Oui, si la différence est d'au moins une tâche",
+    "Non, il faut toujours un humain pour juger",
+  ]}
+  answer={1}
+>
+Un agent n'est pas déterministe : relance-le sur la même tâche, il ne prendra pas forcément le même chemin, et n'aboutira pas toujours. Sur 10 tâches, passer de 7 à 8 réussites est tout à fait compatible avec deux versions **identiques**. Évaluer un agent, c'est donc appliquer ce que tu as vu en statistiques : assez de tâches, plusieurs essais, des intervalles de confiance et des tests. Sans ça, on « améliore » un agent au hasard.
+</Predict>
+
+## Que mesurer ?
+
+- **Le succès de la tâche**, idéalement vérifié sur l'**état final** : le remboursement existe-t-il dans la base, avec le bon montant ? Le test du code passe-t-il ? C'est bien plus fiable que de lire la réponse.
+- **La trajectoire** : bons outils, bons arguments, pas d'étapes inutiles ni d'actions interdites.
+- **Le coût et la latence** : tokens, nombre d'appels, temps total.
+- **La sécurité** : refus des demandes interdites, résistance aux injections.
+
+Trois types de correcteurs, du plus fiable au moins fiable : des **vérifications par code** (état final, tests), un **LLM juge** avec une grille précise (pour ce qui ne se vérifie pas automatiquement, comme le ton), calibré sur des annotations humaines, et des **humains**, chers mais indispensables pour construire et contrôler le reste.
+
+<CodeChoice
+  id="grader"
+  question="Quel est le meilleur contrôle pour la tâche « rembourser 59,90 € sur la commande 17 » ?"
+  code={`resultat = agent.run("La commande 17 est arrivée cassée, remboursez-moi 59,90 €.")
+assert ___`}
+  options={[
+    "db.remboursements(commande_id=17) == [59.90]",
+    '"remboursé" in resultat.texte',
+    "len(resultat.texte) > 50",
+    "resultat.nb_etapes < 10",
+  ]}
+  answer={0}
+>
+On vérifie l'**effet réel** : exactement un remboursement, du bon montant, sur la bonne commande. Le mot « remboursé » dans la réponse ne prouve rien (l'agent peut l'affirmer sans l'avoir fait, ou rembourser deux fois). Le nombre d'étapes est une métrique utile de coût, pas de succès. On exécute ces tâches dans un **environnement isolé** (bac à sable, base de test) réinitialisé avant chaque essai.
+</CodeChoice>
+
+## Plusieurs essais par tâche
+
+Avec un taux de réussite $p$ sur une tâche, on distingue deux questions très différentes :
+
+$$
+\text{pass@}k = 1 - (1-p)^k
+\qquad
+\text{pass}^k = p^k
+$$
+
+**pass@k** : l'agent réussit-il **au moins une fois** sur $k$ essais ? Pertinent quand on peut vérifier et garder le meilleur (générer du code et lancer les tests). **pass^k** : réussit-il **à chaque fois** ? C'est la fiabilité qu'attend un utilisateur d'un agent en production.
+
+<Exercise
+  id="passk"
+  question="Un agent réussit une tâche avec une probabilité de 0,6. Quelle est la probabilité qu'il réussisse 3 fois sur 3 (pass^3, 3 décimales) ?"
+  answer={0.216}
+  tolerance={0.001}
+  hint="0,6 × 0,6 × 0,6."
+>
+$0{,}6^3 = 0{,}216$, alors que pass@3 $= 1 - 0{,}4^3 = 0{,}936$. Le même agent paraît excellent ou médiocre selon la question posée. Pour un service client, c'est pass^k qui compte : l'utilisateur ne relance pas trois fois en gardant la meilleure réponse.
+</Exercise>
+
+## Assez d'essais pour conclure
+
+Trois équipes évaluent les deux mêmes versions d'un agent, sur le même banc de 50 tâches, chacune avec ses propres tirages :
+
+<AgentEvalLab id="significatif" challenge="eval-signif" />
+
+Avec un essai par tâche, les trois équipes ne sont pas d'accord : l'une conclut, les autres non, alors que la v2 est réellement meilleure. Il faut multiplier les essais (ou les tâches) pour que la conclusion devienne **reproductible**. C'est un compromis direct avec le coût de l'évaluation.
+
+<Callout type="intuition">
+Les essais d'une même tâche ne sont pas indépendants : une tâche difficile échoue souvent pour les deux versions. Le test simple utilisé ici est donc un peu optimiste ; on fait mieux avec un test **apparié** (comparer les deux versions tâche par tâche) ou un bootstrap par tâche. L'idée clé reste : un chiffre sans intervalle de confiance ne dit pas grand-chose.
+</Callout>
+
+<Callout type="piege">
+Un banc d'évaluation qui ne bouge jamais finit par être « appris » : on règle les prompts jusqu'à le réussir, sans que l'agent progresse sur les vrais cas. Garde un jeu **caché** que tu n'utilises que rarement, ajoute régulièrement des tâches issues des échecs observés en production, et vérifie que les tâches ne fuient pas dans les exemples du prompt.
+</Callout>
+
+<Callout type="entretien">
+Un LLM utilisé comme juge a ses biais : préférence pour les réponses longues, pour la première option présentée, pour son propre style. On le rend fiable avec une grille de critères explicite et binaire, des exemples notés, l'inversion de l'ordre des réponses comparées, et surtout une mesure d'accord avec des annotations humaines sur un échantillon avant de lui faire confiance.
+</Callout>
+
+<Callout type="astuce">
+Traite l'évaluation comme des **tests de régression** : chaque modification de prompt, d'outil ou de modèle relance la suite (dans la CI), avec un tableau de bord par catégorie de tâche, coût et latence compris. En production, complète par une évaluation **en ligne** : taux de résolution sans escalade, retours utilisateurs, A/B tests sur les métriques métier.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quel est le contrôle de succès le plus fiable pour un agent qui crée un ticket ?",
+      options: ["La réponse contient « ticket créé »", "Le ticket existe dans le système, avec les bons champs", "Un LLM trouve la réponse polie", "L'agent a fait moins de 5 étapes"],
+      answer: 1,
+      explain: "On vérifie l'état final, pas ce que l'agent dit avoir fait.",
+    },
+    {
+      q: "p = 0,8 par essai. pass@2 vaut…",
+      options: ["0,64", "0,8", "0,96", "1,6"],
+      answer: 2,
+      explain: "1 − 0,2² = 0,96. (pass^2 vaudrait 0,64.)",
+    },
+    {
+      q: "Pourquoi lancer plusieurs essais par tâche ?",
+      options: ["Pour gonfler les scores", "Parce que l'agent n'est pas déterministe : un seul essai donne une mesure très bruitée", "Pour tester le réseau", "Ce n'est pas utile"],
+      answer: 1,
+      explain: "Plus d'essais réduisent la variance de l'estimation et rendent les comparaisons fiables.",
+    },
+    {
+      q: "Comment rendre un LLM juge plus fiable ?",
+      options: [
+        "Lui demander une note de 1 à 100 sans consigne",
+        "Une grille explicite, des exemples, l'ordre des réponses inversé, et une mesure d'accord avec des humains",
+        "Utiliser le même modèle que l'agent",
+        "Augmenter la température",
+      ],
+      answer: 1,
+      explain: "Le juge est lui-même un modèle à évaluer.",
+    },
+    {
+      q: "Ton agent passe 95 % du banc de test mais déçoit en production. Cause probable ?",
+      options: [
+        "Le banc ne représente plus les vrais cas, ou a été sur-optimisé",
+        "Le serveur est trop lent",
+        "La température est trop basse",
+        "Rien, c'est normal",
+      ],
+      answer: 0,
+      explain: "Il faut enrichir le banc avec les échecs réels et garder un jeu caché.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment évaluerais-tu un agent avant de le mettre en production ?">
+Je construirais un banc de tâches représentatives, issues de vrais cas d'usage, chacune avec un critère de succès vérifiable sur l'état final (base de données, fichiers, tests), exécutées dans un environnement isolé réinitialisé à chaque essai. Je mesurerais le succès (plusieurs essais par tâche, en suivant pass^k pour la fiabilité), la qualité de la trajectoire (outils et arguments, actions interdites), le coût et la latence, et des cas adverses de sécurité. Pour ce qui ne se vérifie pas par code, un LLM juge avec une grille, calibré sur des annotations humaines. Je comparerais les versions avec des intervalles de confiance et un test apparié, j'intégrerais la suite à la CI, et je garderais un jeu caché.
+</Interview>
+
+<Interview q="Quelle différence entre pass@k et pass^k, et laquelle suivre ?">
+pass@k est la probabilité de réussir au moins une fois sur $k$ essais, $1 - (1-p)^k$ : elle mesure le potentiel quand on peut générer plusieurs candidats et vérifier automatiquement le meilleur, comme du code testé. pass^k est la probabilité de réussir les $k$ essais, $p^k$ : elle mesure la régularité. Pour un agent en contact avec des utilisateurs, c'est pass^k qui reflète l'expérience : un agent à 60 % de réussite n'est fiable sur 3 interactions que dans 22 % des cas. Je suivrais les deux, en optimisant pour pass^k en production.
+</Interview>
+
+<Recap>
+- Les agents sont aléatoires : un score sans intervalle de confiance ne prouve rien.
+- Mesurer : succès (sur l'**état final**), trajectoire, coût, latence, sécurité.
+- Correcteurs : code (le plus fiable) > LLM juge calibré > humains (référence).
+- pass@k $= 1-(1-p)^k$ (au moins une fois) ; pass^k $= p^k$ (à chaque fois).
+- Plusieurs essais par tâche, test apparié, jeu caché, enrichi des échecs réels.
+- Évaluation en CI comme des tests de régression ; puis en ligne en production.
+</Recap>
+
+<LessonComplete />
