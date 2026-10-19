@@ -1,0 +1,195 @@
+<Predict
+  id="hook"
+  question="Calculer la moyenne d'un million de nombres : une boucle for en Python pur, ou np.mean sur un tableau NumPy. Quel écart de vitesse ?"
+  options={["Aucun, c'est le même calcul", "Environ 2 fois plus rapide avec NumPy", "Souvent 50 à 100 fois plus rapide avec NumPy", "Python pur est plus rapide"]}
+  answer={2}
+>
+Une boucle Python interprète chaque itération : vérifier le type, aller chercher l'objet, additionner, recommencer, un million de fois. NumPy stocke les nombres dans un bloc de mémoire **contigu et typé**, et exécute toute la boucle en C compilé, souvent avec des instructions vectorielles du processeur. Écrire des opérations sur des **tableaux entiers** plutôt que des boucles (la *vectorisation*) est le premier réflexe d'un data scientist, et la base de pandas, scikit-learn et PyTorch.
+</Predict>
+
+## NumPy : des tableaux, une forme, un type
+
+Un `ndarray` a une **forme** (`shape`) et un **type** (`dtype`) uniques. Un jeu de données tabulaire est une matrice de forme `(n_exemples, n_variables)`. Les opérations s'appliquent élément par élément, et les réductions (`sum`, `mean`, `max`…) prennent un **axe** :
+
+```python
+import numpy as np
+
+X = np.random.default_rng(0).normal(size=(1000, 20))   # 1000 exemples, 20 variables
+print(X.shape, X.dtype)          # (1000, 20) float64
+
+mu = X.mean(axis=0)              # moyenne de chaque colonne : forme (20,)
+sigma = X.std(axis=0)            # (20,)
+Z = (X - mu) / sigma             # standardisation, sans aucune boucle
+
+w = np.ones(20)
+scores = X @ w                   # produit matriciel : (1000, 20) @ (20,) → (1000,)
+top = X[scores > 3]              # masque booléen : les lignes dont le score dépasse 3
+```
+
+`axis=0` réduit **le long des lignes** (on obtient une valeur par colonne) ; `axis=1` réduit le long des colonnes (une valeur par ligne). La standardisation ci-dessus s'écrit :
+
+$$
+z_{ij} = \frac{x_{ij} - \mu_j}{\sigma_j}
+\qquad
+\mu_j = \frac{1}{n}\sum_{i=1}^{n} x_{ij}
+$$
+
+<Exercise
+  id="shape"
+  question="X a la forme (1000, 20) et W la forme (20, 5). Combien d'éléments contient X @ W ?"
+  answer={5000}
+  tolerance={0}
+  hint="Les dimensions intérieures (20 et 20) disparaissent ; il reste les dimensions extérieures."
+>
+$(1000, 20) \,@\, (20, 5) \to (1000, 5)$, soit $5\,000$ éléments. C'est exactement ce que fait une couche `nn.Linear(20, 5)` sur un batch de 1 000 exemples.
+</Exercise>
+
+## Le broadcasting
+
+`X - mu` soustrait un vecteur de forme `(20,)` à une matrice `(1000, 20)` : NumPy « étire » le vecteur sur chaque ligne, sans le copier. C'est le **broadcasting**. Les formes sont comparées en partant de la **droite** ; deux dimensions sont compatibles si elles sont égales ou si l'une vaut 1.
+
+<BroadcastLab id="formes" challenge="broadcast-error" />
+
+<Callout type="piege">
+Pour centrer chaque **ligne** (et non chaque colonne), `X - X.mean(axis=1)` échoue : `(4, 3)` contre `(4,)`, les dimensions de droite (3 et 4) ne correspondent pas. Il faut garder la dimension : `X - X.mean(axis=1, keepdims=True)`, de forme `(4, 1)`. Pire encore : quand les tailles coïncident par hasard (matrice carrée), aucune erreur n'apparaît et le calcul est simplement faux.
+</Callout>
+
+## pandas : des tableaux avec des noms
+
+Un `DataFrame` est un tableau de colonnes nommées, chacune avec son type (nombres, texte, dates, catégories). C'est l'outil quotidien pour charger, nettoyer, explorer et agréger des données :
+
+```python
+import pandas as pd
+
+clients = pd.read_csv("clients.csv")
+commandes = pd.read_csv("commandes.csv", parse_dates=["date"])
+
+commandes.info()                      # types, valeurs manquantes, mémoire
+commandes.describe()                  # statistiques des colonnes numériques
+
+tech = commandes[commandes["categorie"] == "Tech"]              # filtre booléen
+gros = commandes.loc[commandes["montant"] > 100, ["id", "montant"]]  # lignes ET colonnes
+par_cat = commandes.groupby("categorie")["montant"].agg(["count", "mean", "sum"])
+df = commandes.merge(clients, left_on="client_id", right_on="id", suffixes=("", "_client"))
+```
+
+`groupby` suit le schéma *split-apply-combine* : découper les lignes par valeur de la clé, appliquer une agrégation à chaque groupe, recombiner en un tableau. Construis une requête sur les commandes de la boutique :
+
+<PandasLab id="requete" challenge="pandas-mean" />
+
+<CodeChoice
+  id="merge"
+  question="Tu veux garder TOUS les clients, y compris ceux qui n'ont jamais commandé. Que faut-il ajouter ?"
+  code={`df = clients.merge(commandes, left_on="id", right_on="client_id", ___)`}
+  options={['how="left"', 'how="inner"', 'how="right"', 'on="id"']}
+  answer={0}
+>
+Par défaut, `merge` fait une jointure **interne** (`how="inner"`) : seules les lignes présentes des deux côtés restent, et les clients sans commande disparaissent sans prévenir. `how="left"` garde toutes les lignes de la table de gauche, avec des `NaN` dans les colonnes de commandes. Après un merge, vérifie toujours le nombre de lignes : une clé dupliquée multiplie les lignes, une clé absente en fait disparaître.
+</CodeChoice>
+
+<Parsons
+  id="eda"
+  prompt="Remets dans l'ordre ce script : les 3 mois au plus gros chiffre d'affaires."
+  lines={[
+    'df = pd.read_csv("commandes.csv", parse_dates=["date"])',
+    'df["mois"] = df["date"].dt.to_period("M")',
+    'ca = df[df["montant"] > 0].groupby("mois")["montant"].sum()',
+    "ca = ca.sort_values(ascending=False)",
+    "print(ca.head(3))",
+  ]}
+>
+Charger (en demandant à pandas de lire les dates comme des dates), dériver la colonne de regroupement, filtrer les montants positifs (les remboursements sont négatifs) puis agréger, trier, afficher. Chaque ligne dépend de la précédente : chaque étape produit un nouvel objet qu'on peut vérifier.
+</Parsons>
+
+## Les valeurs manquantes
+
+`NaN` se propage dans les calculs NumPy, mais les agrégations pandas l'ignorent par défaut (`mean` calcule la moyenne des valeurs présentes). Les outils de base : `df.isna().sum()` pour compter, `dropna` pour supprimer, `fillna` pour remplacer. Supprimer est tentant, mais on perd des lignes et on biaise l'échantillon si les manquants ne sont pas dus au hasard. On y reviendra avec les pipelines.
+
+<Exercise
+  id="moyenne"
+  question="Une colonne contient les montants 20, NaN, 40 et 60. Que renvoie df['montant'].mean() ?"
+  answer={40}
+  tolerance={0.001}
+  hint="pandas ignore les NaN par défaut (skipna=True)."
+>
+$(20 + 40 + 60) / 3 = 40$ : la valeur manquante est ignorée, pas comptée comme 0 (qui donnerait 30). Avec NumPy pur, `np.mean` sur le même tableau renverrait `nan` ; il faudrait `np.nanmean`.
+</Exercise>
+
+<Callout type="intuition">
+Pense « colonnes », pas « lignes ». Une boucle `for` sur les lignes d'un DataFrame (`iterrows`) ou un `apply` ligne par ligne sont des centaines de fois plus lents qu'une opération sur des colonnes entières : `df["ttc"] = df["ht"] * 1.2`, `np.where(cond, a, b)`, `df["ville"].map(dico)`.
+</Callout>
+
+<Callout type="entretien">
+`loc` sélectionne par **étiquette** (noms de lignes et de colonnes, bornes incluses) ; `iloc` par **position** entière (bornes exclues, comme en Python). Après un filtre, les étiquettes d'index ne sont plus 0, 1, 2… : `df.loc[0]` peut échouer là où `df.iloc[0]` renvoie la première ligne.
+</Callout>
+
+<Callout type="astuce">
+Les colonnes texte à peu de valeurs distinctes (ville, catégorie) prennent beaucoup moins de mémoire en type `category` : `df["ville"] = df["ville"].astype("category")`. Pour des données qui ne tiennent plus en mémoire ou des traitements lourds, regarde **Polars** ou **DuckDB** : même logique, moteur bien plus rapide.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "X a la forme (100, 5). Quelle est la forme de X.mean(axis=0) ?",
+      options: ["(100,)", "(5,)", "(100, 5)", "Un scalaire"],
+      answer: 1,
+      explain: "axis=0 réduit le long des lignes : il reste une moyenne par colonne.",
+    },
+    {
+      q: "Quelles formes peuvent être additionnées par broadcasting ?",
+      options: ["(3, 4) et (3,)", "(3, 4) et (4,)", "(3, 4) et (4, 3)", "(3, 4) et (2, 4)"],
+      answer: 1,
+      explain: "Alignées par la droite : 4 et 4 correspondent, la dimension manquante compte comme 1.",
+    },
+    {
+      q: "Que fait df.groupby('ville')['montant'].sum() ?",
+      options: [
+        "La somme de tous les montants",
+        "Une ligne par ville avec la somme de ses montants",
+        "Le nombre de villes",
+        "Trie le DataFrame par ville",
+      ],
+      answer: 1,
+      explain: "Split par ville, apply sum sur les montants de chaque groupe, combine en une Series indexée par ville.",
+    },
+    {
+      q: "Après un merge, ton DataFrame a plus de lignes qu'avant. Cause la plus probable ?",
+      options: ["Un bug de pandas", "La clé de jointure est dupliquée dans l'autre table", "Des NaN", "how='left'"],
+      answer: 1,
+      explain: "Chaque correspondance produit une ligne : une clé présente deux fois de l'autre côté double la ligne.",
+    },
+    {
+      q: "Quelle écriture est la plus rapide pour créer une colonne prix TTC ?",
+      options: [
+        "Une boucle for sur df.iterrows()",
+        "df.apply(lambda r: r['ht'] * 1.2, axis=1)",
+        "df['ttc'] = df['ht'] * 1.2",
+        "Elles se valent",
+      ],
+      answer: 2,
+      explain: "L'opération vectorisée s'exécute en C sur la colonne entière.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment traites-tu les valeurs manquantes d'un dataset ?">
+D'abord je les mesure et je cherche pourquoi elles manquent : au hasard, ou liées à quelque chose (un champ optionnel, une panne de capteur, un client qui refuse de répondre) ; dans ce dernier cas, le fait même que la valeur manque est une information. Ensuite, selon la proportion et le modèle : supprimer une colonne presque vide ; imputer par la médiane (robuste aux valeurs extrêmes) ou la modalité la plus fréquente, en ajoutant une **indicatrice** « était manquant » ; ou laisser le modèle les gérer (les gradient boosting comme LightGBM savent le faire). Supprimer des lignes est rarement acceptable : on perd des données et on ne saura rien prédire pour ces cas en production. Et l'imputation s'apprend sur le jeu d'entraînement seulement, dans un pipeline.
+</Interview>
+
+<Interview q="Différence entre apply, map et une opération vectorisée en pandas ?">
+Une opération vectorisée (`df["a"] * 2`, `np.where`, les méthodes `.str` et `.dt`) s'exécute en code compilé sur toute la colonne : c'est le choix par défaut. `Series.map` remplace chaque valeur via un dictionnaire ou une fonction, pratique pour un recodage. `apply` exécute une fonction Python par élément ou par ligne (`axis=1`) : flexible mais lent, à réserver aux cas qu'on ne sait pas vectoriser. Sur un million de lignes, la différence se compte en secondes contre millisecondes.
+</Interview>
+
+<Recap>
+- NumPy : tableaux typés et contigus ; **vectoriser** plutôt que boucler.
+- `shape`, `dtype`, `axis=0` (par colonne) / `axis=1` (par ligne), `@` pour le produit matriciel.
+- **Broadcasting** : formes alignées par la droite, dimensions égales ou 1 ; `keepdims=True` au besoin.
+- pandas : `read_csv`, `info`, filtres booléens, `loc` (étiquettes) / `iloc` (positions).
+- `groupby` = split-apply-combine ; `merge` est un `inner` par défaut, `how="left"` pour tout garder.
+- `NaN` ignoré par les agrégations pandas ; `isna`, `fillna`, `dropna`.
+</Recap>
+
+<LessonComplete />

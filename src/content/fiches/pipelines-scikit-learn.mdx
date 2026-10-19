@@ -1,0 +1,41 @@
+<FicheSection kind="essentiel">
+- Interface unique : `fit` / `transform` (transformers), `fit` / `predict` (estimators).
+- Tout ce qui apprend des données s'apprend sur l'**entraînement** seulement.
+- `ColumnTransformer` : numériques (imputer + scaler) et catégorielles (one-hot) en parallèle.
+- `Pipeline` : préparation + modèle en un objet ; réajusté dans chaque pli de validation croisée.
+- Le pipeline ajusté est l'artefact à sauvegarder et déployer.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+z = \frac{x - \mu_{\text{train}}}{\sigma_{\text{train}}}
+$$
+
+Grid search : (nombre de combinaisons) × (plis) + 1 entraînements.
+
+Nom d'un paramètre : `etape__sous_etape__parametre`, ex. `clf__C`.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- `fit_transform` sur le test : fuite et incohérence d'échelle.
+- Préparation ajustée avant la validation croisée.
+- `OrdinalEncoder` sur une variable non ordonnée avec un modèle linéaire.
+- k-NN, SVM, régression pénalisée sans mise à l'échelle.
+- Supprimer les lignes incomplètes : données perdues, aucune prédiction possible en production.
+- Choisir les hyperparamètres sur le test.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Pourquoi un Pipeline ?** Pas de fuite en CV, reproductible, déployable tel quel.
+
+**10 000 modalités ?** Regrouper les rares, fréquence, target encoding dans les plis, hashing, embeddings.
+
+**Bon score en CV, mauvais en prod ?** Fuite, mauvais découpage (groupes, temps), dérive, train-serving skew.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `OneHotEncoder(handle_unknown="ignore")` pour les modalités inédites en production.
+- `set_output(transform="pandas")` pour déboguer avec des noms de colonnes.
+- `RandomizedSearchCV` ou Optuna quand la grille devient grande.
+- `joblib.dump(model, "model.joblib")` sauvegarde le pipeline entier.
+</FicheSection>

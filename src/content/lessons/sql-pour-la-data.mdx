@@ -1,0 +1,149 @@
+<Predict
+  id="hook"
+  question="Dans quel ordre une base de données traite-t-elle logiquement les clauses d'une requête ?"
+  options={[
+    "SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY (l'ordre d'écriture)",
+    "FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY",
+    "FROM, SELECT, WHERE, ORDER BY, GROUP BY, HAVING",
+    "WHERE, FROM, SELECT, GROUP BY, HAVING, ORDER BY",
+  ]}
+  answer={1}
+>
+On **écrit** `SELECT` en premier, mais la base commence par `FROM` (quelles tables, quelles jointures), filtre les lignes avec `WHERE`, forme les groupes (`GROUP BY`), filtre les groupes (`HAVING`), calcule les colonnes du `SELECT`, puis trie (`ORDER BY`). Cet ordre explique la plupart des erreurs : on ne peut pas utiliser un agrégat dans `WHERE` (les groupes n'existent pas encore), ni, dans beaucoup de bases, un alias du `SELECT` dans `WHERE`. Le SQL est demandé dans quasiment tous les entretiens data : les données de l'entreprise vivent dans des bases, pas dans des CSV.
+</Predict>
+
+## Les tables de la boutique
+
+Deux tables, celles de la boutique fictive déjà utilisée avec pandas : `clients` (24 lignes) et `commandes` (68 lignes), reliées par `commandes.client_id = clients.id`. Les labs ci-dessous font tourner un vrai **SQLite** dans ton navigateur : tu peux exécuter n'importe quelle requête, sans risque.
+
+<SqlLab id="bac-a-sable" starter={`SELECT ville, COUNT(*) AS nb_clients, ROUND(AVG(age), 1) AS age_moyen
+FROM clients
+GROUP BY ville
+ORDER BY nb_clients DESC;`} />
+
+## Filtrer et trier
+
+`WHERE` garde les lignes qui vérifient une condition (`=`, `>`, `IN (...)`, `BETWEEN`, `LIKE 'Ly%'`, combinées avec `AND`, `OR`, `NOT`). `ORDER BY` trie, `DESC` pour l'ordre décroissant, `LIMIT` garde les premières lignes.
+
+<SqlLab id="filtrer" challenge="sql-filter" />
+
+## Agréger : GROUP BY et HAVING
+
+`GROUP BY` regroupe les lignes qui partagent une valeur ; les fonctions d'agrégat (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`) produisent une valeur par groupe. Toute colonne du `SELECT` doit être soit dans le `GROUP BY`, soit agrégée. Pour filtrer **les groupes** sur un agrégat, c'est `HAVING`, évalué après le regroupement.
+
+<SqlLab id="agreger" challenge="sql-group" />
+
+<CodeChoice
+  id="null"
+  question="Comment trouver les clients dont la ville n'est pas renseignée ?"
+  code={`SELECT * FROM clients WHERE ville ___;`}
+  options={["IS NULL", "= NULL", "== NULL", "= ''"]}
+  answer={0}
+>
+`NULL` signifie « valeur inconnue » : toute comparaison avec lui (`= NULL`, `<> NULL`) donne elle-même NULL, donc jamais vrai. Il faut `IS NULL` ou `IS NOT NULL`. Même logique dans les agrégats : `COUNT(*)` compte les lignes, `COUNT(colonne)` ne compte que les valeurs non nulles, et `AVG` ignore les NULL.
+</CodeChoice>
+
+## Joindre des tables
+
+Une jointure associe les lignes de deux tables selon une condition. `JOIN` (ou `INNER JOIN`) ne garde que les lignes qui ont une correspondance des deux côtés ; `LEFT JOIN` garde toutes les lignes de la table de gauche, avec des NULL quand il n'y a pas de correspondance.
+
+<Exercise
+  id="cardinalite"
+  question="clients a 24 lignes, commandes 68 ; chaque commande appartient à un client existant, et 6 clients n'ont jamais commandé. Combien de lignes renvoie clients LEFT JOIN commandes ?"
+  answer={74}
+  tolerance={0}
+  hint="Chaque commande donne une ligne ; chaque client sans commande en donne une aussi, avec des NULL."
+>
+Les 68 commandes produisent 68 lignes (une par commande, avec son client), et les 6 clients sans commande ajoutent chacun une ligne avec des NULL côté commandes : $68 + 6 = 74$. Un `INNER JOIN` en renverrait 68. Anticiper le nombre de lignes d'une jointure est le meilleur moyen de repérer une clé dupliquée.
+</Exercise>
+
+<SqlLab id="joindre" challenge="sql-join" />
+
+## Les fonctions de fenêtre
+
+`GROUP BY` réduit chaque groupe à une ligne. Une **fonction de fenêtre** (`OVER`) calcule sur un groupe de lignes **sans les fusionner** : chaque ligne garde son identité et reçoit en plus une valeur calculée sur sa « fenêtre ». Les plus utiles :
+
+- `ROW_NUMBER() OVER (PARTITION BY ville ORDER BY montant DESC)` : rang dans le groupe, pour les « top N par groupe » ;
+- `SUM(montant) OVER (PARTITION BY client_id ORDER BY date)` : cumul au fil du temps ;
+- `LAG(montant) OVER (PARTITION BY client_id ORDER BY date)` : valeur de la ligne précédente, pour calculer des écarts ;
+- `AVG(montant) OVER (ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)` : moyenne mobile sur 7 lignes, c'est-à-dire
+
+$$
+\bar x_t = \frac{1}{7} \sum_{i=t-6}^{t} x_i
+$$
+
+<SqlLab id="fenetre" challenge="sql-window" />
+
+<Callout type="intuition">
+Les **CTE** (`WITH nom AS (SELECT ...)`) découpent une requête complexe en étapes nommées, comme des variables. Une requête analytique de 40 lignes devient une suite de petits blocs lisibles : `WITH commandes_2026 AS (...), par_client AS (...) SELECT ...`. C'est l'équivalent SQL d'enchaîner des DataFrames intermédiaires.
+</Callout>
+
+<Callout type="piege">
+`WHERE` contre `HAVING` : `WHERE COUNT(*) > 5` est une erreur, car le filtre des lignes s'applique avant le regroupement. Autre classique : filtrer la table de droite d'un `LEFT JOIN` dans le `WHERE` (`WHERE o.montant > 50`) élimine les lignes NULL et transforme silencieusement la jointure en `INNER JOIN`. La condition doit aller dans le `ON`.
+</Callout>
+
+<Callout type="entretien">
+Les « top N par groupe » (la meilleure vente par région, le dernier achat de chaque client, le 2ᵉ salaire le plus élevé) se résolvent presque toujours avec `ROW_NUMBER()` ou `DENSE_RANK()` dans une sous-requête ou une CTE, puis un filtre sur le rang. `DENSE_RANK` donne le même rang aux ex æquo, `ROW_NUMBER` les départage arbitrairement.
+</Callout>
+
+<Callout type="astuce">
+En pratique, fais faire le gros du travail à la base (filtres, jointures, agrégats sur des millions de lignes), puis ramène un résultat compact dans pandas avec `pd.read_sql(requete, connexion)`. Et sur un entrepôt de données facturé au volume lu (BigQuery, Snowflake), sélectionne les colonnes utiles plutôt que `SELECT *`.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Où placer la condition « au moins 10 commandes » sur des groupes de clients ?",
+      options: ["Dans WHERE", "Dans HAVING", "Dans ORDER BY", "Dans le ON de la jointure"],
+      answer: 1,
+      explain: "C'est un filtre sur un agrégat : il s'évalue après GROUP BY.",
+    },
+    {
+      q: "Quelle différence entre COUNT(*) et COUNT(email) ?",
+      options: ["Aucune", "COUNT(email) ignore les lignes où email est NULL", "COUNT(*) ignore les NULL", "COUNT(email) compte les valeurs distinctes"],
+      answer: 1,
+      explain: "COUNT(*) compte les lignes ; COUNT(colonne) les valeurs non nulles ; COUNT(DISTINCT colonne) les valeurs distinctes.",
+    },
+    {
+      q: "Tu veux tous les clients, avec leurs éventuelles commandes de plus de 50 €. Où mettre « montant > 50 » dans un LEFT JOIN ?",
+      options: ["Dans le WHERE", "Dans la condition ON de la jointure", "Dans le HAVING", "Peu importe"],
+      answer: 1,
+      explain: "Dans le WHERE, les clients sans commande (montant NULL) seraient éliminés.",
+    },
+    {
+      q: "Quelle fonction pour calculer, sur chaque commande, l'écart avec la commande précédente du même client ?",
+      options: ["GROUP BY client_id", "LAG(montant) OVER (PARTITION BY client_id ORDER BY date)", "MAX(montant)", "ROW_NUMBER()"],
+      answer: 1,
+      explain: "LAG renvoie la valeur de la ligne précédente dans la fenêtre, sans fusionner les lignes.",
+    },
+    {
+      q: "Une jointure renvoie beaucoup plus de lignes que prévu. Cause la plus probable ?",
+      options: ["Un index manquant", "Une clé de jointure non unique d'un côté", "Un ORDER BY", "Des NULL dans la table de gauche"],
+      answer: 1,
+      explain: "Chaque ligne se combine avec toutes ses correspondances : une clé dupliquée multiplie les lignes.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique la différence entre WHERE et HAVING, et entre GROUP BY et une fonction de fenêtre.">
+`WHERE` filtre les lignes avant le regroupement, donc il ne peut pas utiliser d'agrégat ; `HAVING` filtre les groupes après le `GROUP BY`, donc sur des agrégats. `GROUP BY` réduit chaque groupe à une seule ligne de résultat ; une fonction de fenêtre (`OVER (PARTITION BY ... ORDER BY ...)`) calcule sur un ensemble de lignes liées à la ligne courante mais conserve toutes les lignes : c'est ce qu'il faut pour des rangs, des cumuls, des moyennes mobiles ou comparer une ligne à la précédente avec `LAG`.
+</Interview>
+
+<Interview q="Comment récupérerais-tu la dernière commande de chaque client ?">
+Avec une fonction de fenêtre : dans une CTE, je numérote les commandes de chaque client de la plus récente à la plus ancienne avec `ROW_NUMBER() OVER (PARTITION BY client_id ORDER BY date DESC)`, puis je garde le rang 1. Je préfère `ROW_NUMBER` à un `MAX(date)` suivi d'une jointure, qui renverrait plusieurs lignes en cas d'ex æquo sur la date et demande une seconde lecture de la table. Si deux commandes peuvent avoir la même date, j'ajoute un critère de départage dans l'`ORDER BY`, par exemple l'identifiant.
+</Interview>
+
+<Recap>
+- Ordre logique : `FROM` → `WHERE` → `GROUP BY` → `HAVING` → `SELECT` → `ORDER BY`.
+- `WHERE` filtre les lignes, `HAVING` les groupes.
+- `NULL` : `IS NULL` ; `COUNT(*)` contre `COUNT(colonne)`.
+- `INNER JOIN` garde les correspondances ; `LEFT JOIN` garde tout à gauche (conditions de droite dans le `ON`).
+- Fenêtres : `ROW_NUMBER`, `RANK`, `LAG`, cumuls, moyennes mobiles, sans fusionner les lignes.
+- Top N par groupe : `ROW_NUMBER()` dans une CTE, puis filtre sur le rang.
+- CTE `WITH` pour la lisibilité ; la base agrège, pandas finit.
+</Recap>
+
+<LessonComplete />

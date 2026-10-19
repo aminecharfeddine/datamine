@@ -59,7 +59,7 @@ src/
   content/fiches/*.mdx    fiches récap (une par leçon, débloquée à la fin de la leçon, export PDF via l'impression)
   components/
     pedago/               Predict, Quiz, Callout, LessonComplete (utilisables dans le MDX)
-    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab)
+    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab, PandasLab, BroadcastLab, PipelineLab, FeatureLab, DriftLab, SqlLab)
     code/                 blocs de code colorés (les ``` du MDX), CodeChoice (complète le code), Parsons (remets les lignes dans l'ordre)
     pages/                écrans client (Today, SkillTree, Review, Profile)
     game/                 avatar et cadres, médailles, célébrations, onglets Succès et Vestiaire
@@ -78,7 +78,13 @@ src/
     models.ts             régression logistique (Newton), forêt aléatoire, gradient boosting, k-means
     nn.ts                 petit MLP avec backprop écrite à la main, Adam, boucle d'entraînement et ses bugs
     llm.ts                tokenizer BPE, attention (softmax, masque causal, effet de √d)
+    practice.ts           boutique fictive (clients, commandes), mini-pandas, pipeline de churn, ventes quotidiennes, dérive et PSI
+    sqlExercises.ts       exercices SQL (requête de départ, solution de référence, comparaison des résultats)
 ```
+
+## SQL dans le navigateur
+
+Le labo SQL charge SQLite compilé en WebAssembly (`sql.js`) depuis `public/sql-wasm.wasm`. Après une mise à jour de `sql.js`, recopier ce fichier depuis `node_modules/sql.js/dist/`. `next.config.mjs` neutralise les modules Node (`fs`, `path`, `crypto`) que `sql.js` référence sans les utiliser dans le navigateur.
 
 ## Ajouter une leçon
 
@@ -108,6 +114,6 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 - [x] Phase 5 — Deep learning : neurones et MLP, backpropagation et autograd, boucle d'entraînement PyTorch
 - [x] Phase 6 — LLM : tokenisation BPE, self-attention
 - [ ] Phase 7 — LLM (suite) : architecture Transformer complète, pré-entraînement / fine-tuning / LoRA, décodage et sampling, inférence (KV cache, quantization), RAG
-- [ ] Phase 8 — ML en pratique : NumPy/pandas, pipelines scikit-learn, feature engineering, SQL, MLOps
+- [x] Phase 8 — ML en pratique : NumPy/pandas, pipelines scikit-learn, feature engineering, SQL (vrai SQLite dans le navigateur via sql.js), MLOps
 - [ ] Phase 9 — Deep learning (suite) : CNN, embeddings ; ACP ; IA agentique (tool use, ReAct, évaluation)
 - [ ] Phase 10 — vitrine publique : landing, SEO, images de partage, accessibilité, version anglaise

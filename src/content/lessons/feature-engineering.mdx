@@ -1,0 +1,161 @@
+<Predict
+  id="hook"
+  question="Tu prédis les ventes quotidiennes d'un magasin avec une régression linéaire. Le samedi et le dimanche, elles bondissent. Tu ajoutes la variable « jour de la semaine » codée de 0 (lundi) à 6 (dimanche). Le modèle capte-t-il l'effet du week-end ?"
+  options={[
+    "Oui, parfaitement",
+    "Mal : il ne peut qu'imposer une pente régulière du lundi au dimanche",
+    "Oui, si on ajoute assez de données",
+    "Non, une régression ne peut pas utiliser de variable entière",
+  ]}
+  answer={1}
+>
+Un modèle linéaire attribue **un seul coefficient** à cette variable : l'effet du dimanche est forcément six fois celui du mardi. Or la réalité est « plat du lundi au vendredi, puis un saut ». Il suffit de donner la bonne **représentation** : une indicatrice par jour (one-hot), ou une seule variable « est_week_end ». Le *feature engineering*, c'est ça : transformer les données brutes en variables dans lesquelles la relation devient simple pour le modèle. Sur des données tabulaires, c'est souvent ce qui fait le plus gagner, bien avant le choix du modèle.
+</Predict>
+
+## Mettre le monde dans les bonnes variables
+
+Les transformations les plus utiles, par type de donnée :
+
+- **Numériques** : $\log(1 + x)$ pour les variables très asymétriques (revenus, prix, nombres de visites) ; écrêtage (*clipping*) des valeurs extrêmes ; termes au carré quand l'effet est en cloche ; découpage en tranches (*binning*) quand l'effet est par paliers.
+- **Catégorielles** : one-hot ; regroupement des modalités rares ; encodage par fréquence ; *target encoding* (voir plus bas).
+- **Dates et heures** : jour de la semaine, mois, jour férié, nombre de jours depuis un événement, et encodage **cyclique** pour ce qui boucle.
+- **Interactions** : produit de deux variables quand l'effet de l'une dépend de l'autre (une promotion qui marche mieux le week-end).
+- **Manquants** : une indicatrice « était manquant » à côté de la valeur imputée.
+- **Agrégats** : pour un client, nombre de commandes sur 30 jours, panier moyen, jours depuis la dernière visite. C'est souvent là que se cache l'essentiel du signal.
+
+Deux ans de ventes quotidiennes : ajoute les variables une par une et regarde la prédiction suivre la réalité.
+
+<FeatureLab id="ventes" challenge="feat-r2" />
+
+## L'encodage cyclique
+
+Les heures, les jours de la semaine, les mois **bouclent** : 23 h est proche de 0 h, décembre de janvier. Codées 0 à 23, elles semblent aux antipodes. On les place sur un cercle avec deux variables :
+
+$$
+h_{\sin} = \sin\!\Big(\frac{2\pi h}{24}\Big)
+\qquad
+h_{\cos} = \cos\!\Big(\frac{2\pi h}{24}\Big)
+$$
+
+<Exercise
+  id="cyclique"
+  question="Avec cet encodage, que vaut h_cos pour h = 12 (midi) ?"
+  answer={-1}
+  tolerance={0.001}
+  hint="2π × 12 / 24 = π."
+>
+$\cos(\pi) = -1$ (et $h_{\sin} = 0$) : midi est à l'opposé de minuit $(0, 1)$ sur le cercle. 23 h donne $(\sin, \cos) \approx (-0{,}26 ;\; 0{,}97)$, tout près de minuit, comme dans la réalité.
+</Exercise>
+
+## Le target encoding, et sa fuite
+
+Pour une catégorielle à beaucoup de modalités (code postal, produit), on peut remplacer chaque modalité par la **moyenne de la cible** observée pour elle. Problème : une modalité vue 2 fois a une moyenne très bruitée. On la tire vers la moyenne globale $\bar y$, avec un poids $m$ :
+
+$$
+\text{enc}(c) = \frac{n_c\, \bar y_c + m\, \bar y}{n_c + m}
+$$
+
+<Exercise
+  id="target"
+  question="Une ville apparaît 4 fois avec un taux de résiliation de 0,75. Taux global 0,30, lissage m = 10. Valeur encodée (3 décimales) ?"
+  answer={0.429}
+  tolerance={0.002}
+  hint="(4 × 0,75 + 10 × 0,30) / (4 + 10)."
+>
+$(3 + 3) / 14 \approx 0{,}429$ : avec seulement 4 observations, on fait plus confiance à la moyenne globale qu'au 0,75 local. Avec 400 observations, l'encodage vaudrait presque 0,75.
+</Exercise>
+
+<Callout type="piege">
+Calculé sur tout le jeu d'entraînement puis utilisé pour entraîner, le target encoding **contient la réponse** : pour une modalité rare, l'encodage d'une ligne inclut sa propre étiquette, et le modèle apprend à la lire. Résultat : des scores d'entraînement superbes et un effondrement en test. Il faut l'encoder **hors pli** (chaque ligne encodée avec des statistiques calculées sans elle), ce que fait `TargetEncoder` de scikit-learn dans `fit_transform`. Même vigilance pour toute variable qui utilise une information **postérieure** au moment de la prédiction (« nombre de réclamations » quand on prédit la résiliation, alors que les réclamations suivent souvent la décision).
+</Callout>
+
+## Valider dans le bon ordre
+
+Dans le lab, compare les découpages aléatoire et temporel. Avec un découpage aléatoire, le modèle s'entraîne sur des jours plus récents pour « prédire » des jours plus anciens : il voit le futur. En production, on prédit toujours le lendemain à partir du passé. Pour des données temporelles, la validation doit respecter le temps :
+
+<CodeChoice
+  id="cv-temps"
+  question="Quel découpage de validation croisée pour des ventes quotidiennes ?"
+  code={`from sklearn.model_selection import cross_val_score
+cv = ___
+scores = cross_val_score(model, X, y, cv=cv)`}
+  options={["TimeSeriesSplit(n_splits=5)", "KFold(n_splits=5, shuffle=True)", "StratifiedKFold(n_splits=5)", "LeaveOneOut()"]}
+  answer={0}
+>
+`TimeSeriesSplit` entraîne toujours sur le passé et valide sur la période suivante, avec une fenêtre d'entraînement qui s'agrandit. Les variables d'agrégat (moyenne des 7 derniers jours…) doivent elles aussi n'utiliser que le passé : décale-les d'au moins un jour (`shift(1)` en pandas) avant de calculer la fenêtre.
+</CodeChoice>
+
+<Callout type="intuition">
+Les arbres et le gradient boosting trouvent seuls les effets par paliers et beaucoup d'interactions : ils ont moins besoin de termes au carré ou de one-hot du jour. Mais **aucun modèle n'invente une information absente** : « jours depuis la dernière commande » ou « jour férié » doivent être construits. Les meilleures variables viennent de la connaissance du métier.
+</Callout>
+
+<Callout type="entretien">
+Question fréquente : « Comment sais-tu qu'une nouvelle variable aide ? » Réponse : on la juge en validation (croisée, et temporelle si besoin), jamais sur l'entraînement, où toute variable ajoutée fait baisser l'erreur. On complète par l'importance par permutation sur la validation, et on vérifie qu'elle sera disponible, au même moment et calculée de la même façon, en production.
+</Callout>
+
+<Callout type="astuce">
+Mets ton feature engineering **dans le pipeline** (`FunctionTransformer`, ou une classe avec `fit` et `transform`) plutôt que dans un notebook à part : les mêmes transformations seront appliquées à l'entraînement, en validation croisée et en production.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Variable « revenu annuel » très asymétrique (quelques valeurs énormes). Transformation classique pour un modèle linéaire ?",
+      options: ["La mettre au carré", "log(1 + revenu)", "La supprimer", "La coder en one-hot"],
+      answer: 1,
+      explain: "Le log resserre la queue droite et transforme souvent un effet multiplicatif en effet additif.",
+    },
+    {
+      q: "Pourquoi encoder l'heure avec sin et cos ?",
+      options: [
+        "Pour réduire le nombre de variables",
+        "Pour que 23 h et 0 h soient proches",
+        "Parce que les modèles ne lisent pas les entiers",
+        "Pour normaliser entre 0 et 1",
+      ],
+      answer: 1,
+      explain: "Sur le cercle, la distance entre heures reflète leur proximité réelle, y compris autour de minuit.",
+    },
+    {
+      q: "Une promotion augmente les ventes surtout le week-end. Quelle variable l'exprime pour un modèle linéaire ?",
+      options: ["promo + week_end", "promo × week_end", "promo²", "promo / week_end"],
+      answer: 1,
+      explain: "Le produit vaut 1 uniquement quand les deux sont vrais : le modèle peut lui donner son propre effet.",
+    },
+    {
+      q: "Ton target encoding donne 0,99 d'AUC en entraînement et 0,62 en test. Cause probable ?",
+      options: ["Pas assez d'arbres", "L'encodage a été calculé avec les étiquettes des lignes qu'il encode", "Un learning rate trop faible", "Trop de lissage"],
+      answer: 1,
+      explain: "Il faut l'encodage hors pli : chaque ligne encodée sans sa propre cible.",
+    },
+    {
+      q: "Pour valider un modèle de prévision de ventes, on utilise…",
+      options: ["Un KFold mélangé", "Un découpage temporel : entraîner sur le passé, valider sur la suite", "Le jeu d'entraînement", "Un StratifiedKFold"],
+      answer: 1,
+      explain: "C'est la seule façon de reproduire la situation de production.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Donne des exemples de feature engineering que tu ferais pour prédire la résiliation d'abonnés.">
+Je partirais du comportement récent et de son évolution : nombre de connexions sur 7 et 30 jours et leur ratio (une baisse d'usage est souvent le meilleur signal), jours depuis la dernière activité, ancienneté, nombre de contacts au support et leur issue, incidents de paiement, changements d'offre, remises en cours et date de fin d'engagement. Côté encodage : one-hot de l'offre, target encoding hors pli pour des catégories nombreuses comme la région, log des volumes asymétriques, indicatrices de valeurs manquantes. Point clé : chaque variable est calculée **à la date de la prédiction** avec uniquement l'information disponible à ce moment, pour éviter toute fuite du futur, et validée avec un découpage temporel.
+</Interview>
+
+<Interview q="Qu'est-ce que le target encoding et quels sont ses risques ?">
+On remplace chaque modalité d'une catégorielle par une statistique de la cible pour cette modalité, typiquement sa moyenne, lissée vers la moyenne globale pour les modalités rares. C'est compact et efficace pour les catégorielles à très nombreuses modalités. Le risque majeur est la fuite : si l'encodage d'une ligne utilise sa propre étiquette, le modèle surapprend. On l'évite avec un encodage hors pli (K-fold target encoding), un lissage, éventuellement un peu de bruit, et en l'insérant dans un pipeline pour que la validation croisée le recalcule dans chaque pli.
+</Interview>
+
+<Recap>
+- Feature engineering = rendre la relation **simple** pour le modèle ; souvent le plus gros gain sur données tabulaires.
+- Numériques : log, écrêtage, carrés, tranches. Catégorielles : one-hot, fréquence, target encoding.
+- Dates : jour, mois, fériés, durées ; **cyclique** avec sin/cos.
+- Interactions : produit de variables ; agrégats temporels par entité.
+- Target encoding : lissé et **hors pli**, sinon fuite.
+- Rien du futur dans les variables ; validation **temporelle** (`TimeSeriesSplit`) pour les séries.
+- Le feature engineering vit dans le pipeline.
+</Recap>
+
+<LessonComplete />

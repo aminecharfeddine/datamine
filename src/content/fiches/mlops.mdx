@@ -1,0 +1,40 @@
+<FicheSection kind="essentiel">
+- Un modèle en production se dégrade quand le monde change : il faut le servir, le surveiller, le réentraîner.
+- Batch (scores écrits dans une table) par défaut ; API en ligne pour les décisions en temps réel.
+- Un seul pipeline sérialisé et versionné pour l'entraînement et la production.
+- Data drift (entrées) et concept drift (relation entrées-cible).
+- Déploiement progressif : shadow, canary, A/B, rollback.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{PSI} = \sum_i (q_i - p_i) \ln\frac{q_i}{p_i}
+$$
+
+PSI < 0,1 : stable ; 0,1 à 0,2 : à surveiller ; > 0,2 : dérive significative.
+
+Débit d'un processus : $1000 / \text{latence (ms)}$ requêtes par seconde.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Train-serving skew : variables calculées différemment à l'entraînement et en production.
+- Charger le modèle à chaque requête.
+- Surveiller seulement la précision alors que les étiquettes arrivent en retard.
+- Remplacer une version d'un coup, sans retour arrière possible.
+- Notebook non reproductible comme seule trace de l'entraînement.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Déployer un modèle ?** Script reproductible, pipeline sérialisé, registre, batch ou API, validation des données, surveillance, réentraînement, A/B.
+
+**Dégradation en production ?** Écarter un problème de données ou de pipeline, mesurer la dérive (PSI, KS), identifier variables et segments, réentraîner ou adapter, automatiser l'alerte.
+
+**Sans étiquettes ?** Distributions des entrées et des scores, valeurs manquantes, métriques métier proches.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Retourner la version du modèle dans chaque prédiction.
+- Surveiller la latence p99, pas seulement la moyenne.
+- Commencer simple : job batch, PSI des variables clés, alerte à 0,2.
+- MLflow pour le registre ; Docker pour l'environnement ; DVC ou tables datées pour les données.
+</FicheSection>

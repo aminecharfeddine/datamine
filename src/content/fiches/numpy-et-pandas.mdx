@@ -1,0 +1,40 @@
+<FicheSection kind="essentiel">
+- NumPy : tableaux typés en mémoire contiguë ; les opérations vectorisées tournent en C.
+- `axis=0` : une valeur par colonne ; `axis=1` : une valeur par ligne.
+- **Broadcasting** : formes alignées par la droite, compatibles si égales ou 1.
+- pandas : DataFrame = colonnes nommées et typées ; `groupby` = split-apply-combine ; `merge` = jointure.
+- Les agrégations pandas ignorent les `NaN` par défaut.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+z_{ij} = \frac{x_{ij} - \mu_j}{\sigma_j}
+$$
+
+Produit matriciel : $(n, d) \,@\, (d, k) \to (n, k)$.
+
+Broadcasting : $(4, 3) - (3,) \to (4, 3)$ ; $(4, 3) - (4, 1) \to (4, 3)$ ; $(4, 3) - (4,)$ : erreur.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- `X - X.mean(axis=1)` : il faut `keepdims=True`.
+- `merge` est `inner` par défaut : des lignes disparaissent sans prévenir.
+- Clé dupliquée dans un merge : les lignes se multiplient.
+- `iterrows` et `apply(axis=1)` sur de gros volumes : très lent.
+- `df.loc[0]` après un filtre : l'étiquette 0 n'existe peut-être plus.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Valeurs manquantes ?** Mesurer, comprendre la cause, imputer (médiane, mode) avec indicatrice, ou modèle qui les gère ; apprendre l'imputation sur le train.
+
+**loc ou iloc ?** Étiquettes (bornes incluses) contre positions (bornes exclues).
+
+**apply, map, vectorisé ?** Vectorisé par défaut ; `map` pour recoder ; `apply` en dernier recours.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `df.info()`, `df.describe()`, `df.isna().sum()` en tout premier.
+- Type `category` pour les colonnes texte à peu de modalités.
+- Vérifier `len(df)` avant et après chaque merge.
+- Polars ou DuckDB pour les gros volumes.
+</FicheSection>

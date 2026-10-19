@@ -1,0 +1,41 @@
+<FicheSection kind="essentiel">
+- Transformer les données brutes en variables où la relation devient simple pour le modèle.
+- Numériques : log, écrêtage, carrés, tranches ; catégorielles : one-hot, fréquence, target encoding.
+- Dates : jour de la semaine, mois, fériés, durées, encodage cyclique.
+- Interactions et agrégats temporels par entité (client, produit).
+- Aucune information future ; validation temporelle pour les séries.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+h_{\sin} = \sin\Big(\frac{2\pi h}{24}\Big) \qquad h_{\cos} = \cos\Big(\frac{2\pi h}{24}\Big)
+$$
+
+$$
+\text{enc}(c) = \frac{n_c \bar y_c + m \bar y}{n_c + m}
+$$
+
+Variable asymétrique : $\log(1 + x)$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Coder 0 à 6 le jour de la semaine pour un modèle linéaire.
+- Target encoding calculé avec la propre étiquette de la ligne.
+- Variables connues seulement après le moment de la prédiction.
+- Découpage aléatoire sur des données temporelles.
+- Fenêtres glissantes qui incluent le jour à prédire (oublier `shift(1)`).
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Une variable aide-t-elle ?** La juger en validation (temporelle si besoin) et par permutation, jamais sur l'entraînement.
+
+**Target encoding ?** Moyenne de la cible par modalité, lissée, calculée hors pli.
+
+**Features pour la résiliation ?** Usage récent et sa tendance, récence, support, paiements, engagement, calculés à la date de prédiction.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Les arbres trouvent seuls paliers et interactions, mais pas l'information absente.
+- `TimeSeriesSplit` pour les séries ; `TargetEncoder` de scikit-learn encode hors pli.
+- Mettre les transformations dans le pipeline (`FunctionTransformer`).
+</FicheSection>

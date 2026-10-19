@@ -1,0 +1,40 @@
+<FicheSection kind="essentiel">
+- Ordre logique : FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY, LIMIT.
+- `WHERE` filtre les lignes ; `HAVING` filtre les groupes (agrégats).
+- `INNER JOIN` : correspondances seulement ; `LEFT JOIN` : toute la table de gauche.
+- Fonctions de fenêtre : calcul sur un groupe de lignes sans les fusionner.
+- `NULL` = inconnu : `IS NULL`, jamais `= NULL`.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\bar x_t = \frac{1}{k}\sum_{i=t-k+1}^{t} x_i
+$$
+
+`AVG(x) OVER (ORDER BY date ROWS BETWEEN k-1 PRECEDING AND CURRENT ROW)`
+
+Lignes d'un LEFT JOIN (clé unique à gauche) : correspondances + lignes de gauche sans correspondance.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Agrégat dans `WHERE`.
+- Condition sur la table de droite d'un `LEFT JOIN` placée dans `WHERE` : devient un `INNER JOIN`.
+- `= NULL` au lieu de `IS NULL`.
+- `COUNT(*)` quand on voulait `COUNT(colonne)` ou `COUNT(DISTINCT colonne)`.
+- Clé de jointure dupliquée : lignes multipliées.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**WHERE ou HAVING ?** Avant ou après le regroupement.
+
+**GROUP BY ou fenêtre ?** Une ligne par groupe, ou toutes les lignes avec une valeur calculée sur leur groupe.
+
+**Top N par groupe, dernière commande ?** `ROW_NUMBER() OVER (PARTITION BY … ORDER BY … DESC)` dans une CTE, puis rang = 1.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- CTE `WITH` pour découper une requête en étapes lisibles.
+- `DENSE_RANK` pour garder les ex æquo.
+- Agréger dans la base, finir dans pandas avec `pd.read_sql`.
+- Éviter `SELECT *` sur les entrepôts facturés au volume lu.
+</FicheSection>

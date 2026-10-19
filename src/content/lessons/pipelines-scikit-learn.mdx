@@ -1,0 +1,195 @@
+<Predict
+  id="hook"
+  question="Tu standardises toutes tes données (moyenne 0, écart-type 1), puis tu les découpes en entraînement et test. Quel est le problème ?"
+  options={[
+    "Aucun, l'ordre ne compte pas",
+    "Les statistiques du test ont servi à transformer l'entraînement : une petite fuite d'information",
+    "Le test ne sera pas standardisé",
+    "La standardisation est inutile avant un split",
+  ]}
+  answer={1}
+>
+La moyenne et l'écart-type ont été calculés **avec** les exemples de test : le modèle a indirectement vu des données qu'il n'est pas censé connaître. Ici l'effet est souvent faible, mais la même erreur avec une imputation, une sélection de variables ou un encodage par la cible peut gonfler les scores de plusieurs points. La règle : **tout ce qui apprend quelque chose des données s'apprend sur l'entraînement uniquement**. Le `Pipeline` de scikit-learn rend cette règle automatique.
+</Predict>
+
+## Trois verbes : fit, transform, predict
+
+Tout dans scikit-learn suit la même interface :
+
+- un **transformer** (`StandardScaler`, `SimpleImputer`, `OneHotEncoder`…) apprend des paramètres avec `fit`, puis les applique avec `transform` ;
+- un **estimator** (`LogisticRegression`, `RandomForestClassifier`…) apprend avec `fit` et prédit avec `predict` ou `predict_proba`.
+
+Pour le `StandardScaler`, `fit` mémorise $\mu$ et $\sigma$ **du jeu d'entraînement**, et `transform` applique à n'importe quelle donnée future :
+
+$$
+z = \frac{x - \mu_{\text{train}}}{\sigma_{\text{train}}}
+$$
+
+<Exercise
+  id="scaler"
+  question="Un StandardScaler a été ajusté sur l'entraînement : μ = 50, σ = 10. Quelle valeur renvoie transform pour un exemple de test à 65 ?"
+  answer={1.5}
+  tolerance={0.001}
+  hint="On utilise les paramètres appris, jamais ceux du test."
+>
+$(65 - 50) / 10 = 1{,}5$. Si on réajustait le scaler sur le jeu de test, ce même 65 pourrait devenir 0,3 ou 2,1 selon les autres exemples du test : la même donnée n'aurait plus la même représentation, exactement ce qui se passe en production quand on recalcule des statistiques sur un seul lot.
+</Exercise>
+
+<CodeChoice
+  id="transform"
+  question="Que manque-t-il pour préparer correctement le jeu de test ?"
+  code={`scaler = StandardScaler()
+X_train_s = scaler.fit_transform(X_train)
+X_test_s = ___`}
+  options={["scaler.transform(X_test)", "scaler.fit_transform(X_test)", "StandardScaler().fit_transform(X_test)", "scaler.fit(X_test)"]}
+  answer={0}
+>
+`fit_transform` réapprend $\mu$ et $\sigma$ : sur le test, c'est une fuite (le test se décrit avec ses propres statistiques) et une incohérence (les deux jeux ne sont plus sur la même échelle). On n'appelle jamais `fit` sur des données de test ou de production : seulement `transform`.
+</CodeChoice>
+
+## Pipeline et ColumnTransformer
+
+Un vrai dataset mélange des colonnes numériques (à imputer, à mettre à l'échelle) et catégorielles (à encoder). Le `ColumnTransformer` applique un traitement par groupe de colonnes ; le `Pipeline` enchaîne préparation et modèle en **un seul objet** qui a lui-même `fit` et `predict` :
+
+```python
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+num = Pipeline([
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler()),
+])
+pre = ColumnTransformer([
+    ("num", num, ["age", "revenu", "anciennete"]),
+    ("cat", OneHotEncoder(handle_unknown="ignore"), ["ville"]),
+])
+model = Pipeline([("pre", pre), ("clf", LogisticRegression(max_iter=1000))])
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=0)
+print(cross_val_score(model, X_train, y_train, cv=5).mean())   # préparation réapprise dans chaque pli
+model.fit(X_train, y_train)
+print(model.score(X_test, y_test))
+```
+
+Quand `cross_val_score` entraîne le pipeline sur 4 plis, l'imputer, le scaler et l'encodeur sont ajustés sur ces 4 plis seulement, puis appliqués au 5ᵉ. Aucune fuite possible. Assemble le tien sur 400 clients d'un opérateur, dont 41 % résilient :
+
+<PipelineLab id="assembler" challenge="pipe-best" />
+
+Ce que le lab montre :
+
+- **Le k-NN sans mise à l'échelle** ne voit que le revenu (des dizaines de milliers d'euros) : l'âge et l'ancienneté ne comptent plus. Avec `StandardScaler`, il gagne plus de 15 points.
+- **La ville** n'a pas d'ordre : la coder 0, 1, 2, 3, 4 (`OrdinalEncoder`) impose à un modèle linéaire un effet croissant de Lyon à Marseille. Le **one-hot** donne un coefficient libre à chaque ville.
+- **Supprimer les lignes** incomplètes affiche un meilleur score… sur 328 clients au lieu de 400. En production, un client sans revenu renseigné n'aura aucune prédiction.
+
+<Callout type="intuition">
+Un pipeline ajusté est **l'artefact qu'on déploie** : `joblib.dump(model, "model.joblib")` sauvegarde la préparation et le modèle ensemble. En production, `model.predict(nouvelles_lignes)` applique exactement les mêmes transformations qu'à l'entraînement. C'est la meilleure protection contre le *train-serving skew*, ces écarts silencieux entre la préparation d'entraînement et celle de production.
+</Callout>
+
+## Régler les hyperparamètres sans tricher
+
+`GridSearchCV` essaie chaque combinaison d'hyperparamètres en validation croisée, pipeline compris. On désigne un paramètre d'une étape par `nom_étape__paramètre` :
+
+<CodeChoice
+  id="grid"
+  question="Comment désigner le paramètre C de la régression logistique dans la grille ?"
+  code={`model = Pipeline([("pre", pre), ("clf", LogisticRegression())])
+search = GridSearchCV(model, param_grid={___: [0.01, 0.1, 1, 10]}, cv=5)`}
+  options={['"clf__C"', '"C"', '"LogisticRegression__C"', '"clf.C"']}
+  answer={0}
+>
+Le nom de l'étape (`clf`), deux tirets bas, puis le paramètre. On peut descendre plus profond : `"pre__num__imputer__strategy": ["mean", "median"]` règle aussi la préparation. `search.best_estimator_` est le pipeline réentraîné sur toutes les données d'entraînement avec la meilleure combinaison.
+</CodeChoice>
+
+<Exercise
+  id="fits"
+  question="GridSearchCV avec 4 valeurs de C, 2 stratégies d'imputation et cv = 5. Combien d'entraînements au total, en comptant le réentraînement final ?"
+  answer={41}
+  tolerance={0}
+  hint="Chaque combinaison est entraînée une fois par pli, puis la meilleure une dernière fois."
+>
+$4 \times 2 = 8$ combinaisons, $\times 5$ plis $= 40$ entraînements, plus $1$ réentraînement final sur tout le jeu d'entraînement : $41$. Le coût d'une grille explose vite ; au-delà de quelques paramètres, on passe à `RandomizedSearchCV` ou à une optimisation bayésienne (Optuna).
+</Exercise>
+
+<Callout type="piege">
+Choisir les hyperparamètres en regardant le score de **test**, puis rapporter ce même score, c'est encore une fuite : le test a servi à choisir. Le test ne sert qu'une fois, à la fin. Pour une estimation honnête du processus complet (réglage compris), on utilise une **validation croisée imbriquée** : une CV interne pour régler, une CV externe pour évaluer.
+</Callout>
+
+<Callout type="entretien">
+Une variable catégorielle à 10 000 modalités (codes produit, villes du monde) ? Le one-hot crée 10 000 colonnes creuses. Alternatives : regrouper les modalités rares (`OneHotEncoder(min_frequency=...)`), l'encodage par la fréquence, le **target encoding** (moyenne de la cible par modalité, calculé dans les plis pour éviter la fuite, c'est `TargetEncoder` dans scikit-learn), le *hashing trick*, ou un **embedding** appris par un réseau.
+</Callout>
+
+<Callout type="astuce">
+`model.set_output(transform="pandas")` fait sortir des DataFrames avec des noms de colonnes à chaque étape : bien plus simple à déboguer. Et `handle_unknown="ignore"` dans le `OneHotEncoder` évite que le pipeline plante en production le jour où apparaît une ville jamais vue.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Sur quelles données appelle-t-on fit sur un StandardScaler ?",
+      options: ["Toutes les données", "L'entraînement uniquement", "Le test uniquement", "Entraînement et test séparément"],
+      answer: 1,
+      explain: "Les paramètres s'apprennent sur l'entraînement, puis transform s'applique à tout le reste.",
+    },
+    {
+      q: "Pourquoi le one-hot plutôt que l'ordinal pour une variable « ville » dans une régression logistique ?",
+      options: [
+        "Il prend moins de mémoire",
+        "L'ordinal impose un ordre et un effet linéaire qui n'existent pas",
+        "Le one-hot est obligatoire en scikit-learn",
+        "L'ordinal ne gère pas le texte",
+      ],
+      answer: 1,
+      explain: "Avec un code 0 à 4, l'effet de la ville 4 est forcément quatre fois celui de la ville 1. Les arbres s'en accommodent mieux que les modèles linéaires.",
+    },
+    {
+      q: "Quel modèle est le plus pénalisé par l'absence de mise à l'échelle ?",
+      options: ["Forêt aléatoire", "k-NN", "Gradient boosting", "Arbre de décision"],
+      answer: 1,
+      explain: "Le k-NN repose sur des distances. Les arbres coupent variable par variable : l'échelle ne change rien.",
+    },
+    {
+      q: "Quel est l'avantage principal d'un Pipeline en validation croisée ?",
+      options: [
+        "Il accélère l'entraînement",
+        "La préparation est réapprise dans chaque pli : pas de fuite",
+        "Il choisit automatiquement le modèle",
+        "Il supprime les valeurs manquantes",
+      ],
+      answer: 1,
+      explain: "C'est aussi un seul objet à sauvegarder et à déployer.",
+    },
+    {
+      q: "Dans un pipeline dont l'étape s'appelle « pre » et contient un sous-pipeline « num » avec un imputer « imputer », quel nom donne la stratégie d'imputation ?",
+      options: ["imputer__strategy", "pre__num__imputer__strategy", "pre.num.imputer.strategy", "strategy"],
+      answer: 1,
+      explain: "On enchaîne les noms d'étapes avec deux tirets bas.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Pourquoi utiliser un Pipeline scikit-learn ?">
+Trois raisons. La **validité** : en validation croisée ou en grid search, toutes les étapes qui apprennent des données (imputation, mise à l'échelle, encodage, sélection de variables) sont réajustées dans chaque pli, donc aucune fuite. La **reproductibilité** : la préparation et le modèle forment un seul objet, versionnable et sérialisable avec joblib. Le **déploiement** : en production on charge cet objet et on appelle `predict` sur les données brutes, avec exactement les mêmes transformations qu'à l'entraînement, ce qui élimine une grande source de train-serving skew. Avec `ColumnTransformer`, on gère proprement les colonnes numériques et catégorielles.
+</Interview>
+
+<Interview q="Ton score de validation croisée est excellent, mais le modèle déçoit en production. Quelles pistes ?">
+D'abord une **fuite** : une préparation ajustée hors pipeline, une variable qui contient l'information de la cible ou qui n'est connue qu'après coup, des doublons ou des lignes d'un même client répartis entre plis (il fallait un `GroupKFold`), un découpage aléatoire sur des données temporelles. Ensuite un **écart de distribution** entre les données historiques et celles de production, ou un **train-serving skew** : une variable calculée différemment en production. Enfin des hyperparamètres choisis sur le test. Je vérifierais en rejouant le pipeline de production sur des données historiques et en comparant les distributions des variables.
+</Interview>
+
+<Recap>
+- Transformers : `fit` (apprendre) puis `transform` (appliquer) ; estimators : `fit` puis `predict`.
+- On n'appelle **jamais** `fit` sur le test ou la production.
+- `ColumnTransformer` : un traitement par groupe de colonnes ; `Pipeline` : préparation + modèle en un objet.
+- En validation croisée, le pipeline réapprend la préparation dans chaque pli.
+- Échelle : indispensable pour k-NN, SVM, régressions pénalisées ; inutile pour les arbres.
+- Catégorielles non ordonnées : one-hot (`handle_unknown="ignore"`) ; très nombreuses modalités : target encoding dans les plis, hashing, embeddings.
+- `GridSearchCV` avec `etape__param` ; le test ne sert qu'à la fin.
+</Recap>
+
+<LessonComplete />

@@ -1,0 +1,203 @@
+<Predict
+  id="hook"
+  question="Un modèle de scoring affichait 87 % de précision en validation. Déployé, il tombe à 70 % en six mois, sans qu'une seule ligne de code ait changé. Cause la plus probable ?"
+  options={[
+    "Un bug introduit au déploiement",
+    "Les données du monde réel ont changé depuis l'entraînement",
+    "Le serveur est trop lent",
+    "Le modèle « s'use » à force d'être utilisé",
+  ]}
+  answer={1}
+>
+Un modèle est une photo du passé. Les clients changent, les prix montent, un concurrent lance une offre, la définition même de ce qu'on prédit évolue : c'est la **dérive** (*drift*). Le code n'a pas bougé, mais le monde si. Un modèle en production n'est donc jamais « fini » : il faut le servir, le surveiller et le réentraîner. C'est le **MLOps**, et c'est souvent ce qui sépare un notebook d'un produit.
+</Predict>
+
+## Du notebook à la production
+
+Le cycle de vie d'un modèle :
+
+1. **Données** : extraction, validation (schéma, valeurs attendues), versionnage.
+2. **Entraînement** : un script (pas un notebook) reproductible, qui produit un artefact (le pipeline sérialisé) et ses métriques.
+3. **Registre** : chaque version du modèle est enregistrée avec son code, ses données, ses hyperparamètres et ses scores (MLflow, Weights & Biases…).
+4. **Déploiement** : en **batch** (on score toute la base chaque nuit et on écrit les résultats dans une table) ou **en ligne** (une API répond à chaque requête en quelques millisecondes).
+5. **Surveillance** : santé du service, données entrantes, prédictions, performance réelle quand les étiquettes arrivent.
+6. **Réentraînement**, planifié ou déclenché par une alerte, puis retour au point 3.
+
+La plupart des cas d'usage métier se contentent du **batch** : plus simple, moins cher, facile à rejouer. On passe en ligne quand la décision doit être prise pendant l'interaction (fraude au paiement, recommandation sur une page).
+
+## Servir un modèle en ligne
+
+Une API minimale avec FastAPI, autour du pipeline scikit-learn sauvegardé :
+
+```python
+import joblib
+import pandas as pd
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+model = joblib.load("model-v3.joblib")      # chargé une fois, au démarrage
+
+class Client(BaseModel):                     # le contrat d'entrée, validé automatiquement
+    age: float | None
+    revenu: float | None
+    ville: str
+    anciennete: int
+
+@app.post("/predict")
+def predict(c: Client):
+    X = pd.DataFrame([c.model_dump()])
+    proba = float(model.predict_proba(X)[0, 1])
+    return {"proba_resiliation": proba, "version": "v3"}
+```
+
+On l'empaquette dans une image **Docker** (même environnement partout), on la déploie derrière un équilibreur de charge, et chaque réponse porte la **version** du modèle pour pouvoir tracer une décision.
+
+<CodeChoice
+  id="chargement"
+  question="Au démarrage du service, que doit contenir la variable model ?"
+  code={`app = FastAPI()
+model = ___
+
+@app.post("/predict")
+def predict(c: Client):
+    return {"proba": float(model.predict_proba(to_frame(c))[0, 1])}`}
+  options={['joblib.load("model-v3.joblib")', "train_model(load_data())", "LogisticRegression()", "None  # chargé dans predict"]}
+  answer={0}
+>
+Le service ne fait qu'**inférer** avec un artefact déjà entraîné et validé : on le charge **une seule fois**, au démarrage. Réentraîner au lancement rendrait chaque déploiement imprévisible (et lent) ; un `LogisticRegression()` vide n'a rien appris ; recharger le fichier dans `predict` ajouterait des dizaines de millisecondes, voire des secondes, à chaque requête. Le nom de fichier versionné (`v3`) permet de savoir exactement quel modèle répond.
+</CodeChoice>
+
+<Exercise
+  id="debit"
+  question="Une prédiction prend 40 ms et un processus traite les requêtes une par une. Combien de requêtes par seconde au maximum pour 8 processus en parallèle ?"
+  answer={200}
+  tolerance={0}
+  hint="1 000 ms / 40 ms par processus."
+>
+Un processus traite $1000 / 40 = 25$ requêtes par seconde, donc $8 \times 25 = 200$. Pour aller plus loin : regrouper les requêtes en mini-batches (surtout sur GPU), alléger le modèle, ou ajouter des instances. On surveille la **latence au 99ᵉ percentile** (p99), pas seulement la moyenne : ce sont les requêtes lentes que les utilisateurs remarquent.
+</Exercise>
+
+<Callout type="piege">
+Le **train-serving skew** : une variable calculée d'une façon à l'entraînement (en SQL sur l'historique) et d'une autre en production (en Python sur la requête), une unité qui change, une valeur manquante remplacée par 0 d'un côté et par la médiane de l'autre. Le modèle reçoit alors des données qu'il n'a jamais vues, sans aucune erreur. Les remèdes : un seul pipeline sérialisé pour les deux, un *feature store* qui calcule les variables au même endroit, et des tests qui comparent les deux chemins sur les mêmes exemples.
+</Callout>
+
+## Surveiller la dérive
+
+Deux types de dérive, souvent mélangés :
+
+- **Dérive des données** (*data drift*) : la distribution des entrées change. Les paniers moyens montent, une nouvelle région apparaît.
+- **Dérive du concept** (*concept drift*) : la relation entre entrées et cible change. Ce qui annonçait une résiliation hier ne l'annonce plus aujourd'hui.
+
+Les étiquettes arrivent souvent en retard (on sait qu'un client a résilié des semaines après la prédiction) : on surveille donc d'abord les **entrées** et les **prédictions**. L'indicateur le plus répandu est le **Population Stability Index** : on découpe une variable en intervalles selon la distribution de référence (l'entraînement), et on compare les proportions $p_i$ (référence) et $q_i$ (production) :
+
+$$
+\text{PSI} = \sum_{i} (q_i - p_i)\, \ln\frac{q_i}{p_i}
+$$
+
+Règle usuelle : moins de 0,1, stable ; de 0,1 à 0,2, à surveiller ; au-delà de 0,2, dérive significative.
+
+<Exercise
+  id="psi"
+  question="Deux intervalles. Référence : 50 % / 50 %. Production : 70 % / 30 %. Que vaut le PSI (3 décimales) ?"
+  answer={0.17}
+  tolerance={0.002}
+  hint="(0,7 − 0,5) × ln(0,7/0,5) + (0,3 − 0,5) × ln(0,3/0,5)."
+>
+$0{,}2 \times \ln 1{,}4 + (-0{,}2) \times \ln 0{,}6 \approx 0{,}2 \times 0{,}336 + 0{,}2 \times 0{,}511 \approx 0{,}170$. Zone « à surveiller ». Les deux termes sont toujours positifs : le PSI ne fait que monter quand les distributions s'écartent, dans un sens comme dans l'autre.
+</Exercise>
+
+Voici un modèle de scoring sur un an. Chaque mois, le panier moyen monte et la définition d'un « gros client » suit. Planifie les réentraînements :
+
+<DriftLab id="annee" challenge="drift-keep" />
+
+Un modèle réentraîné apprend sur les données du mois précédent : il part déjà avec un peu de retard, et la dérive l'use en quelques mois. Réentraîner tous les mois coûterait 12 cycles de validation et de déploiement ; ne jamais réentraîner laisse le modèle tomber à 48 %. Le bon rythme dépend de la vitesse de dérive, d'où l'importance de la mesurer.
+
+## Déployer sans risque
+
+Une nouvelle version ne remplace jamais l'ancienne d'un coup :
+
+- **Shadow** : la nouvelle version reçoit le vrai trafic et prédit, mais ses réponses ne sont pas utilisées. On compare sans risque.
+- **Canary** : on lui envoie 5 % du trafic, on surveille, puis on augmente progressivement.
+- **Test A/B** : deux versions servent chacune une partie des utilisateurs, et on mesure l'effet sur la **métrique métier** (revenu, rétention), avec les tests statistiques vus dans le module 1.
+- **Rollback** : l'ancienne version reste prête à reprendre la main en une commande, grâce au registre.
+
+<Callout type="intuition">
+En ML, « reproductible » veut dire pouvoir reconstruire exactement un modèle : même **code** (commit git), mêmes **données** (version ou instantané, DVC, tables datées), mêmes **dépendances** (image Docker, versions figées), mêmes **graines** aléatoires. Un registre de modèles relie tout cela à chaque version déployée.
+</Callout>
+
+<Callout type="entretien">
+« Comment surveilles-tu un modèle dont les étiquettes arrivent trois mois plus tard ? » Réponse attendue : des indicateurs avancés. Distribution des entrées (PSI, test de Kolmogorov-Smirnov), distribution des scores prédits, taux de valeurs manquantes et de modalités inconnues, métriques métier proches (taux d'acceptation, réclamations), et un petit échantillon étiqueté à la main si c'est critique. Puis la vraie performance dès que les étiquettes arrivent.
+</Callout>
+
+<Callout type="astuce">
+Commence simple : un job batch planifié, un pipeline sérialisé et versionné, un tableau de bord avec le PSI des 10 variables les plus importantes et la distribution des scores, une alerte au-delà de 0,2. Ce socle couvre la majorité des besoins avant toute plateforme MLOps complexe.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Le score moyen prédit par ton modèle de fraude double en une semaine, sans changement de code. Que vérifies-tu d'abord ?",
+      options: [
+        "Réentraîner immédiatement",
+        "Les données d'entrée : distribution, valeurs manquantes, changement de format ou d'unité",
+        "Changer d'algorithme",
+        "Rien, c'est normal",
+      ],
+      answer: 1,
+      explain: "Un saut brutal vient souvent d'un problème de données en amont (un champ vide, une unité changée), pas d'une dérive progressive.",
+    },
+    {
+      q: "Quelle est la différence entre data drift et concept drift ?",
+      options: [
+        "Aucune",
+        "Data drift : les entrées changent ; concept drift : la relation entre entrées et cible change",
+        "Data drift concerne les étiquettes",
+        "Le concept drift ne se produit qu'en NLP",
+      ],
+      answer: 1,
+      explain: "On peut avoir l'un sans l'autre. Le concept drift ne se voit qu'avec les étiquettes, d'où l'importance de les collecter.",
+    },
+    {
+      q: "Un PSI de 0,35 sur une variable importante indique…",
+      options: ["Une distribution stable", "Une dérive significative", "Un modèle meilleur", "Un bug du calcul"],
+      answer: 1,
+      explain: "Au-delà de 0,2, la distribution a nettement changé : enquêter, et envisager un réentraînement.",
+    },
+    {
+      q: "Quelle stratégie teste une nouvelle version sur le trafic réel sans impact pour les utilisateurs ?",
+      options: ["Canary", "Shadow", "A/B", "Big bang"],
+      answer: 1,
+      explain: "En shadow, la nouvelle version prédit en parallèle mais ses réponses ne sont pas utilisées.",
+    },
+    {
+      q: "Scorer 2 millions de clients une fois par semaine pour une campagne marketing : quel mode de déploiement ?",
+      options: ["API en ligne à faible latence", "Batch planifié", "Streaming temps réel", "Sur le téléphone de chaque client"],
+      answer: 1,
+      explain: "Aucune décision n'a lieu en temps réel : un job batch est plus simple, moins cher et rejouable.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment déploierais-tu un modèle de prédiction de résiliation ?">
+D'abord clarifier l'usage : si l'équipe marketing contacte chaque semaine les clients à risque, un **batch** suffit. Je transformerais le notebook en script d'entraînement reproductible qui produit un pipeline scikit-learn sérialisé, enregistré dans un registre (MLflow) avec ses métriques, la version des données et le commit. Un job planifié chargerait la version validée, scorerait les clients actifs et écrirait les scores avec la version du modèle dans une table. Je validerais les données entrantes (schéma, plages), surveillerais le PSI des variables principales et la distribution des scores, et mesurerais la performance réelle quand les résiliations sont connues. Réentraînement planifié (par exemple mensuel) ou déclenché par une alerte, avec comparaison à la version en place avant bascule, et une campagne en A/B pour mesurer l'effet métier réel.
+</Interview>
+
+<Interview q="Ton modèle se dégrade en production. Quelle est ta démarche ?">
+Je commence par écarter un problème de données ou de pipeline : changement de schéma ou de format en amont, valeurs manquantes inhabituelles, train-serving skew, en comparant les distributions des variables entre l'entraînement et les dernières semaines (PSI, KS). S'il s'agit d'une vraie dérive, je regarde lesquelles des variables et quels segments sont touchés, et si c'est une dérive des données ou du concept (la relation a changé, visible avec les étiquettes récentes). Selon le cas : réentraîner sur une fenêtre plus récente, pondérer les données récentes, revoir des variables devenues instables, ou adapter le seuil de décision. Enfin, j'automatise la détection pour ne pas le découvrir trop tard la prochaine fois.
+</Interview>
+
+<Recap>
+- Cycle : données → entraînement reproductible → registre → déploiement → surveillance → réentraînement.
+- **Batch** par défaut ; **en ligne** quand la décision est temps réel. Modèle chargé une fois, version dans chaque réponse.
+- **Train-serving skew** : même pipeline sérialisé à l'entraînement et en production.
+- **Data drift** (entrées) contre **concept drift** (relation) ; étiquettes souvent tardives.
+- **PSI** $= \sum (q_i - p_i)\ln(q_i/p_i)$ : < 0,1 stable, > 0,2 dérive.
+- Déployer progressivement : shadow, canary, A/B, rollback.
+- Reproductibilité : code, données, dépendances, graines, registre.
+</Recap>
+
+<LessonComplete />

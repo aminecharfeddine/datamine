@@ -41,6 +41,12 @@ export type BackpropState = { loss: number; updates: number };
 export type MysteryState = { guessed: boolean };
 export type BpeState = { merges: number; ratio: number; words: number; tokens: number; allMerges: boolean };
 export type AttnState = { weight: number };
+export type PandasState = { categorie: string; minMontant: number; group: string; agg: string; sortDesc: boolean };
+export type BroadcastState = { a: string; b: string; ok: boolean };
+export type PipeState = { impute: string; scale: string; ville: string; model: string; acc: number };
+export type FeatState = { split: string; valR2: number };
+export type SqlState = { match: boolean };
+export type DriftState = { retrains: number; minAcc: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -379,4 +385,68 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "La direction choisit vers quelle clé regarder ; la norme rend le softmax plus ou moins tranché.",
     check: (s: AttnState) => s.weight >= 0.8,
   } satisfies Challenge<AttnState>,
+  // ---------------------------------------------------------------- ML en pratique
+  "pandas-mean": {
+    id: "pandas-mean",
+    title: "La question du manager",
+    goal: "Affiche le panier moyen par ville pour la catégorie Tech, du plus élevé au plus faible.",
+    hint: "Filtre d'abord sur la catégorie, puis groupe par ville et choisis l'agrégation qui donne une moyenne.",
+    check: (s: PandasState) => s.categorie === "Tech" && s.minMontant === 0 && s.group === "ville" && s.agg === "mean" && s.sortDesc,
+  } satisfies Challenge<PandasState>,
+  "broadcast-error": {
+    id: "broadcast-error",
+    title: "Le piège de l'axe",
+    goal: "Trouve un tableau B qui ne peut pas être soustrait à X de forme (4, 3).",
+    hint: "NumPy aligne les formes par la droite. Que donne X.mean(axis=1) ?",
+    check: (s: BroadcastState) => s.a === "4,3" && !s.ok,
+  } satisfies Challenge<BroadcastState>,
+  "pipe-best": {
+    id: "pipe-best",
+    title: "Le pipeline de production",
+    goal: "Atteins au moins 76 % de précision en validation croisée sans supprimer de lignes.",
+    hint: "La ville n'est pas un nombre ordonné, et certains modèles sont très sensibles à l'échelle des variables.",
+    check: (s: PipeState) => s.impute !== "drop" && s.acc >= 0.76,
+  } satisfies Challenge<PipeState>,
+  "feat-r2": {
+    id: "feat-r2",
+    title: "Les bonnes variables",
+    goal: "Avec un découpage temporel, atteins un R² de validation d'au moins 0,95.",
+    hint: "Regarde la courbe : des pics réguliers, et des ventes qui baissent quand il fait trop chaud ou trop froid.",
+    check: (s: FeatState) => s.split === "temporel" && s.valR2 >= 0.95,
+  } satisfies Challenge<FeatState>,
+  "sql-filter": {
+    id: "sql-filter",
+    title: "Les grosses commandes",
+    goal: "Liste l'id, la date et le montant des commandes Tech de plus de 100 €, de la plus chère à la moins chère.",
+    hint: "WHERE avec deux conditions reliées par AND, puis ORDER BY … DESC.",
+    check: (s: SqlState) => s.match,
+  } satisfies Challenge<SqlState>,
+  "sql-group": {
+    id: "sql-group",
+    title: "Les catégories qui comptent",
+    goal: "Pour chaque catégorie ayant au moins 15 commandes, donne le nombre de commandes et le chiffre d'affaires total (arrondi à 2 décimales).",
+    hint: "GROUP BY categorie ; un filtre sur un agrégat va dans HAVING, pas dans WHERE.",
+    check: (s: SqlState) => s.match,
+  } satisfies Challenge<SqlState>,
+  "sql-join": {
+    id: "sql-join",
+    title: "Tous les clients",
+    goal: "Pour chaque client (même sans commande), donne son prénom et son nombre de commandes, du plus grand au plus petit puis par prénom.",
+    hint: "Un INNER JOIN ferait disparaître les clients sans commande. COUNT(une colonne de commandes) compte 0 pour eux.",
+    check: (s: SqlState) => s.match,
+  } satisfies Challenge<SqlState>,
+  "sql-window": {
+    id: "sql-window",
+    title: "La plus grosse commande de chaque ville",
+    goal: "Pour chaque ville, donne la commande au montant le plus élevé : ville, id de la commande, montant.",
+    hint: "ROW_NUMBER() OVER (PARTITION BY … ORDER BY … DESC) dans une sous-requête, puis ne garde que le rang 1.",
+    check: (s: SqlState) => s.match,
+  } satisfies Challenge<SqlState>,
+  "drift-keep": {
+    id: "drift-keep",
+    title: "Tenir l'année",
+    goal: "Garde une précision d'au moins 70 % chaque mois pendant un an, avec au plus 4 réentraînements.",
+    hint: "Un modèle réentraîné apprend sur le mois précédent : il est déjà un peu en retard. Combien de mois tient-il au-dessus de 70 % ? Espace les réentraînements régulièrement, sans attendre la chute.",
+    check: (s: DriftState) => s.retrains <= 4 && s.minAcc >= 0.7,
+  } satisfies Challenge<DriftState>,
 };
