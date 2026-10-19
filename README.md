@@ -59,7 +59,7 @@ src/
   content/fiches/*.mdx    fiches récap (une par leçon, débloquée à la fin de la leçon, export PDF via l'impression)
   components/
     pedago/               Predict, Quiz, Callout, LessonComplete (utilisables dans le MDX)
-    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab, PandasLab, BroadcastLab, PipelineLab, FeatureLab, DriftLab, SqlLab)
+    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab, PandasLab, BroadcastLab, PipelineLab, FeatureLab, DriftLab, SqlLab, TransformerSizeLab, LoraLab, SamplingLab, InferenceLab, RagLab)
     code/                 blocs de code colorés (les ``` du MDX), CodeChoice (complète le code), Parsons (remets les lignes dans l'ordre)
     pages/                écrans client (Today, SkillTree, Review, Profile)
     game/                 avatar et cadres, médailles, célébrations, onglets Succès et Vestiaire
@@ -80,6 +80,7 @@ src/
     llm.ts                tokenizer BPE, attention (softmax, masque causal, effet de √d)
     practice.ts           boutique fictive (clients, commandes), mini-pandas, pipeline de churn, ventes quotidiennes, dérive et PSI
     sqlExercises.ts       exercices SQL (requête de départ, solution de référence, comparaison des résultats)
+    llm2.ts               taille d'un Transformer, LoRA (SVD par Jacobi), sampling, mémoire d'inférence, RAG (TF-IDF)
 ```
 
 ## SQL dans le navigateur
@@ -113,7 +114,7 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 - [x] Phase 4 — Modèles classiques : régression logistique, k-NN, arbres, forêts et boosting, k-means
 - [x] Phase 5 — Deep learning : neurones et MLP, backpropagation et autograd, boucle d'entraînement PyTorch
 - [x] Phase 6 — LLM : tokenisation BPE, self-attention
-- [ ] Phase 7 — LLM (suite) : architecture Transformer complète, pré-entraînement / fine-tuning / LoRA, décodage et sampling, inférence (KV cache, quantization), RAG
+- [x] Phase 7 — LLM (suite) : architecture Transformer complète, pré-entraînement / fine-tuning / LoRA, décodage et sampling, inférence (KV cache, quantization), RAG
 - [x] Phase 8 — ML en pratique : NumPy/pandas, pipelines scikit-learn, feature engineering, SQL (vrai SQLite dans le navigateur via sql.js), MLOps
 - [ ] Phase 9 — Deep learning (suite) : CNN, embeddings ; ACP ; IA agentique (tool use, ReAct, évaluation)
 - [ ] Phase 10 — vitrine publique : landing, SEO, images de partage, accessibilité, version anglaise
