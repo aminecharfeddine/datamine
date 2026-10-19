@@ -134,6 +134,8 @@ body {
 .lesson-prose .not-prose ul > li { padding-left: 0; }
 .lesson-prose .not-prose ul > li + li { margin-top: 0; }
 .lesson-prose .not-prose ul > li::before { content: none; }
+.lesson-prose .not-prose ol { list-style: none; padding-left: 0; }
+.lesson-prose .not-prose .lesson-prose ol { list-style: decimal; padding-left: 1.3em; }
 .lesson-prose .not-prose .lesson-prose ul > li { padding-left: 1.3em; }
 .lesson-prose .not-prose .lesson-prose ul > li + li { margin-top: 0.35em; }
 .lesson-prose .not-prose .lesson-prose ul > li::before { content: ""; }

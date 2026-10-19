@@ -25,7 +25,7 @@ export type AchievementSource = {
 };
 
 /** Nombre d'instances de labos et de défis dans les leçons publiées (vérifié par un test). */
-export const TOTAL_LABS = 57;
+export const TOTAL_LABS = 62;
 export const AVAILABLE_LESSONS = ALL_LESSONS.filter((l) => l.available);
 
 export type Stats = {

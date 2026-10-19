@@ -1,0 +1,213 @@
+<Predict
+  id="hook"
+  question="Dans un LLM de 7 milliards de paramètres comme Llama 2 7B, où se trouve la majorité des paramètres ?"
+  options={["Dans l'attention", "Dans les MLP des blocs", "Dans la table d'embeddings", "Dans les couches de normalisation"]}
+  answer={1}
+>
+Environ **deux tiers** des paramètres sont dans les MLP (les réseaux *feed-forward* de chaque bloc), un tiers dans l'attention, et quelques pourcents dans les embeddings. L'attention fait circuler l'information **entre** les tokens ; le MLP transforme chaque token **séparément**, et c'est là que le modèle stocke l'essentiel de ses connaissances. Un LLM, c'est cette paire attention + MLP, empilée des dizaines de fois autour d'un « flux résiduel ».
+</Predict>
+
+## Vue d'ensemble d'un LLM décodeur
+
+Un modèle comme GPT, Llama ou Claude suit le même schéma :
+
+1. les tokens deviennent des vecteurs de dimension $d$ (**embeddings**) ;
+2. ces vecteurs traversent $L$ **blocs** identiques (mais avec des poids différents) ;
+3. une dernière normalisation, puis la **tête de sortie** (*LM head*) projette chaque vecteur sur le vocabulaire : un score (logit) par token possible ;
+4. un softmax sur les logits de la **dernière** position donne la distribution du token suivant.
+
+Chaque bloc applique deux sous-couches, chacune **ajoutée** à son entrée (connexion résiduelle) après une normalisation (architecture *pre-norm*) :
+
+$$
+x \leftarrow x + \text{Attention}(\text{Norm}(x))
+\qquad
+x \leftarrow x + \text{MLP}(\text{Norm}(x))
+$$
+
+Le vecteur $x$ de chaque token est un **flux résiduel** : une voie principale que chaque sous-couche lit, puis enrichit en y ajoutant quelque chose. Rien n'est jamais écrasé.
+
+<Callout type="intuition">
+Les connexions résiduelles ont deux effets. Pour le gradient, $x + f(x)$ offre toujours un chemin direct : on peut empiler 80 ou 120 blocs sans qu'il s'évanouisse. Pour la représentation, chaque bloc ne fait qu'**ajuster** ce qui existe déjà, ce qui rend l'apprentissage beaucoup plus stable que de tout recalculer à chaque étage.
+</Callout>
+
+## Les pièces du bloc
+
+- **Normalisation** : LayerNorm (GPT-2) centre et réduit chaque vecteur ; les modèles récents utilisent **RMSNorm**, plus simple, qui ne fait que diviser par la norme quadratique moyenne : $\text{RMSNorm}(x) = \frac{x}{\sqrt{\frac{1}{d}\sum_i x_i^2 + \varepsilon}} \odot g$.
+- **Attention multi-têtes causale**, vue dans la leçon précédente. Avec **GQA**, plusieurs têtes de query partagent les mêmes keys et values, ce qui allège le KV cache à l'inférence.
+- **MLP** : deux (ou trois) couches linéaires autour d'une non-linéarité, qui élargissent temporairement chaque vecteur (souvent vers $4d$) puis le ramènent à $d$. Les LLM récents utilisent **SwiGLU**, une variante à porte avec trois matrices.
+- **Positions** : l'attention ignore l'ordre ; GPT-2 additionne des vecteurs de position appris, les modèles récents tournent les queries et keys d'un angle dépendant de la position (**RoPE**), sans paramètre.
+
+<TransformerSizeLab id="taille" challenge="tf-gpt2" />
+
+<Exercise
+  id="mlp"
+  question="Le MLP SwiGLU d'un bloc de Llama 2 7B a trois matrices de taille 4 096 × 11 008. Combien de paramètres contient-il, en millions (2 décimales) ?"
+  answer={135.27}
+  tolerance={0.01}
+  unit="millions"
+  hint="3 × 4 096 × 11 008."
+>
+$3 \times 4\,096 \times 11\,008 = 135\,266\,304$, soit environ **135,27 millions**, contre $4 \times 4\,096^2 \approx 67{,}1$ millions pour l'attention du même bloc. Multiplié par 32 blocs, le MLP pèse 4,3 milliards de paramètres sur 6,7.
+</Exercise>
+
+## En PyTorch
+
+Un bloc décodeur complet tient en quelques lignes :
+
+```python
+import torch
+from torch import nn
+
+class Block(nn.Module):
+    def __init__(self, d, n_heads):
+        super().__init__()
+        self.norm1 = nn.RMSNorm(d)
+        self.attn = nn.MultiheadAttention(d, n_heads, batch_first=True)
+        self.norm2 = nn.RMSNorm(d)
+        self.mlp = nn.Sequential(nn.Linear(d, 4 * d), nn.GELU(), nn.Linear(4 * d, d))
+
+    def forward(self, x, mask):                      # x : (batch, n, d)
+        h = self.norm1(x)
+        x = x + self.attn(h, h, h, attn_mask=mask, need_weights=False)[0]
+        x = x + self.mlp(self.norm2(x))
+        return x                                     # même forme : (batch, n, d)
+
+class TinyLM(nn.Module):
+    def __init__(self, vocab, d=256, n_heads=4, n_layers=6, ctx=512):
+        super().__init__()
+        self.tok = nn.Embedding(vocab, d)
+        self.pos = nn.Embedding(ctx, d)
+        self.blocks = nn.ModuleList([Block(d, n_heads) for _ in range(n_layers)])
+        self.norm = nn.RMSNorm(d)
+        self.head = nn.Linear(d, vocab, bias=False)
+        self.head.weight = self.tok.weight           # embeddings partagés (weight tying)
+
+    def forward(self, ids):                          # ids : (batch, n)
+        n = ids.size(1)
+        x = self.tok(ids) + self.pos(torch.arange(n, device=ids.device))
+        mask = torch.triu(torch.ones(n, n, dtype=torch.bool, device=ids.device), diagonal=1)
+        for block in self.blocks:
+            x = block(x, mask)
+        return self.head(self.norm(x))               # logits : (batch, n, vocab)
+```
+
+<Parsons
+  id="forward"
+  prompt="Remets dans l'ordre le forward d'un bloc pre-norm."
+  lines={[
+    "def forward(self, x):",
+    "    h = self.norm1(x)",
+    "    x = x + self.attn(h)",
+    "    h = self.norm2(x)",
+    "    x = x + self.mlp(h)",
+    "    return x",
+  ]}
+>
+Normaliser, passer dans la sous-couche, **ajouter** au flux résiduel ; deux fois. La normalisation s'applique à l'entrée de chaque sous-couche, jamais au flux résiduel lui-même : c'est ce qui distingue le *pre-norm* (stable, standard aujourd'hui) du *post-norm* du Transformer original.
+</Parsons>
+
+<CodeChoice
+  id="logits"
+  question="Quelle est la forme des logits renvoyés par le modèle pour un batch d'ids de forme (B, n) ?"
+  code={`logits = model(ids)   # forme : (B, n, ___)`}
+  options={["vocab", "d", "n", "1"]}
+  answer={0}
+>
+Un score par token du vocabulaire, **à chaque position** : pendant l'entraînement, toutes les positions prédisent leur token suivant en parallèle (grâce au masque causal), ce qui fait $B \times n$ prédictions par pas. À la génération, on ne garde que `logits[:, -1, :]`.
+</CodeChoice>
+
+<Exercise
+  id="flops"
+  question="Générer un token coûte environ 2 opérations (une multiplication, une addition) par paramètre. Combien de GFLOP pour un token avec un modèle de 7 milliards de paramètres ?"
+  answer={14}
+  tolerance={0.01}
+  unit="GFLOP"
+  hint="2 × 7 × 10⁹."
+>
+$2 \times 7 \times 10^9 = 14 \times 10^9$, soit **14 GFLOP** par token (sans compter l'attention, qui ajoute un terme proportionnel à la longueur du contexte). Un GPU moderne en fait des centaines de milliers par seconde : on verra dans la leçon sur l'inférence que la limite est ailleurs.
+</Exercise>
+
+<Callout type="piege">
+Nombre de paramètres et coût ne sont pas la même chose. Les modèles **Mixture of Experts** (MoE) remplacent le MLP par plusieurs « experts » et n'en activent que deux par token : un modèle de 47 milliards de paramètres peut n'en utiliser que 13 par token. Il calcule comme un 13B, mais il faut quand même tout garder en mémoire.
+</Callout>
+
+<Callout type="entretien">
+Trois familles à savoir distinguer. **Encodeur seul** (BERT) : attention bidirectionnelle, idéal pour classer, extraire, produire des embeddings. **Décodeur seul** (GPT, Llama, Claude) : attention causale, génère du texte token par token ; c'est l'architecture de presque tous les LLM actuels. **Encodeur-décodeur** (T5, le Transformer original) : l'encodeur lit l'entrée, le décodeur génère en la consultant par *cross-attention* ; historiquement utilisé en traduction.
+</Callout>
+
+<Callout type="astuce">
+Le meilleur exercice pour vraiment comprendre : réimplémenter un petit GPT et l'entraîner sur un texte. Le dépôt **nanoGPT** d'Andrej Karpathy (et sa vidéo « Let's build GPT ») le fait en environ 300 lignes lisibles. C'est aussi un excellent projet de portfolio.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Dans un bloc pre-norm, comment est mis à jour le vecteur x d'un token ?",
+      options: ["x = Norm(Attention(x))", "x = x + Attention(Norm(x))", "x = Attention(x) · MLP(x)", "x = Norm(x) + Attention(x)"],
+      answer: 1,
+      explain: "On normalise l'entrée de la sous-couche et on ajoute sa sortie au flux résiduel.",
+    },
+    {
+      q: "Quelle sous-couche fait circuler l'information entre les tokens ?",
+      options: ["Le MLP", "L'attention", "La normalisation", "La tête de sortie"],
+      answer: 1,
+      explain: "Le MLP agit sur chaque position indépendamment ; seule l'attention mélange les positions.",
+    },
+    {
+      q: "Que fait RoPE ?",
+      options: [
+        "Ajoute un vecteur de position appris",
+        "Fait tourner queries et keys d'un angle dépendant de la position",
+        "Normalise les vecteurs",
+        "Réduit le vocabulaire",
+      ],
+      answer: 1,
+      explain: "Le produit scalaire q·k dépend alors de la position relative des deux tokens, sans paramètre à apprendre.",
+    },
+    {
+      q: "Pourquoi partager la matrice d'embeddings et celle de la tête de sortie (weight tying) ?",
+      options: [
+        "Pour accélérer l'attention",
+        "Pour économiser V × d paramètres, une grosse part dans les petits modèles",
+        "C'est obligatoire",
+        "Pour gérer les positions",
+      ],
+      answer: 1,
+      explain: "Dans GPT-2 small, la matrice du vocabulaire représente près d'un tiers des 124 M de paramètres.",
+    },
+    {
+      q: "Un modèle MoE de 47 milliards de paramètres active 13 milliards par token. Que coûte-t-il ?",
+      options: [
+        "Mémoire et calcul d'un 13B",
+        "Mémoire d'un 47B, calcul d'un 13B",
+        "Mémoire d'un 13B, calcul d'un 47B",
+        "Mémoire et calcul d'un 47B",
+      ],
+      answer: 1,
+      explain: "Tous les experts doivent être chargés, mais chaque token n'en traverse que quelques-uns.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Décris l'architecture d'un LLM moderne.">
+C'est un Transformer **décodeur seul**. Les tokens sont convertis en embeddings de dimension $d$, puis traversent $L$ blocs identiques. Chaque bloc contient une attention multi-têtes **causale** (souvent avec GQA et RoPE pour les positions) et un MLP (souvent SwiGLU), chacun précédé d'une normalisation (RMSNorm) et entouré d'une connexion résiduelle. Après le dernier bloc, une normalisation et une projection linéaire vers le vocabulaire donnent des logits, et un softmax sur la dernière position donne la distribution du token suivant. L'entraînement prédit le token suivant à toutes les positions en parallèle avec une cross-entropy. Environ deux tiers des paramètres sont dans les MLP.
+</Interview>
+
+<Interview q="À quoi servent les connexions résiduelles et la normalisation dans un Transformer ?">
+Les connexions résiduelles $x + f(x)$ donnent au gradient un chemin direct à travers tous les blocs, ce qui évite qu'il s'évanouisse et permet d'empiler des dizaines de couches ; elles font aussi de chaque bloc un ajustement incrémental d'un flux résiduel partagé. La normalisation (LayerNorm ou RMSNorm) maintient les activations dans une plage stable, ce qui stabilise l'entraînement et autorise des learning rates plus élevés. Placée en entrée de chaque sous-couche (pre-norm), elle est plus stable que la version post-norm d'origine, qui demandait un warmup délicat.
+</Interview>
+
+<Recap>
+- LLM = embeddings → $L$ blocs → normalisation → tête de sortie (logits sur le vocabulaire).
+- Bloc pre-norm : $x \leftarrow x + \text{Attn}(\text{Norm}(x))$, puis $x \leftarrow x + \text{MLP}(\text{Norm}(x))$.
+- Attention : entre tokens ; MLP : par token, environ 2/3 des paramètres.
+- RMSNorm, SwiGLU, RoPE, GQA : les choix des modèles récents.
+- Paramètres par bloc ≈ $4d^2$ (attention) + $2 \cdot d \cdot d_{ff}$ ou $3 \cdot d \cdot d_{ff}$ (MLP).
+- Calcul ≈ 2 FLOP par paramètre et par token ; MoE : mémoire de tout, calcul d'une partie.
+- Encodeur (BERT), décodeur (GPT), encodeur-décodeur (T5).
+</Recap>
+
+<LessonComplete />

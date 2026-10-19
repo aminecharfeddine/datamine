@@ -1,0 +1,195 @@
+<Predict
+  id="hook"
+  question="Un modèle de base, seulement pré-entraîné sur du texte du web, reçoit : « Quelle est la capitale de la France ? ». Que fait-il le plus probablement ?"
+  options={[
+    "Il répond « Paris » poliment, comme un assistant",
+    "Il continue le texte comme dans un document : par exemple une liste d'autres questions de quiz",
+    "Il refuse de répondre",
+    "Il renvoie une erreur",
+  ]}
+  answer={1}
+>
+Un modèle de base a appris une seule chose : **prédire le token suivant** d'un texte quelconque. Sur le web, une question est souvent suivie… d'autres questions (un quiz, une FAQ, un forum). Il peut répondre « Paris », mais il n'a aucune notion d'« utilisateur » ni de « réponse utile ». Transformer ce modèle de base en assistant est le travail du **post-entraînement** : fine-tuning sur des instructions, puis apprentissage par préférences. Ces étapes, et la façon d'adapter un modèle à ton entreprise, font l'objet de cette leçon.
+</Predict>
+
+## Le pré-entraînement : prédire le token suivant
+
+On montre au modèle des milliers de milliards de tokens (web, livres, code, articles) et on minimise la cross-entropy du token suivant, à **toutes** les positions :
+
+$$
+\mathcal L = -\frac{1}{T} \sum_{t=1}^{T} \ln p_\theta(x_t \mid x_{<t})
+\qquad
+\text{perplexité} = e^{\mathcal L}
+$$
+
+Cette tâche paraît modeste, mais pour bien prédire le mot suivant d'un article de chimie ou d'un programme, il faut en comprendre beaucoup : grammaire, faits, raisonnement, style. C'est un apprentissage **auto-supervisé** : les étiquettes sont le texte lui-même, sans annotation humaine.
+
+<Exercise
+  id="perplexite"
+  question="La loss moyenne de validation vaut 2,0 (logarithme népérien). Quelle est la perplexité (2 décimales) ?"
+  answer={7.39}
+  tolerance={0.01}
+  hint="Perplexité = e à la puissance de la loss."
+>
+$e^{2{,}0} \approx 7{,}39$ : en moyenne, le modèle est aussi incertain que s'il hésitait uniformément entre environ 7 tokens. La perplexité se compare entre modèles **avec le même tokenizer** seulement : un vocabulaire différent change le découpage, donc la loss.
+</Exercise>
+
+Les **lois d'échelle** (*scaling laws*) relient la loss à la taille du modèle $N$, au nombre de tokens d'entraînement $D$ et au calcul, qui vaut environ $C \approx 6ND$ FLOP. L'étude « Chinchilla » (2022) a montré qu'à budget de calcul fixé, il vaut mieux environ **20 tokens par paramètre** que des modèles géants sous-entraînés. Les modèles récents vont bien au-delà (plus de 1 000 tokens par paramètre pour certains petits modèles), car un modèle plus petit et plus entraîné coûte moins cher à **servir**.
+
+<Exercise
+  id="chinchilla"
+  question="Selon la règle de Chinchilla (environ 20 tokens par paramètre), combien de milliards de tokens pour entraîner un modèle de 7 milliards de paramètres ?"
+  answer={140}
+  tolerance={0.5}
+  unit="milliards"
+  hint="20 × 7 milliards."
+>
+$20 \times 7 = 140$ milliards de tokens. Llama 2 7B a été entraîné sur 2 000 milliards de tokens, Llama 3 8B sur 15 000 milliards : bien au-delà de l'optimum « de calcul », parce qu'on paie l'entraînement une fois mais l'inférence des millions de fois.
+</Exercise>
+
+## Le post-entraînement : du modèle de base à l'assistant
+
+1. **SFT** (*supervised fine-tuning*) : on continue l'entraînement sur des dizaines de milliers d'exemples « instruction → réponse » de qualité, au format de conversation. Le modèle apprend le **format** et le **comportement** d'un assistant.
+2. **Apprentissage par préférences** : pour une même question, des humains (ou des modèles) indiquent quelle réponse est meilleure. Le **RLHF** entraîne un modèle de récompense sur ces préférences puis optimise le LLM par renforcement ; **DPO** obtient un effet comparable directement sur les paires préférée / rejetée, sans modèle de récompense. Des variantes optimisent aussi le raisonnement sur des tâches vérifiables (maths, code).
+
+Pendant le SFT, on ne calcule la loss que sur les tokens de la **réponse**, pas sur ceux de la question :
+
+<CodeChoice
+  id="labels"
+  question="Comment exclure les tokens du prompt du calcul de la loss ?"
+  code={`labels = input_ids.clone()
+labels[prompt_mask] = ___      # positions de la question et du prompt système
+loss = model(input_ids=input_ids, labels=labels).loss`}
+  options={["-100", "0", "tokenizer.pad_token_id", "None"]}
+  answer={0}
+>
+`-100` est l'`ignore_index` par défaut de `CrossEntropyLoss` (et des modèles Hugging Face) : ces positions ne contribuent ni à la loss ni au gradient. Mettre 0 ou l'id de padding entraînerait le modèle à prédire ce token-là partout dans les prompts. Les outils comme TRL (`SFTTrainer`) le font automatiquement quand on leur donne le format de conversation.
+</CodeChoice>
+
+## Adapter un modèle : LoRA
+
+Réentraîner tous les poids d'un modèle de 8 milliards de paramètres (*full fine-tuning*) demande la mémoire des poids, de leurs gradients et des deux moments d'Adam : environ 16 octets par paramètre, plus de 100 Go. **LoRA** (*Low-Rank Adaptation*) gèle les poids d'origine $W$ et n'apprend qu'une mise à jour de **rang faible** :
+
+$$
+W' = W + \frac{\alpha}{r}\, B A
+\qquad
+B \in \mathbb{R}^{d \times r},\; A \in \mathbb{R}^{r \times k},\; r \ll d
+$$
+
+L'hypothèse : la modification nécessaire pour adapter le modèle à une tâche vit dans un petit sous-espace. Vérifie-le sur une mise à jour 32 × 32 :
+
+<LoraLab id="rang" challenge="lora-rank" />
+
+<Exercise
+  id="lora-params"
+  question="LoRA de rang r = 8 sur une matrice 4 096 × 4 096. Combien de paramètres entraînables (B et A) ?"
+  answer={65536}
+  tolerance={0}
+  hint="r × (d + k)."
+>
+$8 \times (4\,096 + 4\,096) = 65\,536$ paramètres, contre $16\,777\,216$ pour la matrice complète : **0,4 %**. Appliqué aux matrices d'attention de tous les blocs, un adaptateur LoRA pèse quelques dizaines de Mo, se charge et se décharge à chaud, et on peut en garder un par client ou par tâche sur le même modèle de base.
+</Exercise>
+
+```python
+from peft import LoraConfig, get_peft_model
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B-Instruct", torch_dtype="bfloat16")
+config = LoraConfig(
+    r=16, lora_alpha=32, lora_dropout=0.05,
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+    task_type="CAUSAL_LM",
+)
+model = get_peft_model(model, config)
+model.print_trainable_parameters()   # quelques millions sur 8 milliards
+```
+
+**QLoRA** va plus loin : le modèle de base est chargé en 4 bits (gelé), et seuls les adaptateurs LoRA sont entraînés en 16 bits. Un modèle de 8 milliards se fine-tune alors sur un seul GPU de 24 Go.
+
+<Callout type="intuition">
+Le pré-entraînement donne les **connaissances et les capacités** ; le post-entraînement donne le **comportement** (suivre une instruction, le format, le ton, les refus). Le fine-tuning d'entreprise ajoute rarement des connaissances de façon fiable : il est excellent pour imposer un format, un style, une tâche précise (classer, extraire), beaucoup moins pour apprendre des faits qui changent.
+</Callout>
+
+<Callout type="piege">
+Un fine-tuning sur quelques centaines d'exemples peut dégrader les capacités générales du modèle (*catastrophic forgetting*) ou lui apprendre les défauts de tes données : réponses trop courtes, erreurs recopiées, ton figé. La qualité et la diversité des exemples comptent plus que leur nombre. Garde toujours un jeu d'évaluation représentatif, et compare au modèle de départ avec un bon prompt.
+</Callout>
+
+<Callout type="entretien">
+La question classique : « Prompting, RAG ou fine-tuning ? » Dans l'ordre : d'abord un **bon prompt** avec des exemples ; si le modèle manque d'**informations** (documents internes, données récentes), du **RAG** ; si le problème est de **comportement** (format strict, style, tâche spécialisée répétée à grande échelle, réduire la taille du prompt ou passer à un modèle plus petit), du **fine-tuning**, souvent LoRA. Les deux se combinent.
+</Callout>
+
+<Callout type="astuce">
+Pour un premier LoRA : rang 8 à 16, `lora_alpha` égal au double du rang, learning rate autour de `1e-4` à `2e-4`, une à trois époques. Et commence par évaluer le modèle de base sur ta tâche : c'est ta baseline.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quelle est la tâche d'entraînement d'un LLM pendant le pré-entraînement ?",
+      options: ["Répondre à des questions", "Prédire le token suivant", "Classer des documents", "Traduire"],
+      answer: 1,
+      explain: "Auto-supervisé : le texte fournit lui-même ses étiquettes.",
+    },
+    {
+      q: "Qu'apporte le SFT à un modèle de base ?",
+      options: [
+        "De nouvelles connaissances encyclopédiques",
+        "Le format et le comportement d'un assistant qui suit des instructions",
+        "Une fenêtre de contexte plus longue",
+        "Un vocabulaire plus grand",
+      ],
+      answer: 1,
+      explain: "Le SFT apprend à répondre à des instructions au format conversationnel, sur des exemples de qualité.",
+    },
+    {
+      q: "Quelle est la différence principale entre RLHF et DPO ?",
+      options: [
+        "DPO n'utilise pas de préférences",
+        "DPO optimise directement sur les paires de préférences, sans modèle de récompense ni boucle de renforcement",
+        "RLHF ne demande pas de données humaines",
+        "Ils n'ont rien à voir",
+      ],
+      answer: 1,
+      explain: "Les deux exploitent des préférences ; DPO simplifie le pipeline en une loss supervisée.",
+    },
+    {
+      q: "Pourquoi LoRA réduit-il autant la mémoire nécessaire au fine-tuning ?",
+      options: [
+        "Il compresse les données",
+        "Seules les petites matrices B et A ont des gradients et des états d'optimiseur",
+        "Il supprime des couches",
+        "Il entraîne en 1 bit",
+      ],
+      answer: 1,
+      explain: "Les poids d'origine sont gelés : pas de gradient ni de moments Adam pour eux.",
+    },
+    {
+      q: "Ton assistant doit répondre sur les procédures internes, mises à jour chaque semaine. Meilleure approche ?",
+      options: ["Fine-tuning hebdomadaire", "RAG sur la documentation à jour", "Augmenter la température", "Pré-entraîner un modèle"],
+      answer: 1,
+      explain: "Les connaissances qui changent vont dans le contexte via RAG ; le fine-tuning sert au comportement.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique LoRA et pourquoi il est si utilisé.">
+LoRA fige les poids du modèle pré-entraîné et apprend, pour certaines matrices (souvent les projections de l'attention), une mise à jour de rang faible $\Delta W = BA$ avec $B$ de taille $d \times r$ et $A$ de taille $r \times k$, $r$ valant typiquement 8 à 64. On n'entraîne donc qu'une fraction de pourcent des paramètres : beaucoup moins de mémoire (pas de gradients ni d'états d'optimiseur pour les poids gelés), des adaptateurs de quelques Mo à stocker et échanger, et aucun surcoût à l'inférence puisqu'on peut fusionner $BA$ dans $W$. L'hypothèse sous-jacente, bien vérifiée en pratique, est que l'adaptation à une tâche a un faible rang intrinsèque. QLoRA combine LoRA avec un modèle de base quantifié en 4 bits.
+</Interview>
+
+<Interview q="Quand choisirais-tu le fine-tuning plutôt que le RAG ?">
+Le RAG apporte de l'**information** au moment de la question : idéal pour des connaissances privées, volumineuses ou changeantes, avec des sources citables. Le fine-tuning modifie le **comportement** : un format de sortie strict, un style, une tâche étroite répétée à grande échelle (classification, extraction), ou la possibilité d'utiliser un modèle plus petit et moins cher avec un prompt court. Je commence par le prompting et une évaluation solide, j'ajoute du RAG si le modèle manque de contexte, et je fine-tune quand le comportement reste insuffisant ou que le coût d'inférence l'impose. Souvent, la meilleure solution combine un modèle légèrement fine-tuné et du RAG.
+</Interview>
+
+<Recap>
+- Pré-entraînement : prédire le token suivant sur des milliers de milliards de tokens ; loss = cross-entropy, perplexité = $e^{\mathcal L}$.
+- Lois d'échelle : $C \approx 6ND$ ; Chinchilla ≈ 20 tokens par paramètre (souvent dépassé pour réduire le coût d'inférence).
+- Post-entraînement : SFT (format, comportement), puis préférences (RLHF, DPO).
+- SFT : loss sur la réponse seulement (labels du prompt à −100).
+- LoRA : $W + \frac{\alpha}{r}BA$, $r(d + k)$ paramètres ; QLoRA = base en 4 bits.
+- Prompting → RAG (informations) → fine-tuning (comportement).
+</Recap>
+
+<LessonComplete />

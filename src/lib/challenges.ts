@@ -47,6 +47,11 @@ export type PipeState = { impute: string; scale: string; ville: string; model: s
 export type FeatState = { split: string; valR2: number };
 export type SqlState = { match: boolean };
 export type DriftState = { retrains: number; minAcc: number };
+export type ArchState = { total: number; usedPreset: boolean };
+export type LoraState = { r: number; err: number; minR: number };
+export type SamplingState = { T: number; topK: number; kept: number };
+export type InfState = { model: string; ctx: number; fits: boolean; gpu: string };
+export type RagState = { recall: number; avgTokens: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -449,4 +454,40 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Un modèle réentraîné apprend sur le mois précédent : il est déjà un peu en retard. Combien de mois tient-il au-dessus de 70 % ? Espace les réentraînements régulièrement, sans attendre la chute.",
     check: (s: DriftState) => s.retrains <= 4 && s.minAcc >= 0.7,
   } satisfies Challenge<DriftState>,
+  // ---------------------------------------------------------------- LLM (suite)
+  "tf-gpt2": {
+    id: "tf-gpt2",
+    title: "Recompter GPT-2",
+    goal: "Règle l'architecture de GPT-2 small (12 blocs, d = 768, vocabulaire de 50 257, contexte 1 024, positions apprises, MLP GELU 4d, embeddings partagés) et retrouve ses 124 millions de paramètres.",
+    hint: "Pars de zéro sans préréglage. Les embeddings partagés évitent de compter deux fois la matrice du vocabulaire.",
+    check: (s: ArchState) => !s.usedPreset && Math.abs(s.total - 124.44e6) < 0.5e6,
+  } satisfies Challenge<ArchState>,
+  "lora-rank": {
+    id: "lora-rank",
+    title: "Le bon rang",
+    goal: "Trouve le plus petit rang r qui reconstruit la mise à jour ΔW avec moins de 5 % d'erreur.",
+    hint: "Regarde les valeurs singulières : à partir de quand deviennent-elles négligeables ?",
+    check: (s: LoraState) => s.r === s.minR,
+  } satisfies Challenge<LoraState>,
+  "samp-topp": {
+    id: "samp-topp",
+    title: "Le noyau",
+    goal: "Sans top-k et à température 1, règle top-p pour que seuls 3 mots restent possibles.",
+    hint: "top-p garde les mots les plus probables jusqu'à ce que leur probabilité cumulée atteigne p.",
+    check: (s: SamplingState) => s.topK === 0 && Math.abs(s.T - 1) < 1e-9 && s.kept === 3,
+  } satisfies Challenge<SamplingState>,
+  "inf-fit": {
+    id: "inf-fit",
+    title: "70 milliards sur un GPU",
+    goal: "Fais tenir le modèle 70B avec au moins 32 000 tokens de contexte sur un seul GPU de 80 Go.",
+    hint: "Deux leviers : la précision des poids, et le nombre de têtes de key/value qui détermine la taille du KV cache.",
+    check: (s: InfState) => s.model === "70B" && s.ctx >= 32000 && s.gpu === "80 Go" && s.fits,
+  } satisfies Challenge<InfState>,
+  "rag-recall": {
+    id: "rag-recall",
+    title: "Tout retrouver, sans noyer le modèle",
+    goal: "Retrouve le passage qui répond aux 4 questions (rappel 100 %) avec un contexte moyen de 60 tokens au plus.",
+    hint: "Les gros morceaux coûtent cher, les tout petits se font battre par des phrases courtes. Et une question mal formulée rate les bons mots.",
+    check: (s: RagState) => s.recall === 1 && s.avgTokens <= 60,
+  } satisfies Challenge<RagState>,
 };

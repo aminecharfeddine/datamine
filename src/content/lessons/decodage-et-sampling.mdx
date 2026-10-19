@@ -1,0 +1,165 @@
+<Predict
+  id="hook"
+  question="Tu poses deux fois exactement la même question à un chatbot, et tu obtiens deux réponses différentes. Pourquoi ?"
+  options={[
+    "Le modèle a appris entre les deux questions",
+    "À chaque token, le texte est tiré au hasard dans la distribution prédite par le modèle",
+    "Le serveur utilise deux modèles différents",
+    "C'est un bug",
+  ]}
+  answer={1}
+>
+Le modèle ne produit pas un texte : il produit, à chaque étape, une **distribution de probabilité** sur le token suivant. La façon de choisir dans cette distribution, le **décodage**, est un réglage à part entière : toujours le plus probable (déterministe mais répétitif), ou un tirage plus ou moins audacieux. Température, top-k et top-p sont les paramètres que tu croiseras dans toutes les API.
+</Predict>
+
+## La boucle de génération
+
+Un LLM génère **un token à la fois** (génération *autorégressive*) :
+
+1. calculer les logits du dernier token à partir de tout le contexte ;
+2. les transformer en probabilités et **choisir** un token ;
+3. l'ajouter au contexte et recommencer, jusqu'à un token de fin (`<eos>`), une séquence d'arrêt ou une longueur maximale.
+
+La stratégie la plus simple, **greedy**, prend toujours le token le plus probable. C'est déterministe, mais le texte tourne vite en boucle et manque de variété. La **beam search** garde les $b$ meilleures séquences partielles : utile en traduction, peu utilisée pour la conversation.
+
+## Température
+
+On divise les logits $z$ par une température $T$ avant le softmax :
+
+$$
+p_i = \frac{e^{z_i / T}}{\sum_j e^{z_j / T}}
+$$
+
+$T < 1$ accentue les écarts (la distribution se concentre sur les meilleurs tokens) ; $T > 1$ les écrase (plus de diversité, plus d'incohérences) ; $T \to 0$ revient au greedy.
+
+<Exercise
+  id="temperature"
+  question="Trois tokens ont pour logits 2, 1 et 0. Avec T = 0,5, quelle probabilité reçoit le premier (3 décimales) ?"
+  answer={0.867}
+  tolerance={0.002}
+  hint="Divise les logits par 0,5 (ils deviennent 4, 2, 0), puis softmax."
+>
+$\frac{e^4}{e^4 + e^2 + e^0} = \frac{54{,}6}{54{,}6 + 7{,}39 + 1} \approx 0{,}867$, contre $\approx 0{,}665$ à $T = 1$. Diviser par 0,5 double les écarts entre logits : le favori écrase la concurrence.
+</Exercise>
+
+## Couper la queue : top-k et top-p
+
+Même improbables, les centaines de milliers de tokens du vocabulaire finissent par être tirés de temps en temps, et un seul mauvais token peut faire dérailler la suite. On coupe donc la **queue** de la distribution avant de tirer :
+
+- **top-k** : ne garder que les $k$ tokens les plus probables ;
+- **top-p** (*nucleus sampling*) : garder les tokens les plus probables jusqu'à ce que leur probabilité cumulée atteigne $p$. Le nombre de candidats s'adapte : 2 quand le modèle est sûr de lui, 50 quand il hésite.
+
+On renormalise ensuite les probabilités gardées pour qu'elles somment à 1.
+
+<SamplingLab id="decodage" challenge="samp-topp" />
+
+## En code
+
+Une boucle de génération avec température et top-p, comme celles des bibliothèques :
+
+```python
+import torch
+
+@torch.no_grad()
+def generate(model, ids, eos_id, max_new_tokens=100, temperature=0.8, top_p=0.9):
+    for _ in range(max_new_tokens):
+        logits = model(ids)[:, -1, :] / temperature        # dernière position seulement
+        probs = logits.softmax(dim=-1)
+        sorted_p, idx = probs.sort(dim=-1, descending=True)
+        cumul = sorted_p.cumsum(dim=-1)
+        sorted_p[cumul - sorted_p > top_p] = 0.0           # hors du noyau
+        choice = torch.multinomial(sorted_p, num_samples=1)  # renormalise implicitement
+        next_id = idx.gather(-1, choice)
+        ids = torch.cat([ids, next_id], dim=1)
+        if next_id.item() == eos_id:
+            break
+    return ids
+```
+
+<CodeChoice
+  id="position"
+  question="Les logits du modèle ont la forme (batch, n, vocab). Lesquels utiliser pour choisir le token suivant ?"
+  code={`logits = model(ids)[:, ___, :]`}
+  options={["-1", "0", ":", "1"]}
+  answer={0}
+>
+Seule la **dernière** position prédit le token qui vient après la séquence. Les autres positions prédisent des tokens déjà connus : utiles à l'entraînement, inutiles ici. (En pratique, avec le KV cache vu dans la prochaine leçon, on ne recalcule même pas les positions précédentes.)
+</CodeChoice>
+
+<Callout type="intuition">
+La température change la **forme** de toute la distribution ; top-k et top-p **coupent** sa queue. On les combine souvent : une température modérée pour la variété, un top-p pour interdire les tokens absurdes. D'autres filtres existent, comme *min-p* (garder les tokens dont la probabilité atteint une fraction du maximum) ou les pénalités de répétition.
+</Callout>
+
+<Callout type="piege">
+Température 0 ne garantit pas des réponses identiques d'un appel à l'autre : selon le service, le regroupement des requêtes en batch et l'ordre des calculs en virgule flottante peuvent faire basculer deux tokens presque ex æquo. Pour des sorties reproductibles et analysables, demande un **format structuré** (schéma JSON, décodage contraint) et teste la stabilité plutôt que de compter sur la température.
+</Callout>
+
+<Callout type="entretien">
+Réglages typiques : extraction d'informations, classification, code, appels d'outils : température basse (0 à 0,3) ; rédaction, brainstorming : 0,7 à 1, avec un top-p autour de 0,9 à 0,95. Une température élevée ne rend pas le modèle « plus intelligent » ni « plus créatif » au sens propre : elle échantillonne plus souvent des tokens qu'il juge lui-même moins probables.
+</Callout>
+
+<Callout type="astuce">
+Le **décodage contraint** (*structured outputs*) force le modèle à respecter une grammaire, par exemple un schéma JSON : à chaque pas, les tokens qui violeraient le format reçoivent une probabilité nulle. C'est bien plus fiable que de demander « réponds en JSON » dans le prompt et de parser en espérant.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que se passe-t-il quand la température tend vers 0 ?",
+      options: ["Le tirage devient uniforme", "On retombe sur le greedy : toujours le token le plus probable", "Le modèle refuse de répondre", "Les réponses s'allongent"],
+      answer: 1,
+      explain: "Diviser par une température minuscule rend l'écart entre le premier et les autres immense : le softmax devient un argmax.",
+    },
+    {
+      q: "Avec top-p = 0,9, combien de tokens restent candidats ?",
+      options: ["Toujours 90 % du vocabulaire", "Toujours 9", "Le plus petit nombre de tokens dont la probabilité cumulée atteint 0,9", "Les tokens de probabilité supérieure à 0,9"],
+      answer: 2,
+      explain: "C'est ce qui rend top-p adaptatif : peu de candidats quand le modèle est sûr, beaucoup quand il hésite.",
+    },
+    {
+      q: "Pour extraire des champs d'une facture au format JSON, quel réglage ?",
+      options: ["Température 1,5", "Température basse et sortie structurée (schéma JSON)", "top-k = 1 000", "Beam search large"],
+      answer: 1,
+      explain: "On veut la réponse la plus probable et un format garanti.",
+    },
+    {
+      q: "Pourquoi le greedy produit-il souvent des répétitions ?",
+      options: [
+        "Parce qu'il est aléatoire",
+        "Parce qu'une boucle de texte devient de plus en plus probable une fois commencée, et le greedy la suit toujours",
+        "Parce qu'il ignore le contexte",
+        "Il ne se répète jamais",
+      ],
+      answer: 1,
+      explain: "Le modèle a vu que les répétitions se poursuivent souvent ; le greedy n'a aucun moyen d'en sortir.",
+    },
+    {
+      q: "Dans une boucle de génération, quels logits utilise-t-on à chaque étape ?",
+      options: ["Ceux de la première position", "La moyenne de toutes les positions", "Ceux de la dernière position", "Ceux de la position du milieu"],
+      answer: 2,
+      explain: "La dernière position est la seule qui prédit le token suivant de la séquence.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique la température, top-k et top-p.">
+À chaque étape, le modèle donne des logits sur tout le vocabulaire. La température divise ces logits avant le softmax : en dessous de 1, la distribution se concentre sur les tokens les plus probables ; au-dessus, elle s'aplatit ; à 0, on obtient le greedy. Top-k ne garde que les $k$ tokens les plus probables, top-p le plus petit ensemble dont la probabilité cumulée atteint $p$, qui s'adapte donc à l'incertitude du modèle. On renormalise puis on tire. On les combine en général : une température selon la tâche (basse pour l'extraction ou le code, plus haute pour la rédaction) et un top-p d'environ 0,9 pour éliminer la longue queue de tokens absurdes.
+</Interview>
+
+<Interview q="Comment obtenir des sorties fiables et parsables d'un LLM en production ?">
+Je combinerais plusieurs couches. Une température basse. Des **sorties structurées** : un schéma JSON imposé par décodage contraint ou par la fonctionnalité dédiée de l'API, plutôt qu'une simple consigne dans le prompt. Une validation côté code (par exemple avec Pydantic), avec une relance en cas d'échec en renvoyant l'erreur au modèle. Des exemples dans le prompt. Et un jeu de tests qui mesure le taux de sorties valides et la stabilité des réponses d'un appel à l'autre, car même à température 0 le déterminisme n'est pas garanti.
+</Interview>
+
+<Recap>
+- Génération autorégressive : logits de la dernière position → choix d'un token → on recommence.
+- Greedy : déterministe mais répétitif ; beam search : surtout pour la traduction.
+- Température : $p_i \propto e^{z_i/T}$ ; basse = concentrée, haute = diverse, 0 = greedy.
+- top-k : $k$ meilleurs ; top-p : noyau de probabilité cumulée $p$, adaptatif ; puis renormalisation.
+- Extraction, code : $T$ basse et sortie structurée ; rédaction : $T \approx 0{,}7$ à 1, top-p ≈ 0,9.
+- Température 0 ≠ déterminisme garanti.
+</Recap>
+
+<LessonComplete />

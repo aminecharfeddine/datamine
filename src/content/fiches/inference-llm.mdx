@@ -1,0 +1,38 @@
+<FicheSection kind="essentiel">
+- Prefill : tout le prompt en une passe, limité par le calcul, détermine le TTFT.
+- Decode : un token par pas, limité par la lecture des poids en mémoire.
+- KV cache : keys et values du passé gardées en mémoire ; grandit avec contexte × utilisateurs.
+- GQA réduit le KV cache ; la quantization réduit les poids et accélère le décodage.
+- Batching, PagedAttention, prompt caching, décodage spéculatif.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{KV par token} = 2 \times L \times n_{kv} \times d_{\text{tête}} \times \text{octets}
+$$
+
+Mémoire des poids : $N \times$ (2 en 16 bits, 1 en 8 bits, 0,5 en 4 bits) octets.
+
+Vitesse d'une séquence ≈ bande passante mémoire / taille des poids.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Dimensionner sans le KV cache.
+- Long contexte et fort trafic : la mémoire du cache explose.
+- Confondre TTFT (prompt) et vitesse de génération (modèle, précision).
+- Quantifier sous 4 bits sans mesurer la perte de qualité.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**KV cache ?** Évite le recalcul, coûte de la mémoire proportionnelle au contexte ; GQA, quantization du cache, PagedAttention.
+
+**Réduire latence et coût ?** Modèle plus petit, quantization, vLLM, prompt caching, prompts courts, décodage spéculatif, streaming.
+
+**Dimensionner un 8B ?** 16 Go en bf16, ~128 Ko de cache par token, test de charge.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- 70B en 4 bits : ~35 Go de poids ; en 16 bits : 140 Go.
+- Llama 3 8B : 131 Ko de KV cache par token en 16 bits.
+- vLLM : `LLM(model=...)` + `SamplingParams` ; `BitsAndBytesConfig(load_in_4bit=True)` dans transformers.
+</FicheSection>

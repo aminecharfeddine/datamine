@@ -1,0 +1,204 @@
+<Predict
+  id="hook"
+  question="Ton chatbot doit répondre sur la politique de retour de la boutique, modifiée hier. Le LLM n'en a jamais entendu parler. Quelle approche ?"
+  options={[
+    "Réentraîner le modèle chaque nuit sur la documentation",
+    "Retrouver les passages pertinents de la documentation et les insérer dans le prompt avant la question",
+    "Augmenter la température pour qu'il « devine »",
+    "Lui demander de chercher dans sa mémoire",
+  ]}
+  answer={1}
+>
+C'est le **RAG** (*Retrieval-Augmented Generation*) : au moment de la question, on **cherche** les passages utiles dans une base de documents, on les **ajoute** au prompt, et le LLM **génère** sa réponse à partir d'eux. Les connaissances restent à jour (on met à jour l'index, pas le modèle), on peut citer les sources, contrôler les droits d'accès, et le modèle invente beaucoup moins. C'est aujourd'hui l'architecture la plus déployée en entreprise.
+</Predict>
+
+## Le pipeline
+
+**Indexation**, une fois (puis à chaque mise à jour) :
+
+1. extraire le texte des documents (PDF, pages web, tickets…) ;
+2. le **découper** en morceaux (*chunks*) de quelques centaines de tokens, souvent avec un léger chevauchement ;
+3. calculer un **embedding** de chaque morceau (un vecteur qui représente son sens) ;
+4. le stocker dans un **index vectoriel** avec ses métadonnées (source, date, droits).
+
+**À chaque question** :
+
+1. calculer l'embedding de la question ;
+2. retrouver les $k$ morceaux les plus proches ;
+3. (souvent) les **reclasser** avec un modèle plus précis ;
+4. construire le prompt : instructions, morceaux retrouvés, question ;
+5. générer, idéalement en citant les sources.
+
+La proximité entre deux embeddings se mesure le plus souvent par la **similarité cosinus** :
+
+$$
+\cos(u, v) = \frac{u \cdot v}{\lVert u \rVert\, \lVert v \rVert}
+$$
+
+<Exercise
+  id="cosinus"
+  question="Similarité cosinus entre u = (1, 2, 2) et v = (2, 0, 1) (3 décimales) ?"
+  answer={0.596}
+  tolerance={0.002}
+  hint="Produit scalaire 4 ; normes 3 et √5."
+>
+$u \cdot v = 2 + 0 + 2 = 4$, $\lVert u \rVert = 3$, $\lVert v \rVert = \sqrt 5 \approx 2{,}236$, donc $\cos = 4 / 6{,}708 \approx 0{,}596$. Si les embeddings sont **normalisés** (norme 1), le cosinus est simplement le produit scalaire : une seule multiplication matricielle suffit pour comparer une question à un million de morceaux.
+</Exercise>
+
+## Tout se joue à la recherche
+
+Si le bon passage n'est pas retrouvé, le meilleur LLM du monde ne peut pas répondre (ou invente). Voici le guide du service client de la boutique, et quatre questions d'utilisateurs. La recherche ici est **lexicale** (TF-IDF : des mots en commun, pondérés par leur rareté), ce qui rend ses limites bien visibles :
+
+<RagLab id="recherche" challenge="rag-recall" />
+
+Ce que le lab montre :
+
+- **La taille des morceaux** est un compromis : les pages entières contiennent la réponse, mais noient le modèle sous 120 tokens de contexte par morceau (coût, latence, et risque qu'il se concentre sur le mauvais passage) ; les phrases isolées sont précises mais perdent leur contexte, et une phrase courte peut « gagner » sur quelques mots en commun.
+- **Le vocabulaire** : « renvoyer un article » ne partage aucun mot avec « les retours sont acceptés ». La **réécriture de la requête** (souvent faite par un LLM) ou des embeddings sémantiques comblent ce fossé.
+- **k** : plus on récupère de morceaux, meilleur est le rappel, mais plus le prompt est long.
+
+## En code
+
+Un RAG minimal avec un modèle d'embeddings multilingue :
+
+```python
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
+enc = SentenceTransformer("intfloat/multilingual-e5-small")
+chunks = decouper(documents, taille=300, chevauchement=50)
+E = enc.encode(["passage: " + c for c in chunks], normalize_embeddings=True)   # (n_chunks, 384)
+
+def chercher(question, k=4):
+    q = enc.encode("query: " + question, normalize_embeddings=True)            # (384,)
+    scores = E @ q
+    return [chunks[i] for i in np.argsort(-scores)[:k]]
+
+contexte = "\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(chercher(question)))
+prompt = (
+    "Réponds uniquement à partir des extraits ci-dessous et cite leurs numéros. "
+    "Si la réponse n'y est pas, dis-le.\n\n"
+    f"Extraits :\n{contexte}\n\nQuestion : {question}"
+)
+```
+
+<CodeChoice
+  id="scores"
+  question="Les embeddings sont normalisés. Quelle expression donne les similarités cosinus entre la question et tous les morceaux ?"
+  code={`scores = ___   # E : (n_chunks, d), q : (d,)`}
+  options={["E @ q", "np.linalg.norm(E - q, axis=1)", "E * q", "q @ q"]}
+  answer={0}
+>
+Pour des vecteurs de norme 1, le produit scalaire **est** le cosinus : `E @ q` renvoie un score par morceau. La distance euclidienne donnerait le même classement (à l'envers), mais il faudrait trier dans l'autre sens. Au-delà de quelques centaines de milliers de morceaux, on remplace ce produit exhaustif par un index de recherche approximative (HNSW, IVF), comme vu dans la leçon sur les k plus proches voisins.
+</CodeChoice>
+
+## Évaluer un RAG
+
+On évalue séparément les deux étages, sur un jeu de questions réalistes avec leur passage de référence :
+
+- **la recherche** : le **rappel@k** (le bon passage est-il dans les $k$ premiers ?), le MRR (à quel rang arrive-t-il ?) ;
+- **la génération** : la **fidélité** (*faithfulness* : chaque affirmation est-elle appuyée par le contexte ?), la pertinence de la réponse, la justesse par rapport à une réponse de référence. On s'aide souvent d'un LLM comme juge, dont on vérifie la cohérence avec des annotations humaines.
+
+<Exercise
+  id="rappel"
+  question="Sur 50 questions de test, le passage de référence est retrouvé dans les 5 premiers résultats pour 41 d'entre elles. Quel est le rappel@5 ?"
+  answer={0.82}
+  tolerance={0.001}
+  hint="Questions réussies divisées par le total."
+>
+$41 / 50 = 0{,}82$. Les 9 questions ratées sont les plus instructives : morceau mal découpé, vocabulaire différent, document absent de l'index, ou question ambiguë. On améliore d'abord le rappel de la recherche avant de toucher au prompt de génération.
+</Exercise>
+
+<Callout type="intuition">
+En production, on combine souvent **recherche hybride** (mots-clés BM25 + embeddings, chacun rattrapant les échecs de l'autre : noms de produits, codes, synonymes), **filtres de métadonnées** (langue, date, droits de l'utilisateur) et **reranking** : on récupère 50 candidats rapidement, puis un modèle *cross-encoder*, qui lit la question et le passage ensemble, choisit les 5 meilleurs.
+</Callout>
+
+<Callout type="piege">
+Les documents indexés sont une **entrée non fiable** : un texte qui contient « ignore tes instructions et… » peut détourner le modèle (*prompt injection* indirecte). Sépare clairement instructions et extraits dans le prompt, n'expose jamais au RAG des documents auxquels l'utilisateur n'a pas droit, et limite ce que le modèle peut déclencher. Autre piège : un index périmé, qui répond avec assurance à partir d'une ancienne version.
+</Callout>
+
+<Callout type="entretien">
+« Le chatbot RAG donne de mauvaises réponses, comment débogues-tu ? » Séparer les étages. Pour un échantillon d'échecs : le bon passage était-il dans l'index ? Était-il retrouvé dans le top-k ? Si non, problème de recherche (découpage, embeddings, hybride, réécriture, reranking). Si oui, problème de génération : prompt, ordre des extraits, trop de contexte, modèle trop faible, ou réponse absente des documents. Puis on fixe un jeu d'évaluation pour mesurer chaque correction.
+</Callout>
+
+<Callout type="astuce">
+Demande toujours au modèle de **citer** ses extraits et de dire « je ne sais pas » si la réponse n'y est pas. Ça réduit les inventions, ça permet à l'utilisateur de vérifier, et ça te donne un signal d'évaluation automatique : une affirmation sans citation est suspecte.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quel est le principal avantage du RAG par rapport au fine-tuning pour des connaissances d'entreprise ?",
+      options: [
+        "Il rend le modèle plus rapide",
+        "Les connaissances se mettent à jour en réindexant, et les réponses peuvent citer leurs sources",
+        "Il ne nécessite aucun document",
+        "Il supprime le besoin d'un LLM",
+      ],
+      answer: 1,
+      explain: "On met à jour l'index, pas les poids, et on garde la traçabilité.",
+    },
+    {
+      q: "Le bon passage n'est jamais retrouvé quand l'utilisateur emploie un synonyme. Quelle amélioration ?",
+      options: ["Augmenter la température", "Recherche par embeddings sémantiques, hybride, ou réécriture de la requête", "Réduire k à 1", "Supprimer les métadonnées"],
+      answer: 1,
+      explain: "La recherche lexicale ne voit que les mots identiques ; les embeddings capturent le sens.",
+    },
+    {
+      q: "Que mesure le rappel@k d'un système de recherche ?",
+      options: [
+        "La fidélité de la réponse",
+        "La proportion de questions dont le bon passage figure dans les k premiers résultats",
+        "La vitesse de l'index",
+        "Le nombre de documents indexés",
+      ],
+      answer: 1,
+      explain: "C'est la métrique de base de l'étage de recherche.",
+    },
+    {
+      q: "Que fait un reranker de type cross-encoder ?",
+      options: [
+        "Il calcule les embeddings de tous les documents",
+        "Il lit la question et chaque candidat ensemble pour les reclasser plus précisément",
+        "Il génère la réponse",
+        "Il découpe les documents",
+      ],
+      answer: 1,
+      explain: "Plus précis mais plus lent qu'un produit d'embeddings : on l'applique à quelques dizaines de candidats.",
+    },
+    {
+      q: "Morceaux trop gros : quel est le risque principal ?",
+      options: [
+        "Le bon passage n'est jamais retrouvé",
+        "Un contexte long, coûteux, où l'information utile est diluée",
+        "L'index ne fonctionne plus",
+        "Les embeddings deviennent négatifs",
+      ],
+      answer: 1,
+      explain: "Coût et latence augmentent, et le modèle peut s'appuyer sur le mauvais passage.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Décris l'architecture d'un système RAG et ses principaux réglages.">
+Deux pipelines. L'indexation : extraction du texte, découpage en morceaux de quelques centaines de tokens avec chevauchement et en respectant la structure (titres, sections), calcul des embeddings, stockage dans un index vectoriel avec métadonnées (source, date, droits). La requête : éventuellement réécrite, encodée, recherche des $k$ morceaux les plus proches, souvent en hybride avec BM25 et avec des filtres de métadonnées, reranking par un cross-encoder, puis prompt avec instructions, extraits numérotés et question, génération avec citations. Les réglages principaux : taille et chevauchement des morceaux, modèle d'embeddings, $k$, hybride et reranking, et le prompt. On évalue la recherche (rappel@k, MRR) et la génération (fidélité, pertinence) séparément.
+</Interview>
+
+<Interview q="Comment évalues-tu un RAG avant de le mettre en production ?">
+Je construis un jeu de test de questions réalistes, idéalement issues de vrais utilisateurs, avec pour chacune le ou les passages de référence et une réponse attendue. J'évalue la recherche seule (rappel@k, MRR) pour régler découpage, embeddings et reranking, puis la génération : fidélité au contexte, pertinence, justesse, taux de « je ne sais pas » quand la réponse n'existe pas, avec un LLM juge calibré sur un échantillon annoté à la main. J'ajoute des cas adverses (questions hors sujet, documents contradictoires, tentatives d'injection) et je suis ces métriques à chaque changement, puis en production avec les retours utilisateurs.
+</Interview>
+
+<Recap>
+- RAG : chercher les passages utiles, les insérer dans le prompt, générer en citant.
+- Indexation : extraire, découper, embeddings, index vectoriel + métadonnées.
+- Similarité cosinus ; vecteurs normalisés ⇒ produit scalaire ; ANN au-delà de ~100 000 morceaux.
+- Taille des morceaux, $k$, réécriture, hybride (BM25 + dense), reranking : les leviers du rappel.
+- Évaluer séparément : rappel@k, MRR / fidélité, pertinence.
+- Pièges : prompt injection via les documents, droits d'accès, index périmé.
+- RAG pour l'information, fine-tuning pour le comportement.
+</Recap>
+
+<LessonComplete />

@@ -1,0 +1,40 @@
+<FicheSection kind="essentiel">
+- Pré-entraînement : prédire le token suivant (auto-supervisé), sur des milliers de milliards de tokens.
+- Post-entraînement : SFT sur des instructions, puis préférences (RLHF ou DPO).
+- Fine-tuning complet coûteux ; **LoRA** apprend une mise à jour de rang faible sur des poids gelés.
+- QLoRA : modèle de base en 4 bits + adaptateurs LoRA.
+- Prompting d'abord, RAG pour l'information, fine-tuning pour le comportement.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\mathcal L = -\frac{1}{T}\sum_t \ln p_\theta(x_t \mid x_{<t}) \qquad \text{PPL} = e^{\mathcal L}
+$$
+
+$$
+W' = W + \frac{\alpha}{r} BA \qquad \#\text{params} = r(d + k)
+$$
+
+Calcul d'entraînement : $C \approx 6ND$. Chinchilla : $D \approx 20N$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Comparer des perplexités de modèles aux tokenizers différents.
+- Calculer la loss SFT sur les tokens du prompt (labels à −100 oubliés).
+- Fine-tuner pour ajouter des faits qui changent.
+- Petit jeu de fine-tuning de mauvaise qualité : oubli catastrophique, défauts recopiés.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**LoRA ?** Poids gelés, $\Delta W = BA$ de rang $r$, < 1 % de paramètres entraînés, adaptateurs légers, fusionnables à l'inférence.
+
+**Fine-tuning ou RAG ?** Comportement contre information ; souvent les deux.
+
+**Base contre instruct ?** Le modèle de base complète du texte ; l'instruct a été post-entraîné pour suivre des instructions.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- LoRA : rang 8 à 16, alpha = 2 × rang, learning rate 1e-4 à 2e-4.
+- Toujours une baseline : le modèle de départ avec un bon prompt.
+- TRL `SFTTrainer` gère le format de conversation et le masquage des labels.
+</FicheSection>

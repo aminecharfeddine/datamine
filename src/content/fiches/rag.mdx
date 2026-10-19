@@ -1,0 +1,41 @@
+<FicheSection kind="essentiel">
+- RAG : rechercher des passages pertinents, les insérer dans le prompt, générer avec citations.
+- Indexation : extraction, découpage, embeddings, index vectoriel, métadonnées.
+- Requête : réécriture, recherche (hybride), reranking, prompt, génération.
+- Si la recherche échoue, la génération ne peut pas réussir : on optimise d'abord le rappel.
+- Évaluer séparément recherche (rappel@k, MRR) et génération (fidélité, pertinence).
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\cos(u, v) = \frac{u \cdot v}{\lVert u \rVert \lVert v \rVert}
+$$
+
+$$
+\text{rappel@}k = \frac{\#\{\text{questions dont le bon passage est dans le top-}k\}}{\#\{\text{questions}\}}
+$$
+
+MRR : moyenne de $1 / \text{rang}$ du premier bon passage.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Morceaux trop gros (contexte dilué, coûteux) ou trop petits (contexte perdu).
+- Recherche lexicale seule face aux synonymes.
+- Documents non fiables : prompt injection indirecte.
+- Ignorer les droits d'accès, index périmé.
+- Évaluer seulement la réponse finale sans isoler la recherche.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Architecture ?** Indexation + requête, hybride, reranking, citations, métadonnées.
+
+**Déboguer ?** Le passage était-il indexé ? retrouvé ? sinon recherche ; si oui, génération.
+
+**RAG ou fine-tuning ?** Information changeante et citable contre comportement.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Demander des citations et autoriser « je ne sais pas ».
+- Hybride BM25 + dense, puis cross-encoder sur ~50 candidats.
+- Embeddings normalisés : `scores = E @ q`.
+</FicheSection>

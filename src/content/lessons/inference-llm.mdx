@@ -1,0 +1,184 @@
+<Predict
+  id="hook"
+  question="Générer du texte avec un modèle de 70 milliards de paramètres sur un GPU moderne, un utilisateur à la fois. Qu'est-ce qui limite la vitesse, en tokens par seconde ?"
+  options={[
+    "La puissance de calcul du GPU",
+    "La vitesse à laquelle le GPU lit ses poids en mémoire",
+    "Le réseau",
+    "Le tokenizer",
+  ]}
+  answer={1}
+>
+Pour produire **un** token, il faut multiplier le vecteur courant par **toutes** les matrices du modèle : relire 140 Go de poids en 16 bits, pour seulement environ 140 milliards d'opérations. Le GPU calcule bien plus vite qu'il ne lit sa mémoire : il passe l'essentiel de son temps à attendre les données. La génération est **limitée par la bande passante mémoire**. Toute l'ingénierie de l'inférence (quantization, KV cache, batching) découle de cette observation, et elle détermine le coût de chaque requête.
+</Predict>
+
+## Deux phases : prefill et decode
+
+- **Prefill** : le prompt entier (disons 2 000 tokens) traverse le modèle en une passe, toutes les positions en parallèle. Beaucoup de calcul, bien utilisé par le GPU. Il détermine le **temps jusqu'au premier token** (TTFT).
+- **Decode** : ensuite, un token à la fois. Peu de calcul par pas, mais il faut relire tous les poids à chaque pas. Il détermine le **temps par token** (TPOT), donc la vitesse d'affichage.
+
+## Le KV cache
+
+À chaque pas de décodage, le nouveau token doit faire son attention sur **tous** les tokens précédents, qui ont besoin de leurs keys et values. Plutôt que de les recalculer à chaque pas (un coût qui grandit sans cesse), on les **garde en mémoire** : c'est le KV cache. Chaque nouveau token ne calcule que sa propre query, key et value. Mais ce cache a une taille, par token :
+
+$$
+\text{KV par token} = 2 \times L \times n_{kv} \times d_{\text{tête}} \times \text{octets}
+$$
+
+(2 pour K et V, $L$ couches, $n_{kv}$ têtes de key/value de dimension $d_{\text{tête}}$.) Multiplié par la longueur du contexte et par le nombre d'utilisateurs simultanés, il peut dépasser la taille du modèle lui-même.
+
+<Exercise
+  id="kv"
+  question="Llama 3 8B : 32 couches, 8 têtes de key/value de dimension 128, cache en 16 bits (2 octets). Combien de kilo-octets de KV cache par token (1 Ko = 1 000 octets, 3 décimales) ?"
+  answer={131.072}
+  tolerance={0.01}
+  unit="Ko"
+  hint="2 × 32 × 8 × 128 × 2 octets."
+>
+$2 \times 32 \times 8 \times 128 \times 2 = 131\,072$ octets, soit **131,072 Ko** par token. Pour 32 000 tokens de contexte : environ 4,2 Go pour **un seul** utilisateur. Sans GQA (32 têtes de key/value au lieu de 8), ce serait quatre fois plus. C'est la raison d'être de GQA.
+</Exercise>
+
+## La quantization
+
+Stocker les poids sur moins de bits : 16 bits (bf16) par défaut, 8 bits (int8), 4 bits (int4). La mémoire, et la quantité de données à lire à chaque pas, diminuent d'autant. Les méthodes modernes (GPTQ, AWQ, NF4 de QLoRA) choisissent intelligemment l'échelle de chaque groupe de poids : à 8 bits, la perte de qualité est négligeable ; à 4 bits, elle reste faible pour la plupart des usages ; en dessous, elle devient sensible.
+
+<Exercise
+  id="int4"
+  question="Combien de Go occupent les poids d'un modèle de 8 milliards de paramètres en 4 bits ?"
+  answer={4}
+  tolerance={0.01}
+  unit="Go"
+  hint="4 bits = 0,5 octet par paramètre."
+>
+$8 \times 10^9 \times 0{,}5 = 4 \times 10^9$ octets, soit **4 Go**, contre 16 Go en 16 bits. Le modèle tient sur un GPU grand public, voire un ordinateur portable, et chaque pas de décodage lit quatre fois moins de données : il va aussi plus vite.
+</Exercise>
+
+Joue avec les deux leviers sur un GPU donné :
+
+<InferenceLab id="memoire" challenge="inf-fit" />
+
+<Exercise
+  id="debit"
+  question="Un GPU lit sa mémoire à 3 350 Go/s. Le modèle pèse 16 Go (8B en 16 bits). Vitesse maximale de génération pour un seul utilisateur, en tokens par seconde (à l'unité) ?"
+  answer={209}
+  tolerance={2}
+  unit="tokens/s"
+  hint="Chaque token demande de relire tous les poids une fois."
+>
+$3\,350 / 16 \approx 209$ tokens par seconde au mieux (sans compter le KV cache ni les surcoûts). Avec 32 utilisateurs dans le même batch, on relit les poids **une seule fois** par pas pour tous : le débit total est presque multiplié par 32, tant que le KV cache tient en mémoire. C'est tout l'intérêt du batching.
+</Exercise>
+
+## Servir beaucoup d'utilisateurs
+
+- **Continuous batching** : de nouvelles requêtes rejoignent le batch dès qu'une autre se termine, au lieu d'attendre la fin du batch entier.
+- **PagedAttention** (vLLM) : le KV cache est découpé en pages, comme la mémoire virtuelle d'un système d'exploitation, pour éviter le gaspillage dû aux longueurs variables.
+- **Prompt caching** : le KV cache d'un long préfixe commun (prompt système, document) est réutilisé entre requêtes.
+- **Décodage spéculatif** : un petit modèle propose plusieurs tokens, le grand les vérifie en une seule passe ; les tokens acceptés sont gratuits.
+
+```python
+from vllm import LLM, SamplingParams
+
+llm = LLM(model="meta-llama/Llama-3.1-8B-Instruct", max_model_len=8192, gpu_memory_utilization=0.9)
+params = SamplingParams(temperature=0.2, max_tokens=256)
+outputs = llm.generate(["Résume ce ticket client : ...", "Classe ce message : ..."], params)  # batch
+for o in outputs:
+    print(o.outputs[0].text)
+```
+
+Pour charger un modèle en 4 bits avec `transformers` :
+
+```python
+import torch
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+
+bnb = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype=torch.bfloat16)
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B-Instruct", quantization_config=bnb, device_map="auto")
+```
+
+<Callout type="intuition">
+Le **prefill** est limité par le calcul (beaucoup de tokens à la fois, les poids lus une fois servent des milliers de fois) ; le **decode** est limité par la mémoire (un token par pas, les poids lus une fois servent une seule fois par séquence). D'où les deux métriques à surveiller séparément : TTFT, qui dépend surtout de la longueur du prompt, et vitesse de génération, qui dépend surtout de la taille du modèle et de sa précision.
+</Callout>
+
+<Callout type="piege">
+Le KV cache grandit avec **contexte × utilisateurs**. Un service dimensionné pour des prompts de 2 000 tokens peut s'effondrer quand on lui envoie des documents de 100 000 tokens : plus de mémoire, donc moins de requêtes simultanées, donc des files d'attente. Long contexte et fort trafic se paient ensemble.
+</Callout>
+
+<Callout type="entretien">
+« Comment réduire la latence et le coût d'un service LLM ? » Par ordre d'impact : un modèle plus petit (éventuellement fine-tuné ou distillé) si la qualité suit ; la quantization (8 puis 4 bits) ; un moteur d'inférence optimisé (vLLM, TensorRT-LLM) avec continuous batching et PagedAttention ; le prompt caching pour les préfixes communs ; raccourcir les prompts et limiter `max_tokens` ; le décodage spéculatif ; et le streaming de la réponse, qui ne réduit pas la latence totale mais la perception d'attente.
+</Callout>
+
+<Callout type="astuce">
+Règle de calcul rapide : mémoire des poids ≈ paramètres × octets par paramètre (2 en 16 bits, 1 en 8 bits, 0,5 en 4 bits), plus 10 à 20 % de marge, plus le KV cache. Un 70B en 4 bits : environ 35 Go de poids.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "À quoi sert le KV cache ?",
+      options: [
+        "À stocker les poids du modèle",
+        "À éviter de recalculer les keys et values des tokens précédents à chaque pas",
+        "À mettre en cache les réponses complètes",
+        "À compresser le vocabulaire",
+      ],
+      answer: 1,
+      explain: "Chaque nouveau token ne calcule que ses propres q, k, v et réutilise ceux du passé.",
+    },
+    {
+      q: "Pourquoi GQA réduit-il la mémoire à l'inférence ?",
+      options: [
+        "Il réduit le nombre de couches",
+        "Plusieurs têtes de query partagent les mêmes keys et values : moins de KV cache",
+        "Il quantifie les poids",
+        "Il supprime l'attention",
+      ],
+      answer: 1,
+      explain: "Le KV cache est proportionnel au nombre de têtes de key/value.",
+    },
+    {
+      q: "Le temps jusqu'au premier token (TTFT) dépend surtout…",
+      options: ["Du nombre de tokens générés", "De la longueur du prompt (phase de prefill)", "De la température", "Du top-p"],
+      answer: 1,
+      explain: "Tout le prompt doit traverser le modèle avant le premier token généré.",
+    },
+    {
+      q: "Pourquoi le batching augmente-t-il fortement le débit total ?",
+      options: [
+        "Parce que les tokens sont plus courts",
+        "Parce que les poids, lus une fois par pas, servent à toutes les séquences du batch",
+        "Parce qu'il réduit le KV cache",
+        "Parce qu'il baisse la température",
+      ],
+      answer: 1,
+      explain: "La lecture des poids est le goulot d'étranglement ; on l'amortit sur plusieurs utilisateurs.",
+    },
+    {
+      q: "Un modèle de 70 milliards de paramètres en 16 bits occupe environ…",
+      options: ["35 Go", "70 Go", "140 Go", "280 Go"],
+      answer: 2,
+      explain: "70 × 10⁹ × 2 octets = 140 Go : plusieurs GPU, ou de la quantization.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique le KV cache et pourquoi il pose problème avec les longs contextes.">
+Pendant la génération, chaque nouveau token doit faire son attention sur tous les tokens précédents, avec leurs keys et values. Plutôt que de les recalculer à chaque pas, on les garde en mémoire : le coût de chaque pas devient proportionnel à la longueur du contexte au lieu de croître de façon quadratique. En contrepartie, cette mémoire vaut $2 \times L \times n_{kv} \times d_{\text{tête}} \times \text{octets}$ par token, multiplié par la longueur et par le nombre de séquences servies en parallèle : avec de longs contextes, elle dépasse vite la taille des poids et limite le nombre d'utilisateurs simultanés. Les parades : GQA ou MQA (moins de têtes K/V), quantization du cache, PagedAttention pour éviter le gaspillage, attention à fenêtre glissante, et réutilisation des préfixes communs.
+</Interview>
+
+<Interview q="Comment dimensionnerais-tu un serveur pour un modèle de 8 milliards de paramètres ?">
+Je partirais des besoins : nombre d'utilisateurs simultanés, longueur des prompts et des réponses, latence cible (TTFT et tokens par seconde). Mémoire : 16 Go de poids en 16 bits (8 en int8, 4 en int4), plus le KV cache, environ 128 Ko par token avec GQA, soit 1 Go pour 8 000 tokens de contexte et par séquence simultanée, plus une marge. Débit : en décodage, limité par la bande passante mémoire, de l'ordre de la bande passante divisée par la taille des poids pour une séquence, nettement plus en batch. Ensuite je validerais par un test de charge avec vLLM, en mesurant TTFT, débit et latence p99, et j'ajusterais la précision, la longueur maximale et la taille de batch.
+</Interview>
+
+<Recap>
+- **Prefill** (prompt, limité par le calcul, TTFT) puis **decode** (un token par pas, limité par la bande passante mémoire).
+- **KV cache** : évite de recalculer le passé ; taille $2 L\, n_{kv}\, d_{\text{tête}} \times$ octets par token, × contexte × utilisateurs.
+- **GQA** réduit le cache ; **quantization** (8, 4 bits) réduit les poids et accélère le décodage.
+- Vitesse d'une séquence ≈ bande passante / taille des poids ; le **batching** multiplie le débit total.
+- Continuous batching, PagedAttention (vLLM), prompt caching, décodage spéculatif.
+- Mémoire ≈ paramètres × octets + KV cache + marge.
+</Recap>
+
+<LessonComplete />

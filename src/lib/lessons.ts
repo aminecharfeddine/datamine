@@ -2,6 +2,11 @@
 export const LESSON_CONTENT: Record<string, () => Promise<{ default: React.ComponentType }>> = {
   "validation-croisee": () => import("@/content/lessons/validation-croisee.mdx"),
   knn: () => import("@/content/lessons/knn.mdx"),
+  "architecture-transformer": () => import("@/content/lessons/architecture-transformer.mdx"),
+  "pre-entrainement-et-fine-tuning": () => import("@/content/lessons/pre-entrainement-et-fine-tuning.mdx"),
+  "decodage-et-sampling": () => import("@/content/lessons/decodage-et-sampling.mdx"),
+  "inference-llm": () => import("@/content/lessons/inference-llm.mdx"),
+  "rag": () => import("@/content/lessons/rag.mdx"),
   "numpy-et-pandas": () => import("@/content/lessons/numpy-et-pandas.mdx"),
   "pipelines-scikit-learn": () => import("@/content/lessons/pipelines-scikit-learn.mdx"),
   "feature-engineering": () => import("@/content/lessons/feature-engineering.mdx"),

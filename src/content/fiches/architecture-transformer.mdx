@@ -1,0 +1,37 @@
+<FicheSection kind="essentiel">
+- LLM décodeur : embeddings, $L$ blocs, normalisation finale, tête de sortie vers le vocabulaire.
+- Bloc : attention causale puis MLP, chacun précédé d'une normalisation et entouré d'une connexion résiduelle.
+- L'attention mélange les positions ; le MLP transforme chaque token et porte environ 2/3 des paramètres.
+- Choix récents : RMSNorm, SwiGLU, RoPE, GQA, pre-norm.
+- Familles : encodeur (BERT), décodeur (GPT, Llama), encodeur-décodeur (T5).
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+x \leftarrow x + \text{Attn}(\text{Norm}(x)) \qquad x \leftarrow x + \text{MLP}(\text{Norm}(x))
+$$
+
+$$
+\text{RMSNorm}(x) = \frac{x}{\sqrt{\frac{1}{d}\sum_i x_i^2 + \varepsilon}} \odot g
+$$
+
+Par bloc : attention $\approx 4d^2$ ; MLP $2 d\, d_{ff}$ (GELU) ou $3 d\, d_{ff}$ (SwiGLU). Calcul : $\approx 2N$ FLOP par token.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Confondre nombre de paramètres et coût de calcul (MoE).
+- Normaliser le flux résiduel lui-même au lieu de l'entrée des sous-couches.
+- Oublier que les logits ont une valeur par position : à la génération, on prend la dernière.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Architecture d'un LLM ?** Décodeur seul, blocs attention causale + MLP, résidus, RMSNorm, RoPE, GQA, tête de sortie, entraînement par prédiction du token suivant.
+
+**Résidus et normalisation ?** Chemin direct pour le gradient, mises à jour incrémentales, activations stables.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- nanoGPT : un GPT complet en ~300 lignes, parfait pour apprendre et pour un portfolio.
+- Weight tying : économise $V \times d$ paramètres dans les petits modèles.
+- GPT-2 small : 12 blocs, $d = 768$, 124 M de paramètres.
+</FicheSection>

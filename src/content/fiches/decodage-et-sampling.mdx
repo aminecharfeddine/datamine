@@ -1,0 +1,35 @@
+<FicheSection kind="essentiel">
+- Génération autorégressive : un token à la fois, à partir des logits de la dernière position.
+- Greedy : toujours le plus probable ; beam search : $b$ meilleures séquences.
+- Température : forme de la distribution ; top-k et top-p : coupent la queue.
+- Sorties structurées (décodage contraint) pour un format garanti.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+p_i = \frac{e^{z_i/T}}{\sum_j e^{z_j/T}}
+$$
+
+top-p : plus petit ensemble $S$ des tokens les plus probables tel que $\sum_{i \in S} p_i \ge p$, puis renormalisation.
+
+Logits 2, 1, 0 : $p_1 \approx 0{,}665$ à $T = 1$, $\approx 0{,}867$ à $T = 0{,}5$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Utiliser les logits d'une autre position que la dernière.
+- Croire que la température 0 garantit des réponses identiques.
+- Température élevée pour une tâche d'extraction.
+- Demander du JSON dans le prompt sans validation ni décodage contraint.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Température, top-k, top-p ?** Aplatir ou concentrer ; garder $k$ candidats ; garder le noyau de masse $p$.
+
+**Sorties fiables ?** T basse, schéma JSON imposé, validation et relance, tests de stabilité.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Extraction, code, outils : T de 0 à 0,3. Rédaction : 0,7 à 1, top-p 0,9 à 0,95.
+- min-p et pénalités de répétition comme filtres complémentaires.
+- `torch.multinomial` accepte des poids non normalisés.
+</FicheSection>

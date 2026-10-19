@@ -32,11 +32,12 @@ import { CodeChoice } from "@/components/code/CodeChoice";
 import { Parsons } from "@/components/code/Parsons";
 import { PandasLab, BroadcastLab, PipelineLab, FeatureLab, DriftLab } from "@/components/viz/PracticeLabs";
 import { SqlLab } from "@/components/viz/SqlLab";
+import { TransformerSizeLab, LoraLab, SamplingLab, InferenceLab, RagLab } from "@/components/viz/LlmLabs";
 import { NormBalls } from "@/components/viz/NormBalls";
 import { LearningCurves } from "@/components/viz/LearningCurves";
 
 // Composants disponibles dans toutes les leçons MDX, sans import.
-const components: MDXComponents = { Predict, Quiz, Callout, Exercise, Interview, Recap, FicheSection, LessonComplete, ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab, AbLab, CiLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab, PandasLab, BroadcastLab, PipelineLab, FeatureLab, DriftLab, SqlLab, CodeBlock, CodeChoice, Parsons, pre: MdxPre, NormBalls, LearningCurves };
+const components: MDXComponents = { Predict, Quiz, Callout, Exercise, Interview, Recap, FicheSection, LessonComplete, ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab, AbLab, CiLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab, PandasLab, BroadcastLab, PipelineLab, FeatureLab, DriftLab, SqlLab, TransformerSizeLab, LoraLab, SamplingLab, InferenceLab, RagLab, CodeBlock, CodeChoice, Parsons, pre: MdxPre, NormBalls, LearningCurves };
 
 export function useMDXComponents(): MDXComponents {
   return components;
