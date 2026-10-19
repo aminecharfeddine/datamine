@@ -52,6 +52,11 @@ export type LoraState = { r: number; err: number; minR: number };
 export type SamplingState = { T: number; topK: number; kept: number };
 export type InfState = { model: string; ctx: number; fits: boolean; gpu: string };
 export type RagState = { recall: number; avgTokens: number };
+export type RegState = { valLoss: number };
+export type ConvState = { custom: boolean; vertical: number; horizontal: number; diagonal: number };
+export type TransferState = { mode: string; n: number; acc: number };
+export type EmbState = { a: string; b: string; c: string; top: string; expected: string | null };
+export type RnnState = { model: string; T: number; grad: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -490,4 +495,40 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Les gros morceaux coûtent cher, les tout petits se font battre par des phrases courtes. Et une question mal formulée rate les bons mots.",
     check: (s: RagState) => s.recall === 1 && s.avgTokens <= 60,
   } satisfies Challenge<RagState>,
+  // ---------------------------------------------------------------- Deep learning (suite)
+  "reg-val": {
+    id: "reg-val",
+    title: "Dompter le sur-apprentissage",
+    goal: "Le réseau de 64 neurones apprend 60 points par cœur. Ramène la loss de validation du modèle retenu sous 0,35.",
+    hint: "Trois leviers : éteindre des neurones au hasard, rétrécir les poids, ou simplement s'arrêter au bon moment.",
+    check: (s: RegState) => s.valLoss <= 0.35,
+  } satisfies Challenge<RegState>,
+  "cnn-diag": {
+    id: "cnn-diag",
+    title: "Un détecteur de diagonales",
+    goal: "Compose ton propre filtre qui réagit au moins deux fois plus à la diagonale qu'à la barre verticale et à la barre horizontale.",
+    hint: "Un filtre ressemble à ce qu'il détecte : des valeurs positives le long de la forme cherchée, négatives autour.",
+    check: (s: ConvState) => s.custom && s.diagonal >= 2 * Math.max(s.vertical, s.horizontal) && s.diagonal > 0,
+  } satisfies Challenge<ConvState>,
+  "transfer-8": {
+    id: "transfer-8",
+    title: "Huit exemples suffisent",
+    goal: "Avec seulement 8 exemples de la nouvelle tâche, atteins au moins 95 % de précision.",
+    hint: "Un réseau qui part de zéro n'a pas assez de données. Un réseau qui a déjà appris une tâche voisine, si.",
+    check: (s: TransferState) => s.n === 8 && s.acc >= 0.95,
+  } satisfies Challenge<TransferState>,
+  "emb-analogy": {
+    id: "emb-analogy",
+    title: "L'arithmétique des mots",
+    goal: "Construis une analogie « capitale − son pays + un autre pays » dont le premier résultat est la bonne capitale.",
+    hint: "Choisis une capitale et son propre pays en A et B, puis un autre pays en C. Toutes les combinaisons ne marchent pas sur un si petit corpus.",
+    check: (s: EmbState) => s.expected !== null && s.top === s.expected,
+  } satisfies Challenge<EmbState>,
+  "rnn-memory": {
+    id: "rnn-memory",
+    title: "Se souvenir de 100 pas",
+    goal: "Garde un gradient d'au moins 0,1 après 100 pas de temps, sans qu'il explose (au plus 10).",
+    hint: "Pour le RNN, le gradient est multiplié par le même facteur à chaque pas. Le LSTM a une autre route.",
+    check: (s: RnnState) => s.T >= 100 && s.grad >= 0.1 && s.grad <= 10,
+  } satisfies Challenge<RnnState>,
 };

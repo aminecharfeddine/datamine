@@ -1,0 +1,37 @@
+<FicheSection kind="essentiel">
+- RNN : état caché mis à jour à chaque pas avec les mêmes poids.
+- Rétropropagation à travers le temps : gradient multiplié à chaque pas.
+- Évanouissement ou explosion exponentiels avec la longueur.
+- LSTM : état de cellule additif et portes ; GRU : deux portes.
+- L'attention a remplacé les RNN pour le texte ; ils restent utiles en flux.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+h_t = \tanh(W_h h_{t-1} + W_x x_t + b)
+$$
+
+$$
+c_t = f_t \odot c_{t-1} + i_t \odot \tilde c_t \qquad h_t = o_t \odot \tanh(c_t)
+$$
+
+Paramètres d'un RNN : $d_h d_x + d_h^2 + d_h$ ; LSTM : environ 4 fois plus.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- `batch_first=False` par défaut dans `nn.LSTM`.
+- Pas de gradient clipping : pics et `nan`.
+- Utiliser un LSTM là où un gradient boosting sur des décalages suffit.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Vanishing gradient dans un RNN ?** Produit de facteurs < 1 sur T pas ; LSTM : chemin additif contrôlé par la porte d'oubli.
+
+**RNN ou Transformer ?** Transformer pour texte et grandes données ; RNN ou SSM pour le flux à mémoire constante.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `clip_grad_norm_(model.parameters(), 1.0)` entre `backward` et `step`.
+- `out[:, -1, :]` pour classer une séquence avec le dernier état.
+- Mamba, RWKV : la récurrence revient, parallélisable.
+</FicheSection>

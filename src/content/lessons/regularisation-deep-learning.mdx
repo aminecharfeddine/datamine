@@ -1,0 +1,187 @@
+<Predict
+  id="hook"
+  question="Ton réseau atteint 99 % de précision en entraînement et 75 % en validation. Laquelle de ces actions est la MOINS pertinente ?"
+  options={[
+    "Ajouter du dropout",
+    "Ajouter des données ou de l'augmentation de données",
+    "Entraîner plus longtemps",
+    "Ajouter du weight decay",
+  ]}
+  answer={2}
+>
+L'écart entre 99 % et 75 % est la signature de l'**overfitting** : le réseau a appris ses exemples par cœur, bruit compris. Entraîner plus longtemps creuse encore l'écart. Un réseau profond a souvent bien plus de paramètres que d'exemples : il peut tout mémoriser. Le deep learning a donc développé ses propres outils de régularisation, à connaître par cœur : dropout, weight decay, early stopping, augmentation de données, normalisation.
+</Predict>
+
+## Dropout : éteindre des neurones au hasard
+
+À chaque pas d'entraînement, chaque neurone d'une couche est **éteint** avec une probabilité $p$ (souvent 0,1 à 0,5). Le réseau ne peut plus compter sur un neurone particulier : il doit répartir l'information, ce qui donne des représentations plus robustes. En **dropout inversé** (celui de PyTorch), on multiplie les neurones restants par $1/(1-p)$ pour que la sortie garde la même moyenne :
+
+$$
+\tilde h = \frac{m \odot h}{1 - p}
+\qquad
+m_i \sim \text{Bernoulli}(1 - p)
+$$
+
+À l'évaluation, on n'éteint plus rien et on ne multiplie plus : c'est pour cela que `model.eval()` est indispensable.
+
+<Exercise
+  id="dropout"
+  question="Dropout avec p = 0,5 pendant l'entraînement. Un neurone qui n'est pas éteint a l'activation 3,0. Quelle valeur transmet-il à la couche suivante ?"
+  answer={6}
+  tolerance={0.001}
+  hint="On divise par (1 − p)."
+>
+$3{,}0 / (1 - 0{,}5) = 6{,}0$. En moyenne sur les tirages, la sortie vaut $0{,}5 \times 0 + 0{,}5 \times 6 = 3$, exactement l'activation sans dropout. À l'évaluation, le neurone transmet directement 3,0.
+</Exercise>
+
+## Weight decay et early stopping
+
+Le **weight decay** rétrécit légèrement tous les poids à chaque pas : c'est la régularisation L2 vue avec la régression ridge, appliquée correctement avec Adam par **AdamW**. Des poids plus petits donnent une fonction plus lisse.
+
+L'**early stopping** surveille la loss de validation et garde le modèle du moment où elle était la plus basse. Simple, efficace, et presque gratuit : il suffit d'évaluer à chaque époque. On attend généralement quelques époques sans amélioration (la *patience*) avant d'arrêter.
+
+Ci-dessous, un réseau de 64 neurones et 60 points bruités. Sans précaution, il apprend tout par cœur :
+
+<RegLab id="regulariser" challenge="reg-val" />
+
+Regarde la courbe de validation sans régularisation : elle descend jusqu'à l'époque 70 environ, puis remonte pendant que l'entraînement continue de baisser. Au-delà, chaque époque rend le modèle **pire** sur des données nouvelles. La frontière, elle, se tord pour contourner chaque point bruité.
+
+## Normalisation : BatchNorm et LayerNorm
+
+La **BatchNorm** normalise chaque neurone sur le mini-batch (moyenne 0, écart-type 1), puis applique une échelle $\gamma$ et un décalage $\beta$ appris :
+
+$$
+\hat x = \frac{x - \mu_B}{\sqrt{\sigma_B^2 + \varepsilon}}
+\qquad
+y = \gamma \hat x + \beta
+$$
+
+Elle stabilise et accélère l'entraînement, avec un léger effet régularisant (le bruit des statistiques du batch). À l'évaluation, elle utilise des moyennes accumulées pendant l'entraînement. La **LayerNorm** normalise chaque exemple sur ses propres dimensions, indépendamment du batch : c'est celle des Transformers.
+
+<Exercise
+  id="batchnorm"
+  question="Un neurone vaut 2, 4 et 6 sur les trois exemples d'un batch. Après BatchNorm (γ = 1, β = 0, ε négligeable), que devient la valeur 6 (3 décimales) ?"
+  answer={1.225}
+  tolerance={0.002}
+  hint="Moyenne 4 ; variance (4 + 0 + 4) / 3."
+>
+Moyenne 4, variance $8/3 \approx 2{,}667$, écart-type $\approx 1{,}633$ : $(6 - 4) / 1{,}633 \approx 1{,}225$. La même valeur 6 dans un autre batch donnerait un autre résultat : c'est pourquoi BatchNorm se comporte différemment en entraînement et en évaluation, et pose problème avec de très petits batches.
+</Exercise>
+
+## En PyTorch
+
+```python
+import copy
+import torch
+from torch import nn
+
+model = nn.Sequential(
+    nn.Linear(20, 256), nn.BatchNorm1d(256), nn.ReLU(), nn.Dropout(0.3),
+    nn.Linear(256, 256), nn.BatchNorm1d(256), nn.ReLU(), nn.Dropout(0.3),
+    nn.Linear(256, 10),
+)
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.05)
+
+best, patience, wait = float("inf"), 5, 0
+for epoch in range(200):
+    train_one_epoch(model, train_loader, optimizer)   # model.train() à l'intérieur
+    val = evaluate(model, val_loader)                 # model.eval() + torch.no_grad()
+    if val < best:
+        best, wait = val, 0
+        best_state = copy.deepcopy(model.state_dict())
+    else:
+        wait += 1
+        if wait >= patience:
+            break
+model.load_state_dict(best_state)                     # on garde le meilleur, pas le dernier
+```
+
+<CodeChoice
+  id="early"
+  question="Early stopping : que faire quand la loss de validation s'améliore ?"
+  code={`if val_loss < best:
+    best = val_loss
+    ___`}
+  options={['torch.save(model.state_dict(), "best.pt")', "model.eval()", "optimizer.zero_grad()", "break"]}
+  answer={0}
+>
+On **sauvegarde** les poids de ce moment-là (sur disque, ou une copie en mémoire). Quand la patience est épuisée, on recharge cette sauvegarde : le modèle final est celui du minimum de validation, pas celui des dernières époques, qui a déjà commencé à sur-apprendre.
+</CodeChoice>
+
+<Callout type="intuition">
+Le dropout entraîne à chaque pas un sous-réseau différent, tiré parmi un nombre astronomique de sous-réseaux qui partagent leurs poids. À l'évaluation, utiliser le réseau complet revient approximativement à **moyenner** tous ces sous-réseaux : c'est un ensemble, comme une forêt aléatoire, mais quasi gratuit.
+</Callout>
+
+<Callout type="piege">
+Oublier `model.eval()` à l'évaluation laisse le dropout actif (prédictions aléatoires et dégradées) et fait utiliser à BatchNorm les statistiques du batch de test. Inversement, oublier `model.train()` en revenant à l'entraînement désactive la régularisation sans prévenir. Dernier piège : un batch de taille 1 avec BatchNorm, qui ne peut pas calculer de variance.
+</Callout>
+
+<Callout type="entretien">
+BatchNorm ou LayerNorm ? BatchNorm normalise chaque caractéristique sur le batch : très efficace pour les CNN avec des batches assez grands, mais dépendante de la taille du batch et différente entre entraînement et inférence. LayerNorm normalise chaque exemple sur ses caractéristiques : indépendante du batch, identique à l'entraînement et à l'inférence, adaptée aux séquences de longueur variable. C'est pour cela que les Transformers utilisent LayerNorm (ou RMSNorm).
+</Callout>
+
+<Callout type="astuce">
+Le régularisateur le plus efficace reste **plus de données**. Quand on ne peut pas en collecter, on en fabrique : l'**augmentation de données** applique des transformations qui ne changent pas l'étiquette (recadrage, retournement, rotation légère, variation de couleurs pour les images ; bruit, décalage temporel pour l'audio). En vision, c'est souvent plus utile que tout le reste réuni.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Pendant l'évaluation, le dropout…",
+      options: ["Éteint toujours p % des neurones", "Est désactivé : tous les neurones sont utilisés, sans mise à l'échelle", "Double toutes les activations", "Est remplacé par BatchNorm"],
+      answer: 1,
+      explain: "Avec le dropout inversé, la mise à l'échelle a déjà eu lieu pendant l'entraînement.",
+    },
+    {
+      q: "La loss d'entraînement baisse et celle de validation remonte depuis 20 époques. Que fait l'early stopping ?",
+      options: ["Il augmente le learning rate", "Il arrête et restaure le modèle du minimum de validation", "Il continue jusqu'à la fin", "Il ajoute du dropout"],
+      answer: 1,
+      explain: "C'est le modèle du meilleur moment sur des données nouvelles qu'on garde.",
+    },
+    {
+      q: "Pourquoi AdamW plutôt qu'Adam avec une pénalité L2 dans la loss ?",
+      options: [
+        "AdamW est plus rapide",
+        "Dans Adam, la pénalité passe par le pas adaptatif et perd son effet ; AdamW rétrécit les poids directement",
+        "Adam ne supporte pas la régularisation",
+        "Pour réduire la mémoire",
+      ],
+      answer: 1,
+      explain: "Le weight decay découplé régularise de façon homogène, quel que soit l'historique des gradients.",
+    },
+    {
+      q: "Quelle augmentation de données serait une erreur pour reconnaître des chiffres manuscrits ?",
+      options: ["Légère rotation", "Petit décalage", "Retournement vertical (haut-bas)", "Léger bruit"],
+      answer: 2,
+      explain: "Un 6 retourné devient un 9 : l'augmentation ne doit jamais changer l'étiquette.",
+    },
+    {
+      q: "Quelle normalisation utilisent les Transformers ?",
+      options: ["BatchNorm", "LayerNorm ou RMSNorm", "Aucune", "Dropout"],
+      answer: 1,
+      explain: "Indépendante du batch et de la longueur des séquences.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment lutter contre l'overfitting d'un réseau de neurones ?">
+D'abord le diagnostic : comparer les courbes d'entraînement et de validation. Ensuite, par ordre d'efficacité habituel : plus de données ou de l'augmentation de données ; l'early stopping sur la loss de validation ; le weight decay (AdamW) ; le dropout dans les couches denses ; réduire la taille du modèle si elle est disproportionnée ; partir d'un modèle pré-entraîné plutôt que de zéro. La normalisation (BatchNorm, LayerNorm) aide surtout l'optimisation mais régularise un peu. Je règle ces hyperparamètres en validation, jamais sur le test.
+</Interview>
+
+<Interview q="Explique le dropout et pourquoi il fonctionne.">
+Pendant l'entraînement, chaque neurone d'une couche est mis à zéro avec une probabilité $p$, et les autres sont multipliés par $1/(1-p)$ pour conserver l'espérance. Le réseau ne peut plus s'appuyer sur des co-adaptations fragiles entre neurones précis : il apprend des représentations redondantes et robustes. On peut le voir comme l'entraînement simultané d'une multitude de sous-réseaux partageant leurs poids, que le réseau complet moyenne à l'inférence, où le dropout est désactivé (`model.eval()`). Typiquement $p$ entre 0,1 et 0,5, surtout dans les couches denses.
+</Interview>
+
+<Recap>
+- Overfitting : la loss de validation remonte pendant que celle d'entraînement baisse.
+- **Dropout** : neurones éteints avec probabilité $p$, survivants × $1/(1-p)$ ; désactivé à l'évaluation.
+- **Weight decay** (AdamW) : poids rétrécis à chaque pas.
+- **Early stopping** : garder le modèle du minimum de validation, avec une patience.
+- **BatchNorm** (par caractéristique, sur le batch) contre **LayerNorm** (par exemple) ; `model.eval()` change leur comportement.
+- **Augmentation de données** : transformations qui préservent l'étiquette ; souvent le levier le plus fort.
+</Recap>
+
+<LessonComplete />

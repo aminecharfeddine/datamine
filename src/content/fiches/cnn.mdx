@@ -1,0 +1,37 @@
+<FicheSection kind="essentiel">
+- Convolution : un filtre appris glisse sur l'image et produit une carte d'activation.
+- Partage de poids et localité : peu de paramètres, équivariance par translation.
+- Canaux : un filtre par carte ; pooling pour réduire la taille.
+- Hiérarchie : bords, textures, parties, objets.
+- Architectures : LeNet, AlexNet, VGG, ResNet ; ViT aujourd'hui.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+S(i,j) = \sum_a \sum_b I(i+a, j+b)\, K(a,b) + b_0
+$$
+
+$$
+n_{\text{sortie}} = \left\lfloor \frac{n - k + 2p}{s} \right\rfloor + 1
+$$
+
+Paramètres de `Conv2d(c_in, c_out, k)` : $c_{out}(k^2 c_{in} + 1)$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Format HWC au lieu de NCHW.
+- Normalisation des images différente de l'entraînement.
+- Mauvaise taille d'entrée de la couche linéaire après `Flatten`.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**CNN plutôt que MLP ?** Localité, partage de poids, beaucoup moins de paramètres, équivariance, hiérarchie.
+
+**Champ réceptif ?** Zone d'entrée qui influence un neurone ; grandit avec la profondeur, le pooling, les pas, la dilatation.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `nn.LazyLinear` ou `nn.AdaptiveAvgPool2d(1)` pour éviter les erreurs de taille.
+- Deux 3 × 3 empilés voient comme un 5 × 5, avec moins de paramètres.
+- Partir d'un modèle pré-entraîné plutôt que de zéro.
+</FicheSection>

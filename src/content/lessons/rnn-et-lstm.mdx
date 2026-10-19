@@ -1,0 +1,164 @@
+<Predict
+  id="hook"
+  question="Un réseau récurrent simple (RNN) lit une phrase de 100 mots, un mot à la fois. À la fin, que reste-t-il en général de l'information du premier mot ?"
+  options={["Tout, intact", "Presque rien : elle s'est diluée au fil des pas", "Exactement la moitié", "Elle a été dupliquée"]}
+  answer={1}
+>
+Un RNN résume tout le passé dans un seul vecteur, mis à jour à chaque mot. L'information ancienne est sans cesse retransformée et s'efface ; surtout, pendant l'entraînement, le gradient qui doit remonter jusqu'au premier mot est multiplié cent fois par des facteurs souvent inférieurs à 1, et **s'évanouit**. Comprendre ce problème explique pourquoi les LSTM ont été inventés, puis pourquoi l'attention les a remplacés. C'est un classique d'entretien.
+</Predict>
+
+## Un réseau avec une mémoire
+
+Pour traiter une séquence $x_1, x_2, \dots, x_T$ (mots, mesures d'un capteur, cours de bourse), un **RNN** applique la même cellule à chaque pas, en lui passant un **état caché** $h_t$ qui sert de mémoire :
+
+$$
+h_t = \tanh(W_h\, h_{t-1} + W_x\, x_t + b)
+$$
+
+Les mêmes poids $W_h$, $W_x$ sont réutilisés à chaque pas : c'est le partage de poids, mais dans le temps. Pour entraîner, on « déroule » le réseau sur la séquence et on rétropropage à travers tous les pas (*backpropagation through time*).
+
+<Exercise
+  id="params"
+  question="Une cellule RNN reçoit des entrées de dimension 10 et a un état caché de dimension 20. Combien de paramètres (W_x, W_h et un vecteur de biais) ?"
+  answer={620}
+  tolerance={0}
+  hint="W_x : 20 × 10 ; W_h : 20 × 20 ; b : 20."
+>
+$20 \times 10 + 20 \times 20 + 20 = 620$, quelle que soit la longueur de la séquence. (PyTorch utilise deux vecteurs de biais, d'où 640 pour `nn.RNN(10, 20)`.) Un LSTM a quatre fois ces matrices, une par porte.
+</Exercise>
+
+## Le gradient à travers le temps
+
+En remontant de $h_T$ à $h_0$, le gradient est multiplié à chaque pas par la dérivée de la cellule, de l'ordre de $W_h \cdot \tanh'$. Sur $T$ pas, ce facteur est élevé à la puissance $T$ : s'il vaut un peu moins de 1, le gradient s'**évanouit** exponentiellement ; un peu plus, il **explose**.
+
+<Exercise
+  id="decay"
+  question="Si le gradient est multiplié par 0,9 à chaque pas, que reste-t-il après 50 pas (4 décimales) ?"
+  answer={0.0052}
+  tolerance={0.0002}
+  hint="0,9 puissance 50."
+>
+$0{,}9^{50} \approx 0{,}0052$ : moins de 1 % du signal. Après 100 pas, $2{,}7 \times 10^{-5}$. Le modèle ne peut plus relier la fin de la séquence à son début : il n'apprend que des dépendances courtes.
+</Exercise>
+
+<RnnLab id="memoire" challenge="rnn-memory" />
+
+## Le LSTM : une autoroute pour la mémoire
+
+Le **LSTM** (*Long Short-Term Memory*) ajoute à côté de l'état caché un **état de cellule** $c_t$, mis à jour de façon presque additive, sous le contrôle de trois **portes** (des sigmoïdes entre 0 et 1) : la porte d'oubli $f_t$ (que garder de l'ancienne mémoire), la porte d'entrée $i_t$ (quoi écrire) et la porte de sortie $o_t$ (quoi exposer) :
+
+$$
+c_t = f_t \odot c_{t-1} + i_t \odot \tilde c_t
+\qquad
+h_t = o_t \odot \tanh(c_t)
+$$
+
+Le long de $c_t$, le gradient n'est multiplié que par $f_t$ à chaque pas. Si le réseau apprend à garder $f_t$ proche de 1 pour une information importante, elle traverse des centaines de pas. Le **GRU** est une variante plus simple, avec deux portes, aux performances souvent comparables.
+
+```python
+import torch
+from torch import nn
+
+lstm = nn.LSTM(input_size=32, hidden_size=64, num_layers=2, batch_first=True)
+x = torch.randn(8, 100, 32)                # 8 séquences de 100 pas, 32 caractéristiques
+out, (h_n, c_n) = lstm(x)
+print(out.shape)                           # (8, 100, 64) : l'état caché à chaque pas
+print(h_n.shape)                           # (2, 8, 64)  : le dernier état de chaque couche
+logits = nn.Linear(64, 3)(out[:, -1, :])   # classifier la séquence avec le dernier état
+```
+
+<CodeChoice
+  id="clip"
+  question="Ton RNN a des pics de loss et parfois des nan (gradients qui explosent). Quelle ligne ajouter entre backward et step ?"
+  code={`loss.backward()
+___
+optimizer.step()`}
+  options={["torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)", "optimizer.zero_grad()", "model.eval()", "loss = loss / 2"]}
+  answer={0}
+>
+Le **gradient clipping** ramène la norme totale du gradient à 1 (ou une autre borne) quand elle la dépasse : la direction est conservée, mais le pas ne peut plus exploser. C'est un standard pour les RNN, et on l'utilise aussi pour entraîner les Transformers. Il ne règle pas le problème inverse, l'évanouissement, que seuls l'architecture (LSTM, résidus) ou l'attention résolvent.
+</CodeChoice>
+
+<Callout type="intuition">
+Pourquoi l'attention a-t-elle gagné ? Un RNN doit faire passer toute l'information par un goulot d'étranglement (un seul vecteur), pas à pas, et ne peut pas paralléliser le traitement d'une séquence : le pas $t$ attend le pas $t - 1$. L'attention relie directement n'importe quelle paire de positions, en un seul pas, et traite toute la séquence en parallèle sur GPU, ce qui a permis d'entraîner sur des milliers de milliards de tokens.
+</Callout>
+
+<Callout type="piege">
+Avec `batch_first=False` (la valeur par défaut de `nn.LSTM`), PyTorch attend des tenseurs de forme `(longueur, batch, caractéristiques)`. Passer `(batch, longueur, …)` sans le préciser ne lève aucune erreur si les tailles sont compatibles : le modèle traite simplement les mauvais axes comme le temps. Précise toujours `batch_first=True` et vérifie les formes.
+</Callout>
+
+<Callout type="entretien">
+Les RNN ne sont pas morts : ils restent utiles quand il faut traiter un **flux** en temps réel avec une mémoire constante (capteurs, audio en streaming, appareils embarqués), car leur coût par pas ne dépend pas de la longueur du passé, contrairement à l'attention. Les **modèles à espace d'états** récents (Mamba, RWKV) reprennent cette idée récurrente avec un entraînement parallélisable, comme alternative aux Transformers pour les très longues séquences.
+</Callout>
+
+<Callout type="astuce">
+Pour une série temporelle tabulaire (ventes, capteurs), commence par des variables de décalage et de fenêtres glissantes avec un gradient boosting : c'est souvent plus précis et bien plus simple qu'un LSTM. Réserve les réseaux récurrents ou les Transformers aux séquences longues, brutes et nombreuses.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que contient l'état caché h_t d'un RNN ?",
+      options: ["Seulement l'entrée x_t", "Un résumé de toute la séquence jusqu'au pas t", "Les poids du réseau", "La sortie finale"],
+      answer: 1,
+      explain: "Il est mis à jour à chaque pas à partir de h_{t−1} et de x_t : c'est la mémoire du réseau.",
+    },
+    {
+      q: "Pourquoi le gradient s'évanouit-il dans un RNN simple sur de longues séquences ?",
+      options: [
+        "Parce que les séquences sont trop courtes",
+        "Parce qu'il est multiplié à chaque pas par un facteur souvent inférieur à 1",
+        "Parce que tanh est linéaire",
+        "Parce que le learning rate est trop grand",
+      ],
+      answer: 1,
+      explain: "Un produit de T facteurs < 1 décroît exponentiellement avec T.",
+    },
+    {
+      q: "Quel élément du LSTM permet de conserver l'information longtemps ?",
+      options: ["La porte de sortie", "L'état de cellule, mis à jour de façon additive sous la porte d'oubli", "Le biais", "La fonction softmax"],
+      answer: 1,
+      explain: "Le long de c_t, le gradient n'est multiplié que par la porte d'oubli, qui peut rester proche de 1.",
+    },
+    {
+      q: "Que fait le gradient clipping ?",
+      options: [
+        "Il supprime les petits gradients",
+        "Il plafonne la norme du gradient pour éviter les explosions",
+        "Il accélère la convergence en doublant le gradient",
+        "Il remplace le dropout",
+      ],
+      answer: 1,
+      explain: "La direction est gardée, la longueur est bornée.",
+    },
+    {
+      q: "Quel avantage décisif l'attention a-t-elle sur les RNN pour l'entraînement à grande échelle ?",
+      options: ["Moins de paramètres", "Le traitement parallèle de toute la séquence et des liens directs entre positions éloignées", "Pas besoin de GPU", "Pas besoin de données"],
+      answer: 1,
+      explain: "Un RNN doit traiter les pas l'un après l'autre ; l'attention les traite tous à la fois.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique le problème du vanishing gradient dans les RNN et comment le LSTM le résout.">
+Dans un RNN, le gradient de la loss par rapport à un état ancien est un produit de jacobiennes, une par pas de temps, de l'ordre de $W_h$ fois la dérivée de tanh. Si ces facteurs sont inférieurs à 1, le produit décroît exponentiellement avec la distance : le réseau ne peut pas apprendre de dépendances longues ; s'ils sont supérieurs à 1, il explose (on le contient par gradient clipping). Le LSTM ajoute un état de cellule mis à jour de façon additive, $c_t = f_t \odot c_{t-1} + i_t \odot \tilde c_t$, contrôlé par des portes apprises : le long de ce chemin, le gradient n'est multiplié que par la porte d'oubli, que le réseau peut maintenir proche de 1 pour transporter une information sur des centaines de pas.
+</Interview>
+
+<Interview q="RNN, LSTM ou Transformer : lequel choisir pour une séquence ?">
+Pour du texte ou de longues séquences avec beaucoup de données, un Transformer (souvent pré-entraîné), pour l'attention directe entre positions et l'entraînement parallèle. Pour du traitement en flux avec une mémoire et une latence constantes (embarqué, audio en temps réel), un LSTM, un GRU ou un modèle à espace d'états. Pour des séries temporelles tabulaires classiques, je commencerais souvent par un gradient boosting sur des variables de décalage, plus simple à régler et à expliquer, avant tout modèle séquentiel profond.
+</Interview>
+
+<Recap>
+- RNN : $h_t = \tanh(W_h h_{t-1} + W_x x_t + b)$, mêmes poids à chaque pas.
+- Entraînement : rétropropagation à travers le temps.
+- Gradient multiplié à chaque pas : **évanouissement** ou **explosion** exponentiels.
+- **LSTM** : état de cellule additif, portes d'oubli, d'entrée, de sortie ; **GRU** : version simplifiée.
+- **Gradient clipping** contre l'explosion.
+- L'attention a gagné : liens directs, parallélisme ; les RNN restent utiles pour le flux.
+- PyTorch : `batch_first=True`, `out` (tous les pas), `h_n` (dernier état).
+</Recap>
+
+<LessonComplete />

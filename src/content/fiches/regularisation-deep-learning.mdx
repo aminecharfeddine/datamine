@@ -1,0 +1,38 @@
+<FicheSection kind="essentiel">
+- Overfitting : écart croissant entre entraînement et validation.
+- Dropout : éteindre des neurones au hasard pendant l'entraînement, jamais à l'évaluation.
+- Weight decay (AdamW) : rétrécir les poids à chaque pas.
+- Early stopping : garder le modèle du minimum de validation.
+- BatchNorm (batch) / LayerNorm (exemple) ; augmentation de données.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\tilde h = \frac{m \odot h}{1-p}, \quad m_i \sim \text{Bernoulli}(1-p)
+$$
+
+$$
+\hat x = \frac{x - \mu_B}{\sqrt{\sigma_B^2 + \varepsilon}}, \quad y = \gamma \hat x + \beta
+$$
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Oublier `model.eval()` (dropout actif) ou `model.train()` (régularisation coupée).
+- Garder le dernier modèle au lieu du meilleur.
+- BatchNorm avec des batches minuscules.
+- Augmentation qui change l'étiquette (6 retourné en 9).
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Contre l'overfitting ?** Données et augmentation, early stopping, weight decay, dropout, modèle plus petit, pré-entraînement.
+
+**Dropout ?** Ensemble implicite de sous-réseaux ; désactivé à l'inférence.
+
+**BatchNorm ou LayerNorm ?** CNN avec grands batches contre séquences et Transformers.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- AdamW avec `weight_decay` de 0,01 à 0,1 comme point de départ.
+- Dropout de 0,1 à 0,5 dans les couches denses.
+- Patience de 5 à 10 époques pour l'early stopping.
+</FicheSection>

@@ -1,0 +1,158 @@
+<Predict
+  id="hook"
+  question="Une photo couleur de 224 × 224 pixels entre dans une couche dense (entièrement connectée) de 1 000 neurones. Combien de poids rien que pour cette couche ?"
+  options={["Environ 150 000", "Environ 1,5 million", "Environ 150 millions", "Environ 15 milliards"]}
+  answer={2}
+>
+$224 \times 224 \times 3 = 150\,528$ entrées, chacune reliée à 1 000 neurones : plus de **150 millions** de poids, pour une seule couche, qui ignore en plus que deux pixels voisins sont liés et qu'un chat reste un chat s'il est décalé de 10 pixels. Les **réseaux convolutifs** (CNN) règlent les deux problèmes : un petit filtre de quelques poids glisse sur toute l'image et réutilise les mêmes poids partout.
+</Predict>
+
+## La convolution
+
+Un **filtre** (ou noyau) de taille $3 \times 3$ est posé sur chaque position de l'image ; on multiplie ses 9 poids par les 9 pixels en dessous et on additionne. Le résultat, calculé partout, forme une **carte d'activation** (*feature map*) :
+
+$$
+S(i, j) = \sum_{a} \sum_{b} I(i + a,\, j + b)\, K(a, b) + b_0
+$$
+
+Un filtre ressemble à ce qu'il détecte. Avec des valeurs positives à gauche et négatives à droite, il répond fort là où l'intensité change horizontalement : il détecte les **bords verticaux**. Dans un CNN, ces filtres ne sont pas choisis à la main : ils sont **appris** par rétropropagation.
+
+<ConvLab id="filtres" challenge="cnn-diag" />
+
+## Couches, canaux et pooling
+
+- Une couche convolutive applique **plusieurs** filtres (32, 64, 128…) : chacun produit sa carte, et les cartes s'empilent en **canaux**. Un filtre de la couche suivante regarde tous les canaux à la fois.
+- Le **pas** (*stride*) déplace le filtre de plus d'un pixel ; le **padding** ajoute une bordure de zéros pour contrôler la taille de sortie.
+- Le **pooling** (souvent max pooling $2 \times 2$) réduit la taille en gardant le maximum de chaque bloc : moins de calcul, et un peu d'invariance aux petits décalages.
+
+Taille de sortie d'une convolution, pour une entrée de taille $n$, un filtre $k$, un padding $p$ et un pas $s$ :
+
+$$
+n_{\text{sortie}} = \left\lfloor \frac{n - k + 2p}{s} \right\rfloor + 1
+$$
+
+<Exercise
+  id="taille"
+  question="Image 32 × 32, filtre 5 × 5, sans padding, pas de 1. Quelle est la taille de la carte de sortie (un côté) ?"
+  answer={28}
+  tolerance={0}
+  hint="(32 − 5 + 0) / 1 + 1."
+>
+$(32 - 5 + 0)/1 + 1 = 28$ : sans padding, chaque convolution rogne l'image de $k - 1$ pixels. Avec `padding=2`, on garde 32 × 32 (*same padding*).
+</Exercise>
+
+<Exercise
+  id="params"
+  question="Combien de paramètres dans nn.Conv2d(3, 64, kernel_size=3) (avec biais) ?"
+  answer={1792}
+  tolerance={0}
+  hint="Chaque filtre a 3 × 3 × 3 poids (un 3 × 3 par canal d'entrée), plus un biais ; il y a 64 filtres."
+>
+$64 \times (3 \times 3 \times 3) + 64 = 1\,792$ paramètres, quelle que soit la taille de l'image, contre 150 millions pour la couche dense de l'introduction. C'est le **partage de poids** : le même détecteur sert à toutes les positions.
+</Exercise>
+
+## La hiérarchie des représentations
+
+En empilant convolutions et pooling, chaque neurone « voit » une zone de plus en plus grande de l'image (son **champ réceptif**). Les premières couches apprennent des bords et des couleurs, les suivantes des textures et des motifs, puis des parties d'objets (un œil, une roue), et les dernières des objets entiers. C'est ce qu'on observe en visualisant les filtres d'un réseau entraîné.
+
+```python
+import torch
+from torch import nn
+
+class SmallCNN(nn.Module):                                # images 1 × 28 × 28 (chiffres manuscrits)
+    def __init__(self, n_classes=10):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, padding=1), nn.ReLU(),   # (B, 16, 28, 28)
+            nn.MaxPool2d(2),                                          # (B, 16, 14, 14)
+            nn.Conv2d(16, 32, kernel_size=3, padding=1), nn.ReLU(),  # (B, 32, 14, 14)
+            nn.MaxPool2d(2),                                          # (B, 32, 7, 7)
+        )
+        self.head = nn.Sequential(nn.Flatten(), nn.Linear(32 * 7 * 7, n_classes))
+
+    def forward(self, x):                                 # x : (B, 1, 28, 28)
+        return self.head(self.features(x))                # logits : (B, 10)
+```
+
+<CodeChoice
+  id="flatten"
+  question="Après les couches convolutives, le tenseur a la forme (B, 32, 7, 7). Quelle taille d'entrée pour la couche linéaire ?"
+  code={`self.head = nn.Sequential(nn.Flatten(), nn.Linear(___, 10))`}
+  options={["32 * 7 * 7", "32", "7 * 7", "28 * 28"]}
+  answer={0}
+>
+`Flatten` aplatit tout sauf la dimension du batch : $32 \times 7 \times 7 = 1\,568$ valeurs par image. C'est l'erreur de forme la plus fréquente en vision ; pour l'éviter, on utilise `nn.LazyLinear(10)`, qui déduit la taille au premier passage, ou un *global average pooling* (`nn.AdaptiveAvgPool2d(1)`) qui ramène chaque canal à une seule valeur, quelle que soit la taille de l'image.
+</CodeChoice>
+
+<Callout type="intuition">
+Deux propriétés font la force des CNN. Le **partage de poids** : un détecteur de bord est utile partout, inutile de l'apprendre séparément pour chaque position. La **localité** : un neurone ne regarde qu'un petit voisinage, car les pixels proches sont fortement liés. Ensemble, ils donnent l'**équivariance par translation** : décaler l'image décale la carte d'activation, sans tout réapprendre.
+</Callout>
+
+<Callout type="piege">
+PyTorch attend les images au format `(batch, canaux, hauteur, largeur)` (NCHW), alors que la plupart des bibliothèques d'images (PIL, OpenCV, NumPy) donnent `(hauteur, largeur, canaux)`. Il faut permuter (`x.permute(2, 0, 1)` ou `transforms.ToTensor()`), convertir en flottants entre 0 et 1, puis normaliser avec les **mêmes** moyennes et écarts-types qu'à l'entraînement.
+</Callout>
+
+<Callout type="entretien">
+Les architectures à connaître : **LeNet** (1998, chiffres manuscrits), **AlexNet** (2012, la révolution ImageNet grâce aux GPU et à ReLU), **VGG** (empiler des filtres 3 × 3), **ResNet** (2015, connexions résiduelles : on peut enfin entraîner 50 à 150 couches). Aujourd'hui, les **Vision Transformers** découpent l'image en patchs traités comme des tokens, et rivalisent avec les CNN sur les grands jeux de données ; les CNN restent excellents et efficaces, surtout avec peu de données ou sur mobile.
+</Callout>
+
+<Callout type="astuce">
+En pratique, on n'entraîne presque jamais un CNN de zéro : on part d'un modèle **pré-entraîné** sur ImageNet (ResNet, EfficientNet, ConvNeXt) et on l'adapte. C'est la leçon suivante.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Pourquoi un CNN a-t-il beaucoup moins de paramètres qu'un réseau dense sur des images ?",
+      options: ["Il utilise moins de couches", "Les mêmes petits filtres sont réutilisés à toutes les positions", "Il ignore les couleurs", "Il compresse l'image"],
+      answer: 1,
+      explain: "Le partage de poids rend le nombre de paramètres indépendant de la taille de l'image.",
+    },
+    {
+      q: "Que fait un max pooling 2 × 2 sur une carte de 16 × 16 ?",
+      options: ["Il la passe à 32 × 32", "Il la réduit à 8 × 8 en gardant le maximum de chaque bloc", "Il calcule la moyenne de toute la carte", "Il ajoute des canaux"],
+      answer: 1,
+      explain: "Chaque bloc de 4 pixels devient un seul : moins de calcul, un peu d'invariance aux petits décalages.",
+    },
+    {
+      q: "Que détectent typiquement les filtres des premières couches d'un CNN entraîné ?",
+      options: ["Des objets entiers", "Des bords, des couleurs, des orientations", "Des visages", "Des classes"],
+      answer: 1,
+      explain: "La complexité croît avec la profondeur : bords, textures, parties, objets.",
+    },
+    {
+      q: "Entrée 64 × 64, filtre 3 × 3, padding 1, pas 2. Taille de sortie ?",
+      options: ["64", "62", "32", "31"],
+      answer: 2,
+      explain: "⌊(64 − 3 + 2)/2⌋ + 1 = 31 + 1 = 32.",
+    },
+    {
+      q: "Quelle innovation a permis d'entraîner des CNN de plus de 100 couches ?",
+      options: ["Le max pooling", "Les connexions résiduelles (ResNet)", "La sigmoïde", "Les filtres 7 × 7"],
+      answer: 1,
+      explain: "x + f(x) laisse passer le gradient à travers toutes les couches.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Pourquoi utiliser un CNN plutôt qu'un MLP pour des images ?">
+Un MLP traite chaque pixel comme une entrée indépendante : énormément de paramètres (une couche dense sur une image 224 × 224 × 3 en a des centaines de millions), aucune notion de voisinage, et il doit réapprendre chaque motif à chaque position. Un CNN exploite la structure de l'image : des filtres locaux (les pixels voisins sont liés), partagés à toutes les positions (un bord est un bord partout), ce qui réduit drastiquement les paramètres et donne l'équivariance par translation. L'empilement avec du pooling construit une hiérarchie, des bords aux objets. Résultat : meilleure généralisation avec beaucoup moins de données et de calcul.
+</Interview>
+
+<Interview q="Explique le champ réceptif et comment on l'agrandit.">
+C'est la zone de l'image d'entrée qui influence un neurone donné. Une convolution 3 × 3 voit 3 × 3 pixels ; deux convolutions 3 × 3 empilées en voient 5 × 5, trois en voient 7 × 7, avec moins de paramètres qu'un seul filtre 7 × 7 et plus de non-linéarités (l'idée de VGG). On l'agrandit plus vite avec le pooling ou des pas supérieurs à 1, qui sous-échantillonnent, ou avec des convolutions dilatées. Les dernières couches doivent voir tout l'objet, d'où les réseaux profonds ou le global pooling final.
+</Interview>
+
+<Recap>
+- Convolution : un petit filtre appris glisse sur l'image ; **partage de poids** et **localité**.
+- Plusieurs filtres → plusieurs **canaux** ; paramètres d'une couche : $c_{out}(k^2 c_{in}) + c_{out}$.
+- Sortie : $\lfloor (n - k + 2p)/s \rfloor + 1$ ; **pooling** pour réduire.
+- Hiérarchie : bords → textures → parties → objets ; le champ réceptif grandit avec la profondeur.
+- PyTorch : format NCHW, normalisation identique à l'entraînement.
+- LeNet, AlexNet, VGG, ResNet ; Vision Transformers aujourd'hui.
+</Recap>
+
+<LessonComplete />

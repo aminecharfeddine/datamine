@@ -1,0 +1,40 @@
+<FicheSection kind="essentiel">
+- Embedding : vecteur dense appris, proche pour des éléments similaires.
+- `nn.Embedding` : table $V \times d$ indexée par des entiers.
+- Hypothèse distributionnelle : un mot se définit par ses contextes (word2vec, PPMI + SVD).
+- Statique (word2vec) contre contextuel (BERT, LLM).
+- Embeddings de phrases par apprentissage contrastif : recherche sémantique, RAG.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{PMI}(w,c) = \log\frac{P(w,c)}{P(w)P(c)} \qquad \text{PPMI} = \max(0, \text{PMI})
+$$
+
+$$
+\cos(u, v) = \frac{u \cdot v}{\lVert u \rVert \lVert v \rVert}
+$$
+
+Paramètres : $V \times d$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Comparer des embeddings de modèles différents.
+- Changer de modèle sans réindexer.
+- Passer des flottants ou du texte à `nn.Embedding`.
+- Ignorer les biais du corpus.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Embedding ?** Représentation dense apprise ; table pour les éléments discrets.
+
+**word2vec ou BERT ?** Statique et peu profond contre contextuel et profond.
+
+**Recherche sémantique ?** Modèle adapté, vecteurs normalisés, index HNSW, filtres, hybride avec mots-clés, évaluation rappel@k.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Normaliser les vecteurs : cosinus = produit scalaire.
+- Classement MTEB puis test sur ses propres données.
+- Embeddings de 8 à 64 dimensions pour des catégorielles à nombreuses modalités.
+</FicheSection>

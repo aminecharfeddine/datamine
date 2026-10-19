@@ -1,0 +1,159 @@
+<Predict
+  id="hook"
+  question="Une usine te donne 200 photos de pièces, dont 40 défectueuses, et veut un classifieur. Quelle est la meilleure stratégie ?"
+  options={[
+    "Entraîner un ResNet de zéro sur les 200 photos",
+    "Partir d'un réseau pré-entraîné sur des millions d'images et l'adapter",
+    "Un MLP sur les pixels bruts",
+    "Un k-means sur les pixels",
+  ]}
+  answer={1}
+>
+Avec 200 images, un réseau profond entraîné de zéro apprend surtout le bruit. Mais un réseau entraîné sur ImageNet (14 millions d'images) a déjà appris à voir : bords, textures, formes, matières. Ces **représentations** sont utiles bien au-delà des 1 000 classes d'origine. Le **transfer learning** consiste à réutiliser ce savoir et à n'apprendre que ce qui est propre à ta tâche. C'est la façon standard de faire du deep learning en entreprise, en vision comme en texte.
+</Predict>
+
+## Deux façons de réutiliser un modèle
+
+Un réseau pré-entraîné se découpe en deux : un **corps** (*backbone*), qui transforme l'entrée en représentation, et une **tête**, qui transforme cette représentation en prédiction pour la tâche d'origine. On remplace la tête par une nouvelle, adaptée à nos classes, puis :
+
+- **extraction de caractéristiques** (*feature extraction*) : on **gèle** le corps et on n'entraîne que la nouvelle tête. Rapide, peu de risque d'overfitting, idéal avec très peu de données ;
+- **fine-tuning** : on entraîne aussi tout ou partie du corps, avec un **learning rate plus petit**, pour adapter les représentations. Meilleur quand on a un peu plus de données ou quand le domaine diffère.
+
+En notant $f_\theta$ le corps pré-entraîné et $g_\phi$ la nouvelle tête :
+
+$$
+\hat y = g_\phi\big(f_\theta(x)\big)
+\qquad
+\text{extraction : on n'apprend que } \phi
+\qquad
+\text{fine-tuning : } \phi \text{ et } \theta, \text{ avec } \eta_\theta \ll \eta_\phi
+$$
+
+Le compromis courant : geler d'abord, entraîner la tête, puis dégeler les dernières couches avec un learning rate 10 fois plus faible.
+
+Ci-dessous, un réseau entraîné sur une tâche source (les cercles centrés, 200 exemples) est réutilisé pour une tâche voisine, avec de 8 à 128 exemples seulement :
+
+<TransferLab id="transfert" challenge="transfer-8" />
+
+Avec 8 exemples, le réseau parti de zéro trace une frontière au hasard des quelques points ; les deux versions pré-entraînées, qui savent déjà « enfermer un disque », n'ont qu'à l'ajuster. Avec plus de données, l'écart se réduit : le pré-entraînement compte surtout quand les données sont rares.
+
+## En PyTorch
+
+<Parsons
+  id="geler"
+  prompt="Remets dans l'ordre : charger un ResNet pré-entraîné, geler le corps, remplacer la tête pour 3 classes, et n'optimiser que la tête."
+  lines={[
+    "model = resnet18(weights=ResNet18_Weights.DEFAULT)",
+    "for p in model.parameters():",
+    "    p.requires_grad = False",
+    "model.fc = nn.Linear(model.fc.in_features, 3)",
+    "optimizer = torch.optim.AdamW(model.fc.parameters(), lr=1e-3)",
+  ]}
+>
+L'ordre compte : on gèle **avant** de remplacer la tête, sinon la nouvelle couche `fc` serait gelée elle aussi et le modèle n'apprendrait rien. Une couche créée après le gel a `requires_grad=True` par défaut. L'optimiseur ne reçoit que les paramètres à entraîner.
+</Parsons>
+
+Puis, pour fine-tuner aussi le dernier bloc avec un learning rate plus faible :
+
+```python
+from torchvision.models import resnet18, ResNet18_Weights
+
+weights = ResNet18_Weights.DEFAULT
+preprocess = weights.transforms()                 # redimensionnement et normalisation d'origine
+
+for p in model.layer4.parameters():               # dégeler le dernier bloc
+    p.requires_grad = True
+
+optimizer = torch.optim.AdamW([
+    {"params": model.layer4.parameters(), "lr": 1e-4},   # corps : petits pas
+    {"params": model.fc.parameters(), "lr": 1e-3},       # tête : pas normaux
+], weight_decay=0.01)
+```
+
+<Exercise
+  id="trainables"
+  question="ResNet-18 a 11,7 millions de paramètres. On gèle tout et on remplace la tête par nn.Linear(512, 10). Combien de paramètres entraînables ?"
+  answer={5130}
+  tolerance={0}
+  hint="512 × 10 poids plus 10 biais."
+>
+$512 \times 10 + 10 = 5\,130$ paramètres entraînables, soit 0,04 % du modèle. Avec si peu de paramètres, quelques centaines d'images suffisent, et l'entraînement tient sur un CPU. C'est l'équivalent d'une régression logistique sur les représentations du réseau.
+</Exercise>
+
+<Callout type="intuition">
+Plus une couche est **basse**, plus ce qu'elle a appris est **générique** (bords, textures) ; plus elle est **haute**, plus c'est spécifique à la tâche d'origine (« museau de chien », « roue de vélo »). D'où la stratégie : garder les couches basses, adapter les hautes, remplacer la tête. Plus ton domaine est éloigné (radiographies, images satellites), plus il faut dégeler de couches.
+</Callout>
+
+<Callout type="piege">
+Le prétraitement doit être **exactement** celui du pré-entraînement : même taille d'entrée, même normalisation (les moyennes et écarts-types d'ImageNet), même format de couleur. Sinon, le réseau reçoit des images qui ne ressemblent à rien de ce qu'il connaît. Utilise `weights.transforms()` en vision, et le tokenizer associé au modèle en texte. Autre piège : un learning rate trop grand en fine-tuning détruit en quelques pas ce que le modèle avait appris.
+</Callout>
+
+<Callout type="entretien">
+Geler ou fine-tuner ? Ça dépend de deux choses : la **quantité de données** et la **proximité des domaines**. Peu de données et domaine proche : geler, entraîner la tête. Beaucoup de données et domaine proche : fine-tuner tout avec un petit learning rate. Peu de données et domaine éloigné : geler les premières couches, fine-tuner les dernières, beaucoup d'augmentation. Beaucoup de données et domaine très éloigné : un fine-tuning complet, voire un entraînement de zéro si les données sont massives.
+</Callout>
+
+<Callout type="astuce">
+La baseline la plus rapide : extraire une fois les **embeddings** de tes images (ou textes) avec un modèle pré-entraîné, puis entraîner une régression logistique ou un k-NN dessus avec scikit-learn. En quelques minutes, tu sais si le problème est facile. Les modèles de fondation multimodaux (CLIP, DINOv2) donnent même de bons résultats sans aucun entraînement (*zero-shot*).
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Avec 300 images d'un domaine proche d'ImageNet, que fais-tu d'abord ?",
+      options: ["Entraînement de zéro", "Corps gelé, nouvelle tête entraînée", "Fine-tuning complet avec un grand learning rate", "Un modèle sans réseau"],
+      answer: 1,
+      explain: "Peu de données, domaine proche : la feature extraction est rapide et robuste.",
+    },
+    {
+      q: "Pourquoi utiliser un learning rate plus petit pour les couches pré-entraînées ?",
+      options: [
+        "Pour aller plus vite",
+        "Pour ajuster sans détruire les représentations déjà apprises",
+        "Parce que PyTorch l'impose",
+        "Pour réduire la mémoire",
+      ],
+      answer: 1,
+      explain: "De grands pas effacent rapidement le savoir du pré-entraînement (catastrophic forgetting).",
+    },
+    {
+      q: "Tu gèles tous les paramètres APRÈS avoir remplacé la tête. Que se passe-t-il ?",
+      options: ["Tout va bien", "La nouvelle tête est gelée aussi : rien n'apprend", "Seule la tête apprend", "Erreur Python"],
+      answer: 1,
+      explain: "La boucle met requires_grad = False sur toutes les couches existantes, y compris la nouvelle.",
+    },
+    {
+      q: "Quelles couches d'un CNN pré-entraîné sont les plus génériques ?",
+      options: ["Les premières", "Les dernières", "La tête", "Aucune"],
+      answer: 0,
+      explain: "Bords et textures servent à presque toutes les tâches de vision.",
+    },
+    {
+      q: "Quand le pré-entraînement apporte-t-il le plus par rapport à un entraînement de zéro ?",
+      options: ["Avec beaucoup de données", "Avec peu de données", "Jamais", "Seulement pour du texte"],
+      answer: 1,
+      explain: "Avec des millions d'exemples, l'écart se réduit ; avec quelques centaines, il est énorme.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique le transfer learning et comment tu l'appliquerais à un problème de vision avec peu de données.">
+On réutilise un modèle entraîné sur une grande tâche source, dont les représentations sont génériques, pour une tâche cible avec peu de données. Concrètement : je prends un backbone pré-entraîné (ResNet, EfficientNet, ConvNeXt ou un modèle de fondation comme DINOv2), avec exactement son prétraitement ; je remplace la tête par une couche adaptée à mes classes ; j'entraîne d'abord la tête seule, corps gelé, avec de l'augmentation de données ; puis je dégèle les derniers blocs avec un learning rate 10 fois plus faible, en surveillant la validation et avec early stopping. En baseline, j'aurais d'abord extrait les embeddings et entraîné une régression logistique.
+</Interview>
+
+<Interview q="Quelle différence entre feature extraction et fine-tuning ?">
+En feature extraction, les poids du modèle pré-entraîné sont figés : il sert de transformateur d'entrées en représentations, et seule une nouvelle tête est entraînée. C'est rapide, peu gourmand en données et en calcul, et sans risque d'abîmer le modèle. En fine-tuning, on met aussi à jour tout ou partie des poids pré-entraînés, avec un learning rate plus faible, pour adapter les représentations au nouveau domaine : meilleur quand on a davantage de données ou un domaine différent, mais plus coûteux et plus exposé à l'overfitting. Pour les LLM, LoRA est un intermédiaire : on gèle les poids et on apprend une petite mise à jour.
+</Interview>
+
+<Recap>
+- Réutiliser un modèle pré-entraîné : corps (représentations) + nouvelle tête (tes classes).
+- **Feature extraction** : corps gelé ; **fine-tuning** : corps adapté avec un petit learning rate.
+- Couches basses génériques, couches hautes spécifiques.
+- Peu de données et domaine proche : geler ; plus de données ou domaine éloigné : dégeler davantage.
+- Même prétraitement que le pré-entraînement ; geler avant de remplacer la tête.
+- Baseline : embeddings + régression logistique.
+</Recap>
+
+<LessonComplete />

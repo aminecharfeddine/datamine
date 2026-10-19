@@ -1,0 +1,36 @@
+<FicheSection kind="essentiel">
+- Réutiliser les représentations d'un modèle entraîné sur une grande tâche.
+- Feature extraction : corps gelé, nouvelle tête entraînée.
+- Fine-tuning : corps adapté, learning rate 10 fois plus faible.
+- Gain maximal quand les données cibles sont rares.
+- Couches basses génériques, couches hautes spécifiques.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\#\text{params}_{\text{tête}} = d_{\text{repr}} \times C + C
+$$
+
+ResNet-18 gelé + tête 512 → 10 : 5 130 paramètres entraînables sur 11,7 M.
+
+Learning rates typiques : tête $10^{-3}$, corps $10^{-4}$ à $10^{-5}$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Prétraitement différent de celui du pré-entraînement.
+- Geler après avoir remplacé la tête.
+- Learning rate trop grand en fine-tuning : le savoir est détruit.
+- Passer tous les paramètres à l'optimiseur alors qu'ils sont gelés (inutile, mais sans effet) ou oublier ceux qu'on dégèle.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Peu de données en vision ?** Backbone pré-entraîné, tête neuve, corps gelé puis dégel progressif, augmentation, early stopping.
+
+**Geler ou fine-tuner ?** Selon la quantité de données et la proximité des domaines.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `weights.transforms()` en torchvision pour le bon prétraitement.
+- Baseline : embeddings + régression logistique (scikit-learn).
+- Modèles de fondation (CLIP, DINOv2) : souvent bons sans entraînement.
+</FicheSection>
