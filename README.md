@@ -109,6 +109,7 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 
 - [x] Phase 0 — fondations, composants pédagogiques, design system
 - [x] Phase 1 — module Évaluation : confusion matrix, precision/recall/F1, ROC/AUC, PR curve
+- [x] Phase 1 (suite) — Évaluation complète : multiclasse (macro, micro, weighted), calibration (ECE, Platt, temperature scaling), métriques de régression (MAE, RMSE, R², pinball loss), métriques de ranking (precision@k, MRR, NDCG)
 - [x] Phase 2 — comptes Supabase (lien magique), synchronisation multi-appareils, migration du mode invité
 - [x] Phase 3 — Bayes, descente de gradient, TCL, intervalles de confiance, tests A/B et p-values, bias-variance, régularisation
 - [x] Phase 3 (suite) — validation croisée, data leakage

@@ -1,0 +1,162 @@
+<Predict
+  id="hook"
+  question="Ton modèle de churn a une AUC de 0,85. Parmi les clients auxquels il attribue « 90 % de risque de départ », 60 % partent réellement. Que peux-tu en conclure ?"
+  options={[
+    "Le modèle classe mal les clients",
+    "Le modèle classe bien mais ses probabilités sont surconfiantes : il est mal calibré",
+    "L'AUC est fausse",
+    "Rien, 60 % c'est proche de 90 %",
+  ]}
+  answer={1}
+>
+Classer et estimer sont deux qualités différentes. L'AUC mesure le **classement** : les partants ont-ils des scores plus élevés que les autres ? La **calibration** mesure si les scores sont des **probabilités honnêtes** : parmi les clients notés 0,9, environ 90 % partent-ils ? Un modèle peut exceller au premier et échouer au second. Et dès qu'on multiplie une probabilité par un montant (perte attendue, prix d'une assurance, budget de rétention), c'est la calibration qui compte.
+</Predict>
+
+## Définition et diagnostic
+
+Un modèle est **calibré** si, pour toute valeur $p$ qu'il annonce :
+
+$$
+P(Y = 1 \mid \hat p = p) = p
+$$
+
+Pour le vérifier, on découpe les prédictions en tranches (0 à 0,1, 0,1 à 0,2…) et on compare, dans chaque tranche, la probabilité moyenne annoncée à la fréquence observée : c'est la **courbe de calibration** (*reliability diagram*). Un modèle parfait suit la diagonale. On résume l'écart avec l'**ECE** (*expected calibration error*) :
+
+$$
+\text{ECE} = \sum_{b} \frac{n_b}{n}\,\big|\,\bar p_b - \bar y_b\,\big|
+$$
+
+et on juge les probabilités globalement avec deux **scores propres** (minimisés par les vraies probabilités) : la **log loss** et le **Brier score** $\frac{1}{n}\sum_i (\hat p_i - y_i)^2$.
+
+## D'où vient la mauvaise calibration ?
+
+- **Surconfiance** : boosting sur-entraîné (trop d'itérations, arbres profonds), réseaux profonds entraînés longtemps, Naive Bayes (hypothèse d'indépendance qui pousse vers 0 et 1). Points **sous** la diagonale à droite.
+- **Sous-confiance** : forte régularisation, forêts aléatoires (la moyenne de nombreux arbres évite les extrêmes). Courbe trop plate.
+- **Rééquilibrage des classes** : sous-échantillonner les négatifs ou utiliser `class_weight` gonfle les probabilités de la classe rare. Le classement reste bon, les probabilités ne veulent plus rien dire.
+- **Changement de distribution** : un modèle calibré sur les données de l'an dernier ne l'est plus si la prévalence change.
+
+## Recalibrer
+
+On apprend une petite fonction qui transforme les scores, sur un **jeu de calibration** séparé de l'entraînement :
+
+- **Platt scaling** : une régression logistique sur le score, $\sigma(a\,z + b)$. Deux paramètres, robuste avec peu de données.
+- **Temperature scaling** : $\sigma(z/T)$ ou un softmax de $z/T$ en multiclasse. Un seul paramètre, standard pour les réseaux de neurones.
+- **Régression isotone** : une fonction croissante en escalier, très flexible, mais elle demande davantage de données (plusieurs milliers d'exemples).
+
+Toutes sont **croissantes** : l'ordre des scores est préservé, donc l'AUC ne change pas.
+
+<CalibrationLab id="temperature" challenge="calibrate-both" />
+
+<Callout type="intuition">
+La température agit comme un bouton de confiance : $T > 1$ rapproche toutes les probabilités de 0,5 (le modèle se calme), $T < 1$ les pousse vers 0 et 1. Le même bouton répare un modèle surconfiant et un modèle sous-confiant, dans des directions opposées.
+</Callout>
+
+## Pourquoi c'est indispensable pour décider
+
+Avec des coûts d'erreur connus, on agit sur un exemple si le coût attendu de ne rien faire dépasse celui d'agir :
+
+$$
+p \cdot C_{FN} > (1 - p) \cdot C_{FP} \iff p > \frac{C_{FP}}{C_{FP} + C_{FN}}
+$$
+
+Ce seuil n'a de sens que si $p$ est une vraie probabilité. Avec un modèle mal calibré, le seuil « théorique » donne une mauvaise décision.
+
+<Exercise
+  id="seuil"
+  question="Une fausse alerte (contacter un client qui ne serait pas parti) coûte 10 €. Un départ non détecté coûte 40 €. Au-dessus de quelle probabilité de départ faut-il contacter le client ?"
+  answer={0.2}
+  tolerance={0.001}
+  hint="Seuil = C_FP / (C_FP + C_FN)."
+>
+$10/(10 + 40) = 0{,}2$. On contacte dès 20 % de risque, car rater un départ coûte quatre fois plus qu'une relance inutile. Si le modèle est surconfiant et annonce 0,2 pour des clients dont seuls 8 % partent, on dépense beaucoup en relances inutiles : il faut calibrer avant d'appliquer cette règle.
+</Exercise>
+
+```python
+from sklearn.calibration import CalibratedClassifierCV, calibration_curve
+from sklearn.frozen import FrozenEstimator
+
+model.fit(X_train, y_train)
+calibre = CalibratedClassifierCV(FrozenEstimator(model), method="sigmoid")   # Platt ; "isotonic" si beaucoup de données
+calibre.fit(X_cal, y_cal)
+
+frac_pos, moy_pred = calibration_curve(y_test, calibre.predict_proba(X_test)[:, 1], n_bins=10)
+```
+
+<CodeChoice
+  id="jeu-cal"
+  question="Sur quelles données ajuster le calibrateur d'un modèle déjà entraîné ?"
+  code={`calibre = CalibratedClassifierCV(FrozenEstimator(model), method="isotonic")
+calibre.fit(___)`}
+  options={["X_cal, y_cal", "X_train, y_train", "X_test, y_test", "X_train, y_pred"]}
+  answer={0}
+>
+Sur un jeu **séparé** de l'entraînement : sur les données d'entraînement, le modèle est plus confiant (et plus juste) qu'il ne le sera ailleurs, et le calibrateur apprendrait la mauvaise correction. Le jeu de test reste réservé à l'évaluation finale. Sans jeu dédié, on passe le modèle non entraîné avec `cv=5` : scikit-learn entraîne et calibre par validation croisée.
+</CodeChoice>
+
+<Callout type="piege">
+Après un sous-échantillonnage des négatifs ou un `class_weight`, ne lis pas `predict_proba` comme une probabilité réelle. Recalibre sur un jeu qui a la **vraie** prévalence, ou corrige analytiquement le décalage de prior. Le même problème apparaît quand la prévalence change en production : surveille la calibration, pas seulement l'AUC.
+</Callout>
+
+<Callout type="entretien">
+Question piège classique : « La calibration améliore-t-elle l'AUC ? » Non : une transformation croissante ne change pas l'ordre des scores, donc ni la ROC ni l'AUC. Elle améliore la log loss, le Brier score, et la qualité des décisions fondées sur des probabilités.
+</Callout>
+
+<Callout type="astuce">
+Trace toujours la courbe de calibration **avec l'histogramme** des prédictions : une tranche à 5 exemples peut sembler très mal calibrée par simple hasard. Pour les décisions qui comptent, regarde surtout la zone autour de ton seuil.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que signifie « le modèle est bien calibré » ?",
+      options: ["Son AUC dépasse 0,9", "Parmi les exemples notés p, une proportion p est réellement positive", "Il prédit autant de positifs que de négatifs", "Son seuil vaut 0,5"],
+      answer: 1,
+      explain: "C'est la définition : P(Y = 1 | p̂ = p) = p.",
+    },
+    {
+      q: "Sur la courbe de calibration, les points à droite sont nettement sous la diagonale. Le modèle est…",
+      options: ["Sous-confiant", "Surconfiant", "Parfaitement calibré", "Aléatoire"],
+      answer: 1,
+      explain: "Il annonce 0,9 alors que la fréquence observée est plus basse : il surestime.",
+    },
+    {
+      q: "Quel effet a le temperature scaling sur l'AUC ?",
+      options: ["Il l'augmente", "Il la diminue", "Aucun : l'ordre des scores est préservé", "Il la rend égale à 0,5"],
+      answer: 2,
+      explain: "σ(z/T) est croissante en z pour T > 0.",
+    },
+    {
+      q: "Tu as 300 exemples de calibration. Quelle méthode ?",
+      options: ["Régression isotone", "Platt scaling ou temperature scaling", "Aucune", "Réentraîner sur 300 exemples"],
+      answer: 1,
+      explain: "Peu de paramètres, donc peu de risque d'overfitting ; l'isotone demande plus de données.",
+    },
+    {
+      q: "Coûts : fausse alerte 5 €, fraude ratée 495 €. Seuil de décision sur une probabilité calibrée ?",
+      options: ["0,5", "0,01", "0,99", "0,1"],
+      answer: 1,
+      explain: "5 / (5 + 495) = 0,01.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Quelle différence entre discrimination et calibration ?">
+La discrimination, c'est la capacité à classer les positifs au-dessus des négatifs, mesurée par l'AUC ROC ou la PR curve. La calibration, c'est l'accord entre probabilités annoncées et fréquences observées, mesurée par la courbe de calibration, l'ECE, et en partie par la log loss et le Brier score. Un modèle peut classer parfaitement et annoncer des probabilités fausses. On a besoin de la calibration dès que les probabilités sont utilisées comme telles : décision par coût attendu, tarification, agrégation de risques, affichage d'un pourcentage à un utilisateur.
+</Interview>
+
+<Interview q="Comment calibrerais-tu un modèle de boosting entraîné avec sous-échantillonnage ?">
+Je garderais un jeu de calibration avec la prévalence réelle, jamais vu à l'entraînement. Je tracerais la courbe de calibration et l'histogramme des scores, puis j'ajusterais un Platt scaling, ou une régression isotone si j'ai plusieurs milliers d'exemples, par exemple avec CalibratedClassifierCV sur le modèle figé. Je vérifierais sur le jeu de test que la log loss, le Brier score et l'ECE baissent, l'AUC devant rester identique. Enfin je surveillerais la calibration en production, car un changement de prévalence la dégrade sans toucher au classement.
+</Interview>
+
+<Recap>
+- **Calibré** : $P(Y=1 \mid \hat p = p) = p$. Indépendant du classement (AUC).
+- Diagnostic : courbe de calibration + histogramme, **ECE**, log loss, Brier score.
+- Surconfiance (boosting, réseaux, Naive Bayes), sous-confiance (régularisation, forêts), rééquilibrage et dérive de prévalence.
+- Recalibrer sur un **jeu séparé** : Platt, temperature scaling, isotone (si beaucoup de données). L'AUC ne bouge pas.
+- Décision par coûts : agir si $p > C_{FP}/(C_{FP}+C_{FN})$, valable seulement avec des probabilités calibrées.
+</Recap>
+
+<LessonComplete />

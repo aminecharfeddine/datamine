@@ -1,0 +1,150 @@
+<Predict
+  id="hook"
+  question="Deux moteurs de recherche placent les mêmes 3 documents pertinents dans leur top 5. Le moteur A les met en positions 1, 2, 3 ; le moteur B en positions 3, 4, 5. Que vaut la precision@5 de chacun ?"
+  options={["A : 100 %, B : 60 %", "60 % pour les deux", "A : 60 %, B : 20 %", "A : 100 %, B : 0 %"]}
+  answer={1}
+>
+La precision@5 compte les documents pertinents dans le top 5, sans regarder **où** ils sont : 3 sur 5 pour les deux. Pourtant l'utilisateur de A trouve sa réponse tout de suite, celui de B doit descendre. Les métriques de **ranking** (MRR, MAP, NDCG) existent pour mesurer cette différence. On les retrouve partout : moteurs de recherche, recommandation, publicité, et l'étape de retrieval d'un RAG.
+</Predict>
+
+## Precision@k et recall@k
+
+Pour une requête, on regarde les $k$ premiers résultats :
+
+- **precision@k** : part des $k$ résultats qui sont pertinents ;
+- **recall@k** : part des documents pertinents (de toute la base) retrouvés dans le top $k$ ;
+- **hit rate@k** : y a-t-il au moins un pertinent dans le top $k$ ? Souvent utilisé en recommandation et pour le retrieval d'un RAG.
+
+Elles sont simples et lisibles, mais **aveugles à l'ordre** à l'intérieur du top $k$.
+
+## Tenir compte de la position
+
+Le **MRR** (*mean reciprocal rank*) ne regarde que le premier résultat pertinent : $1/\text{rang}$, moyenné sur les requêtes. Parfait quand une seule bonne réponse suffit (question factuelle, navigation vers une page).
+
+La **MAP** (*mean average precision*) moyenne la precision@k calculée à chaque position où se trouve un pertinent : elle récompense le fait de les remonter tous.
+
+Le **NDCG** gère en plus une pertinence **graduée** (0 hors sujet, 3 parfait) avec un gain qui décroît avec la position :
+
+$$
+\text{DCG@}k = \sum_{i=1}^{k} \frac{2^{g_i} - 1}{\log_2(i + 1)}
+\qquad
+\text{NDCG@}k = \frac{\text{DCG@}k}{\text{IDCG@}k}
+$$
+
+où $g_i$ est la pertinence du document en position $i$, et IDCG le DCG du **classement idéal** (tri par pertinence décroissante). On normalise pour obtenir un score entre 0 et 1 comparable d'une requête à l'autre, puis on moyenne sur les requêtes.
+
+<RankingLab id="recherche" challenge="ndcg-ideal" />
+
+Pendant que tu réordonnes à l'intérieur du top 5, la precision@5 ne bouge pas, le MRR ne réagit qu'au premier document pertinent, et le NDCG suit chaque échange. Monter un document très pertinent en tête rapporte beaucoup plus que d'améliorer la cinquième position.
+
+<Exercise
+  id="dcg"
+  question="Les trois premiers résultats ont des pertinences 3, 0 et 2. Quel est le DCG@3 (gain 2^g − 1, discount log₂(i + 1)) ?"
+  answer={8.5}
+  tolerance={0.01}
+  hint="Position 1 : 7 / 1. Position 2 : 0. Position 3 : 3 / log₂(4)."
+>
+$7/\log_2 2 + 0/\log_2 3 + 3/\log_2 4 = 7 + 0 + 1{,}5 = 8{,}5$. Le classement idéal (3, 2, 0) donnerait $7 + 3/\log_2 3 \approx 8{,}89$, d'où un NDCG@3 d'environ 0,956.
+</Exercise>
+
+```python
+def mrr(resultats_par_requete, pertinents_par_requete):
+    total = 0.0
+    for resultats, pertinents in zip(resultats_par_requete, pertinents_par_requete):
+        for i, doc in enumerate(resultats):          # i commence à 0
+            if doc in pertinents:
+                total += 1 / (i + 1)                  # rang = i + 1
+                break                                 # seul le premier pertinent compte
+    return total / len(resultats_par_requete)
+```
+
+<CodeChoice
+  id="rang"
+  question="Dans cette boucle, enumerate commence à 0. Que doit valoir le dénominateur du reciprocal rank ?"
+  code={`for i, doc in enumerate(resultats):
+    if doc in pertinents:
+        total += 1 / (___)
+        break`}
+  options={["i + 1", "i", "len(resultats)", "len(pertinents)"]}
+  answer={0}
+>
+Le rang humain commence à 1 : un pertinent en première position (`i = 0`) doit rapporter $1/1$. Avec `1 / i`, la première position provoquerait une division par zéro, et toutes les autres seraient surévaluées. Ce décalage d'indice est l'erreur la plus fréquente quand on code ces métriques à la main.
+</CodeChoice>
+
+<Callout type="intuition">
+Le discount logarithmique modélise l'attention : presque tout le monde lit le premier résultat, beaucoup moins le cinquième, quasiment personne la deuxième page. Le gain exponentiel $2^g - 1$ dit qu'un document parfait vaut bien plus que deux documents moyens.
+</Callout>
+
+<Callout type="piege">
+Il existe **deux conventions** de gain pour le DCG : exponentielle $2^g - 1$ (utilisée ici, standard en recherche d'information) et linéaire $g$ (celle de `sklearn.metrics.ndcg_score`). Avec des pertinences binaires elles coïncident ; avec des grades, les chiffres diffèrent. Précise toujours la convention et le $k$ quand tu reportes un NDCG.
+</Callout>
+
+<Callout type="entretien">
+L'évaluation **offline** demande des jugements de pertinence. Soit annotés par des humains (chers, fiables), soit déduits des **clics** (abondants, mais biaisés par la position : on clique sur ce qui est en haut parce que c'est en haut). L'évaluation **online** se fait par A/B test ou par *interleaving* (mélanger les résultats de deux systèmes et voir lesquels sont cliqués), avec des métriques métier : taux de clic, conversion, requêtes reformulées.
+</Callout>
+
+<Callout type="astuce">
+En recommandation, compare toujours à la baseline **popularité** (recommander les articles les plus vendus) : elle est étonnamment difficile à battre en precision@k. Surveille aussi la couverture du catalogue et la diversité : un système qui ne recommande que des best-sellers peut avoir de bons scores offline et peu de valeur réelle.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quelle métrique ne dépend que de la position du premier résultat pertinent ?",
+      options: ["Precision@k", "MRR", "NDCG", "Recall@k"],
+      answer: 1,
+      explain: "Le reciprocal rank vaut 1 / rang du premier pertinent.",
+    },
+    {
+      q: "Premier pertinent en positions 1, 3 et 2 pour trois requêtes. MRR ?",
+      options: ["0,5", "0,611", "2", "0,333"],
+      answer: 1,
+      explain: "(1 + 1/3 + 1/2) / 3 ≈ 0,611.",
+    },
+    {
+      q: "Pourquoi normaliser le DCG par l'IDCG ?",
+      options: [
+        "Pour que le score soit comparable d'une requête à l'autre, entre 0 et 1",
+        "Pour accélérer le calcul",
+        "Pour ignorer les documents hors sujet",
+        "Pour rendre le score binaire",
+      ],
+      answer: 0,
+      explain: "Une requête avec beaucoup de documents très pertinents aurait sinon un DCG mécaniquement plus élevé.",
+    },
+    {
+      q: "Dans un RAG, quelle métrique vérifie que le passage utile est bien parmi les 5 passages envoyés au LLM ?",
+      options: ["Le MRR uniquement", "Le recall@5 ou le hit rate@5", "Le BLEU", "La log loss"],
+      answer: 1,
+      explain: "Si le bon passage n'est pas dans le top k, le LLM ne peut pas l'utiliser.",
+    },
+    {
+      q: "Pourquoi les clics sont-ils un signal biaisé de pertinence ?",
+      options: ["Ils sont trop rares", "Les utilisateurs cliquent davantage en haut de liste, quelle que soit la pertinence", "Ils ne sont pas numériques", "Ils sont toujours pertinents"],
+      answer: 1,
+      explain: "C'est le biais de position ; on le corrige par des modèles de clic, de l'interleaving ou de la randomisation.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment évaluerais-tu le moteur de recherche d'un site e-commerce ?">
+Offline, je constituerais un jeu de requêtes représentatif (fréquentes et longue traîne) avec des jugements de pertinence gradués, annotés ou dérivés des clics en corrigeant le biais de position. Je suivrais le NDCG@10 comme métrique principale, le MRR pour les requêtes de navigation, le recall@k pour vérifier qu'on ne perd pas les bons produits avant le reranking, et le taux de requêtes sans résultat. Online, un A/B test ou de l'interleaving, avec taux de clic, ajout au panier, conversion et reformulations. Et une lecture par segment : requêtes rares, fautes de frappe, mobile.
+</Interview>
+
+<Interview q="Quelle différence entre MAP et NDCG ?">
+Les deux tiennent compte de la position de tous les documents pertinents. La MAP suppose une pertinence binaire : elle moyenne la precision@k aux positions des pertinents. Le NDCG accepte une pertinence graduée, avec un gain qui croît avec le grade et un discount logarithmique sur la position, normalisé par le classement idéal. Quand on a des grades (parfait, utile, vaguement lié), le NDCG est plus fidèle ; avec des étiquettes binaires, les deux donnent des classements de systèmes généralement cohérents.
+</Interview>
+
+<Recap>
+- Precision@k, recall@k, hit rate@k : simples mais **aveugles à l'ordre** dans le top $k$.
+- **MRR** : $1/\text{rang}$ du premier pertinent, pour les questions à une bonne réponse.
+- **MAP** : pertinence binaire, récompense de remonter tous les pertinents.
+- **NDCG@k** : pertinence graduée, gain $2^g - 1$, discount $\log_2(i+1)$, normalisé par l'idéal.
+- Préciser la convention de gain et le $k$ ; comparer à la baseline popularité.
+- Offline (annotations, clics biaisés par la position) puis online (A/B, interleaving).
+</Recap>
+
+<LessonComplete />

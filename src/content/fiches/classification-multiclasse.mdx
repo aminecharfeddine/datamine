@@ -1,0 +1,37 @@
+<FicheSection kind="essentiel">
+- Confusion matrix $K \times K$ : lignes = vraie classe, colonnes = prédite.
+- Precision, recall, F1 par classe en one-vs-rest.
+- Macro : chaque classe pareil. Weighted : selon l'effectif. Micro : accuracy en mono-étiquette.
+- Classes rares : macro-F1, rapport par classe, poids ou seuil dédié.
+- Multi-label : une sigmoïde et un seuil par étiquette.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{macro-F1} = \frac{1}{K}\sum_k F1_k \qquad \text{weighted-F1} = \sum_k \frac{n_k}{n} F1_k
+$$
+
+$$
+\text{log loss} = -\frac{1}{n}\sum_i \log \hat p_{i,y_i}
+$$
+
+F1 de 0,9, 0,8, 0,3 (supports 600, 300, 100) : macro 0,667, weighted 0,81.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Juger sur l'accuracy avec des classes déséquilibrées.
+- Weighted-F1 qui masque une classe rare ignorée.
+- Softmax pour un problème multi-label.
+- Oublier de regarder quelles classes sont confondues entre elles.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Macro, micro ou weighted ?** Micro = accuracy ; weighted = moyenne par exemple ; macro = protège les classes rares. Reporter macro + rapport par classe.
+
+**Classe rare ignorée ?** Confusion matrix, étiquettes, poids de classe, sur-échantillonnage, seuil dédié, choix sur validation.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `classification_report(digits=3)` et `confusion_matrix(normalize="true")`.
+- Top-k accuracy quand un humain choisit parmi des suggestions.
+</FicheSection>

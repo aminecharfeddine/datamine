@@ -1,0 +1,37 @@
+<FicheSection kind="essentiel">
+- MAE : erreur typique, robuste ; vise la médiane.
+- RMSE : pénalise les grosses erreurs ; vise la moyenne. RMSE ≥ MAE.
+- $R^2$ : comparé à la baseline moyenne, négatif si pire qu'elle ; non comparable entre jeux.
+- Pinball loss pour prédire un quantile (niveau de service).
+- Baseline, résidus, validation temporelle.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{MAE} = \frac{1}{n}\sum |e_i| \qquad \text{RMSE} = \sqrt{\frac{1}{n}\sum e_i^2} \qquad R^2 = 1 - \frac{\sum e_i^2}{\sum (y_i - \bar y)^2}
+$$
+
+$$
+L_\tau = \max\big(\tau (y - \hat y), (\tau - 1)(y - \hat y)\big)
+$$
+
+WAPE $= \sum |e_i| / \sum |y_i|$. Erreurs 2, −1, 3, 0, −4 : MAE 2, RMSE 2,449.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- MAPE quand la cible peut être proche de 0.
+- Comparer des $R^2$ entre jeux de données différents.
+- Exponentier une prévision faite sur $\log y$ et croire obtenir la moyenne.
+- Découpage aléatoire pour une série temporelle.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**MAE ou RMSE ?** Selon le coût des grosses erreurs ; l'écart entre les deux révèle les erreurs extrêmes ; asymétrie : pinball loss.
+
+**Évaluer une prévision de demande ?** Validation temporelle glissante, WAPE, biais, couverture des quantiles, baselines naïves, segments.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Toujours afficher une baseline à côté du modèle.
+- Tracer les résidus contre la prédiction (biais, entonnoir).
+</FicheSection>

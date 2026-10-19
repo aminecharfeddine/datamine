@@ -1,0 +1,36 @@
+<FicheSection kind="essentiel">
+- Precision@k, recall@k, hit rate@k : ignorent l'ordre dans le top k.
+- MRR : premier pertinent seulement.
+- MAP : pertinence binaire, tous les pertinents.
+- NDCG : pertinence graduée, discount par position, normalisé par l'idéal.
+- Offline (annotations, clics biaisés) puis online (A/B, interleaving).
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{DCG@}k = \sum_{i=1}^{k} \frac{2^{g_i}-1}{\log_2(i+1)} \qquad \text{NDCG@}k = \frac{\text{DCG@}k}{\text{IDCG@}k}
+$$
+
+$\text{MRR} = \frac{1}{|Q|}\sum_q 1/\text{rang}_q$.
+
+Grades 3, 0, 2 : DCG@3 = 8,5 ; NDCG@3 ≈ 0,956.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Precision@k pour comparer des ordres.
+- Gain exponentiel contre linéaire (sklearn) non précisé.
+- Rang décalé de 1 dans le code.
+- Clics pris comme pertinence sans correction du biais de position.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Évaluer un moteur e-commerce ?** Requêtes représentatives, grades, NDCG@10, MRR, recall@k, zéro résultat ; puis A/B ou interleaving ; analyse par segment.
+
+**MAP ou NDCG ?** Binaire contre gradué ; NDCG si l'on a des grades.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Baseline popularité en recommandation.
+- Recall@k ou hit rate@k pour l'étape de retrieval d'un RAG.
+- Couverture et diversité en plus de la précision.
+</FicheSection>

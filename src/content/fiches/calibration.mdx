@@ -1,0 +1,36 @@
+<FicheSection kind="essentiel">
+- Calibration : probabilités annoncées = fréquences observées. Différente du classement (AUC).
+- Diagnostic : courbe de calibration avec histogramme, ECE, log loss, Brier.
+- Surconfiants : boosting, réseaux, Naive Bayes. Sous-confiants : forte régularisation, forêts.
+- Rééquilibrage des classes et dérive de prévalence cassent la calibration.
+- Platt, temperature scaling, isotone, sur un jeu de calibration séparé.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+P(Y=1 \mid \hat p = p) = p \qquad \text{ECE} = \sum_b \frac{n_b}{n}\,|\bar p_b - \bar y_b|
+$$
+
+Brier $= \frac{1}{n}\sum (\hat p_i - y_i)^2$ ; Platt : $\sigma(a z + b)$ ; température : $\sigma(z/T)$.
+
+Seuil par coûts : $p > \dfrac{C_{FP}}{C_{FP}+C_{FN}}$ (10 € et 40 € : 0,2).
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Lire `predict_proba` comme une probabilité après sous-échantillonnage.
+- Calibrer sur les données d'entraînement.
+- Isotone avec trop peu d'exemples.
+- Croire que la calibration améliore l'AUC.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Discrimination ou calibration ?** Classer (AUC) contre estimer (courbe, ECE). Calibration nécessaire dès qu'on utilise la probabilité.
+
+**Calibrer un boosting sous-échantillonné ?** Jeu à prévalence réelle, Platt ou isotone sur le modèle figé, vérifier log loss, Brier, ECE ; AUC inchangée ; surveiller en production.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `CalibratedClassifierCV(FrozenEstimator(model))` et `calibration_curve`.
+- T > 1 adoucit, T < 1 accentue.
+- Regarder surtout la zone autour du seuil de décision.
+</FicheSection>

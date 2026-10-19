@@ -62,6 +62,10 @@ export type ReactState = { answered: number | null; correct: number; steps: numb
 export type ContextState = { window: number; used: number; fits: boolean; hasKey: boolean };
 export type EvalState = { k: number; pValues: number[]; diffs: number[] };
 export type SecurityState = { attacksBlocked: number; attacks: number; legitOk: number; legit: number };
+export type ConstPredState = { maeHit: boolean; rmseHit: boolean };
+export type MulticlassState = { macroF1: number; best: number };
+export type CalibState = { eceBoosting: number; eceRegularise: number; target: number };
+export type RankState = { ndcg: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -572,4 +576,32 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Une consigne dans le prompt ne garantit rien. Les vraies protections sont dans les outils et dans la validation humaine des actions à risque.",
     check: (s: SecurityState) => s.attacksBlocked === s.attacks && s.legitOk === s.legit,
   } satisfies Challenge<SecurityState>,
+  "mean-median": {
+    id: "mean-median",
+    title: "Moyenne ou médiane ?",
+    goal: "Trouve la prédiction constante qui minimise la MAE, puis celle qui minimise la RMSE.",
+    hint: "Regarde où se trouvent la médiane et la moyenne des délais sur l'axe : chaque métrique a sa valeur optimale.",
+    check: (s: ConstPredState) => s.maeHit && s.rmseHit,
+  } satisfies Challenge<ConstPredState>,
+  "macro-f1": {
+    id: "macro-f1",
+    title: "Ne pas oublier la fraude",
+    goal: "Choisis le poids de la classe Fraude qui maximise le macro-F1.",
+    hint: "Sans poids, la fraude est presque toujours classée en facturation. Trop de poids, et tout devient fraude.",
+    check: (s: MulticlassState) => s.macroF1 >= s.best - 1e-9,
+  } satisfies Challenge<MulticlassState>,
+  "calibrate-both": {
+    id: "calibrate-both",
+    title: "Des probabilités honnêtes",
+    goal: "Règle la température des deux modèles pour que leur erreur de calibration (ECE) passe sous 0,02.",
+    hint: "Un modèle surconfiant a besoin d'une température supérieure à 1 (on adoucit), un modèle sous-confiant d'une température inférieure à 1.",
+    check: (s: CalibState) => s.eceBoosting < s.target && s.eceRegularise < s.target,
+  } satisfies Challenge<CalibState>,
+  "ndcg-ideal": {
+    id: "ndcg-ideal",
+    title: "Le classement idéal",
+    goal: "Réordonne les résultats pour atteindre un NDCG@5 de 1.",
+    hint: "Le gain d'un document vaut 2^pertinence − 1, et il est d'autant plus réduit qu'il est bas dans la liste.",
+    check: (s: RankState) => s.ndcg > 0.9999,
+  } satisfies Challenge<RankState>,
 };

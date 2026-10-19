@@ -1,0 +1,140 @@
+<Predict
+  id="hook"
+  question="Ton classifieur de tickets (Facturation, Livraison, Technique, Fraude) affiche 73 % d'accuracy. La classe Fraude, 8 % des tickets, n'est retrouvée qu'une fois sur cinq. Quel chiffre unique aurait signalé le problème ?"
+  options={["L'accuracy", "Le weighted-F1", "Le macro-F1", "Le micro-F1"]}
+  answer={2}
+>
+Le **macro-F1** fait la moyenne simple des F1 de chaque classe : la Fraude y pèse autant que la Facturation, donc son F1 médiocre fait chuter le score. L'accuracy et le micro-F1 (qui lui est égal ici) sont dominés par les classes fréquentes, et le weighted-F1 pondère chaque classe par sa taille : les trois restent flatteurs. Avec plusieurs classes, choisir la **moyenne** revient à décider quelles erreurs comptent.
+</Predict>
+
+## De deux classes à K classes
+
+Avec $K$ classes, la confusion matrix devient un tableau $K \times K$ : la ligne est la vraie classe, la colonne la classe prédite, la diagonale les bonnes réponses. Chaque case hors diagonale raconte une confusion précise (« les fraudes partent en facturation »), bien plus utile qu'un score global pour savoir quoi corriger.
+
+On calcule ensuite precision, recall et F1 **par classe**, en traitant chaque classe contre toutes les autres (*one-vs-rest*) : pour la classe $k$, $TP_k$ est la case diagonale, $FP_k$ le reste de sa colonne, $FN_k$ le reste de sa ligne.
+
+## Trois façons de résumer
+
+$$
+\text{macro-F1} = \frac{1}{K}\sum_{k=1}^{K} F1_k
+\qquad
+\text{weighted-F1} = \sum_{k=1}^{K} \frac{n_k}{n}\, F1_k
+$$
+
+- **macro** : chaque classe compte autant. C'est le chiffre qui protège les classes rares.
+- **weighted** : chaque classe compte selon son effectif $n_k$. Proche de l'accuracy quand les classes fréquentes vont bien.
+- **micro** : on additionne d'abord TP, FP, FN de toutes les classes. En classification à une seule étiquette, chaque erreur est à la fois un FP (pour la classe prédite) et un FN (pour la vraie), donc micro-precision = micro-recall = micro-F1 = **accuracy**.
+
+<MulticlassLab id="tickets" challenge="macro-f1" />
+
+Le modèle a appris que la fraude est rare : sans correction, il ne la prédit que quand il en est presque certain. Donner du poids à cette classe (un `class_weight`, ou un seuil plus bas pour elle) augmente son recall au prix de sa precision et de quelques erreurs ailleurs. Au bon réglage, le macro-F1 progresse nettement alors que l'accuracy ne bouge presque pas : c'est exactement l'information que l'accuracy ne voyait pas.
+
+<Callout type="intuition">
+Le choix de la moyenne est une décision métier déguisée. Si chaque ticket a la même valeur, l'accuracy convient. Si rater une classe rare coûte cher (fraude, maladie rare, défaut critique), le macro-F1 ou le recall de cette classe doivent faire partie des critères, voire une contrainte explicite : « recall Fraude ≥ 60 % ».
+</Callout>
+
+<Exercise
+  id="macro"
+  question="Trois classes ont des F1 de 0,9, 0,8 et 0,3, avec des supports de 600, 300 et 100. Quel est le macro-F1 (3 décimales) ?"
+  answer={0.667}
+  tolerance={0.002}
+  hint="Moyenne simple des trois F1, sans tenir compte des supports."
+>
+$(0{,}9 + 0{,}8 + 0{,}3)/3 \approx 0{,}667$. Le weighted-F1 vaut $0{,}6 \times 0{,}9 + 0{,}3 \times 0{,}8 + 0{,}1 \times 0{,}3 = 0{,}81$ : la classe faible ne pèse que 10 % et disparaît presque. Les deux chiffres sont justes ; ils ne répondent pas à la même question.
+</Exercise>
+
+## Probabilités, log loss et top-k
+
+Un modèle multiclasse produit en général un vecteur de probabilités par **softmax**, et la prédiction est l'argmax. On peut l'évaluer sans seuil avec la **log loss** (cross-entropy), la loss même qu'on minimise à l'entraînement :
+
+$$
+\text{log loss} = -\frac{1}{n}\sum_{i=1}^{n} \log \hat p_{i,\,y_i}
+$$
+
+où $\hat p_{i,y_i}$ est la probabilité donnée à la **vraie** classe. Pour des problèmes à beaucoup de classes (catégories de produits, diagnostic), on regarde aussi la **top-k accuracy** : la bonne classe est-elle parmi les $k$ premières ? C'est pertinent quand un humain choisit dans une liste de suggestions.
+
+```python
+from sklearn.metrics import classification_report, confusion_matrix, f1_score
+
+print(classification_report(y_test, y_pred, digits=3))        # precision, recall, F1, support par classe + moyennes
+cm = confusion_matrix(y_test, y_pred, normalize="true")       # chaque ligne somme à 1 : recall sur la diagonale
+macro = f1_score(y_test, y_pred, average="macro")
+```
+
+<CodeChoice
+  id="average"
+  question="Tu veux un score où toutes les classes comptent autant, quelle que soit leur taille. Que mettre ?"
+  code={`score = f1_score(y_test, y_pred, average=___)`}
+  options={['"macro"', '"micro"', '"weighted"', "None"]}
+  answer={0}
+>
+`"macro"` fait la moyenne simple des F1 par classe. `"micro"` donne l'accuracy en mono-étiquette, `"weighted"` pondère par le support, et `None` renvoie le tableau des F1 par classe (utile pour le rapport, pas pour un score unique).
+</CodeChoice>
+
+<Callout type="piege">
+**Multiclasse** et **multi-label** sont deux problèmes différents. Multiclasse : une seule classe par exemple, softmax et argmax. Multi-label : plusieurs étiquettes possibles à la fois (un article peut être « sport » et « économie »), une sigmoïde et un seuil **par étiquette**, et des métriques adaptées (F1 par étiquette, `average="samples"`, Hamming loss). Utiliser un softmax pour du multi-label force les étiquettes à se partager une probabilité totale de 1.
+</Callout>
+
+<Callout type="astuce">
+Normalise la confusion matrix par ligne (`normalize="true"`) pour lire les recalls et repérer les confusions systématiques, puis regarde quelques exemples mal classés de la pire case. Souvent, le problème est dans les données : deux classes mal définies, ou des étiquettes incohérentes entre annotateurs.
+</Callout>
+
+<Callout type="entretien">
+« Accuracy de 95 % sur 10 classes, c'est bien ? » Réponse attendue : ça dépend de la répartition (si une classe fait 94 % des données, c'est mauvais), du coût des erreurs par classe, et d'une baseline (classe majoritaire, modèle simple). Puis demander le rapport par classe et le macro-F1.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "En classification mono-étiquette, le micro-F1 est égal à…",
+      options: ["Le macro-F1", "L'accuracy", "Le weighted-F1", "La moyenne des recalls"],
+      answer: 1,
+      explain: "Chaque erreur compte une fois en FP et une fois en FN : micro-precision = micro-recall = accuracy.",
+    },
+    {
+      q: "Dans une confusion matrix multiclasse (lignes = vraie classe), où lit-on les faux négatifs de la classe k ?",
+      options: ["Dans la colonne k, hors diagonale", "Dans la ligne k, hors diagonale", "Sur la diagonale", "Dans la dernière ligne"],
+      answer: 1,
+      explain: "Les exemples vraiment de classe k mais prédits autrement : la ligne k, hors diagonale.",
+    },
+    {
+      q: "Le macro-F1 baisse fortement mais l'accuracy est stable. Interprétation probable ?",
+      options: ["Le modèle s'améliore", "Une classe rare est moins bien reconnue", "Le jeu de test est plus gros", "Le modèle est mieux calibré"],
+      answer: 1,
+      explain: "Une classe rare pèse peu dans l'accuracy mais autant que les autres dans le macro-F1.",
+    },
+    {
+      q: "Un article peut porter plusieurs thèmes à la fois. Quelle sortie de modèle ?",
+      options: ["Un softmax et l'argmax", "Une sigmoïde et un seuil par thème", "Une régression linéaire", "Un k-means"],
+      answer: 1,
+      explain: "C'est du multi-label : chaque étiquette est une décision binaire indépendante.",
+    },
+    {
+      q: "Quelle métrique évalue les probabilités d'un modèle multiclasse sans choisir de seuil ?",
+      options: ["L'accuracy", "La log loss (cross-entropy)", "Le macro-F1", "Le support"],
+      answer: 1,
+      explain: "Elle pénalise une faible probabilité donnée à la vraie classe, et c'est la loss d'entraînement usuelle.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Macro, micro, weighted : lequel choisir ?">
+Micro, en mono-étiquette, c'est l'accuracy : utile quand chaque exemple a la même valeur et que les classes sont équilibrées. Weighted pondère par l'effectif : il reflète la performance « moyenne par exemple » mais masque les classes rares. Macro donne le même poids à chaque classe : c'est le bon choix quand les classes rares comptent autant ou plus, comme la fraude. En pratique, je reporte le macro-F1 avec le rapport par classe, et je fixe des contraintes explicites sur les classes critiques.
+</Interview>
+
+<Interview q="Ton modèle ignore une classe rare. Que fais-tu ?">
+D'abord je regarde la confusion matrix pour voir avec quoi elle est confondue, et quelques exemples pour vérifier les étiquettes. Ensuite plusieurs leviers : poids de classe dans la loss, sur-échantillonnage de la classe rare, ajustement du seuil ou d'un biais sur son score après entraînement (ce qui ne demande pas de réentraîner), et des features qui la distinguent mieux. Je choisis le réglage sur un jeu de validation avec la métrique métier, macro-F1 ou recall minimal sur cette classe, et je vérifie que les probabilités restent exploitables si elles sont utilisées en aval.
+</Interview>
+
+<Recap>
+- Confusion matrix $K \times K$ : lignes = vraie classe, colonnes = prédite ; les cases hors diagonale montrent les confusions.
+- Métriques par classe en one-vs-rest, puis résumé : **macro** (chaque classe pareil), **weighted** (selon l'effectif), **micro** (= accuracy en mono-étiquette).
+- Classes rares : macro-F1, rapport par classe, poids de classe ou seuil dédié.
+- Log loss et top-k accuracy pour juger les probabilités et les listes de suggestions.
+- Multi-label ≠ multiclasse : une sigmoïde et un seuil par étiquette.
+</Recap>
+
+<LessonComplete />

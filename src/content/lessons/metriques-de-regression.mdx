@@ -1,0 +1,140 @@
+<Predict
+  id="hook"
+  question="Tu dois annoncer un seul délai pour toutes les livraisons, et tu es jugé sur l'erreur absolue moyenne (MAE). Les délais sont très asymétriques : la plupart autour de 20 minutes, quelques-uns au-delà d'une heure. Quelle valeur annoncer ?"
+  options={["La moyenne", "La médiane", "Le délai maximal", "La moyenne entre le minimum et le maximum"]}
+  answer={1}
+>
+La **médiane** minimise la somme des erreurs absolues ; la **moyenne** minimise la somme des erreurs au carré. Ce n'est pas un détail : choisir une métrique (MAE ou RMSE), c'est choisir ce que le modèle va chercher à prédire. Un modèle entraîné avec une loss quadratique vise la moyenne conditionnelle, avec une loss absolue la médiane conditionnelle. Sur des données asymétriques, les deux peuvent être très éloignées.
+</Predict>
+
+## Les métriques usuelles
+
+Pour des erreurs $e_i = y_i - \hat y_i$ :
+
+$$
+\text{MAE} = \frac{1}{n}\sum_i |e_i|
+\qquad
+\text{RMSE} = \sqrt{\frac{1}{n}\sum_i e_i^2}
+\qquad
+R^2 = 1 - \frac{\sum_i e_i^2}{\sum_i (y_i - \bar y)^2}
+$$
+
+- **MAE** : l'erreur typique, dans l'unité de la cible (« on se trompe de 13 minutes en moyenne »). Robuste aux valeurs extrêmes.
+- **RMSE** : même unité, mais les grosses erreurs pèsent beaucoup plus (elles sont élevées au carré). On a toujours RMSE ≥ MAE ; un grand écart entre les deux signale quelques très grosses erreurs.
+- **R²** : la part de variance expliquée, comparée à la baseline qui prédit toujours la moyenne. $R^2 = 0$ pour cette baseline, $R^2 = 1$ pour un modèle parfait, et $R^2 < 0$ sur un jeu de test quand le modèle fait **pire** que la moyenne.
+- **MAPE** : l'erreur en pourcentage, $\frac{1}{n}\sum_i |e_i| / |y_i|$. Parlante pour le métier, mais piégeuse (voir plus bas).
+
+<ConstantPredLab id="constante" challenge="mean-median" />
+
+Retire l'incident de 114 minutes : la moyenne recule nettement, la médiane bouge à peine. C'est la sensibilité aux valeurs extrêmes, côté métrique comme côté statistique. Remarque aussi que $R^2$ vaut exactement 0 quand on prédit la moyenne, et devient négatif avec la médiane : le $R^2$ est construit autour de la RMSE.
+
+<Exercise
+  id="rmse"
+  question="Un modèle fait les erreurs suivantes sur 5 exemples : 2, −1, 3, 0, −4. Quelle est sa RMSE (3 décimales) ?"
+  answer={2.449}
+  tolerance={0.003}
+  hint="Moyenne des carrés : (4 + 1 + 9 + 0 + 16) / 5, puis racine."
+>
+$\text{MSE} = 30/5 = 6$, donc $\text{RMSE} = \sqrt 6 \approx 2{,}449$, alors que la MAE vaut $10/5 = 2$. L'erreur de 4 pèse 16 dans la somme des carrés, plus de la moitié du total.
+</Exercise>
+
+## Prédire un quantile
+
+En logistique ou en planification, on veut souvent un niveau de service plutôt qu'une moyenne : « un stock suffisant 90 % du temps ». On entraîne alors sur la **pinball loss** (ou *quantile loss*) d'ordre $\tau$ :
+
+$$
+L_\tau(y, \hat y) = \max\big(\tau\,(y - \hat y),\; (\tau - 1)(y - \hat y)\big)
+$$
+
+Sous-estimer coûte $\tau$ par unité, surestimer coûte $1-\tau$ : avec $\tau = 0{,}9$, sous-estimer est neuf fois plus pénalisé, et le modèle apprend le quantile à 90 %. Avec $\tau = 0{,}5$, on retrouve la MAE (à un facteur près) et la médiane.
+
+<CodeChoice
+  id="quantile"
+  question="Tu veux une prévision de demande qui couvre la demande réelle dans 90 % des cas. Que mettre ?"
+  code={`from sklearn.ensemble import HistGradientBoostingRegressor
+modele = HistGradientBoostingRegressor(loss="quantile", quantile=___)`}
+  options={["0.9", "0.1", "0.5", "90"]}
+  answer={0}
+>
+`quantile=0.9` : le modèle prédit la valeur sous laquelle tombe 90 % de la demande. 0,1 donnerait une prévision basse (dépassée 90 % du temps), 0,5 la médiane. On évalue ensuite avec la pinball loss au même $\tau$, et on vérifie la **couverture** : la demande réelle est-elle sous la prévision dans environ 90 % des cas ?
+</CodeChoice>
+
+## Lire les résidus
+
+Un score unique ne dit pas **où** le modèle se trompe. Trace les résidus $e_i$ en fonction de la prédiction et des principales variables :
+
+- un nuage centré sur 0 sans structure : bon signe ;
+- une tendance (résidus positifs pour les grandes valeurs) : biais, relation non linéaire manquée ;
+- un entonnoir (erreurs qui grandissent avec la valeur) : **hétéroscédasticité**, souvent mieux traitée en modélisant $\log y$ ou en évaluant une erreur relative.
+
+<Callout type="intuition">
+La métrique encode ce qu'une erreur coûte vraiment. Si une erreur de 20 minutes est deux fois plus grave qu'une erreur de 10, la MAE est cohérente. Si elle est bien pire (une livraison très en retard fait perdre le client), la RMSE l'est davantage. Et si sous-estimer coûte plus que surestimer, aucune des deux : il faut une loss asymétrique comme la pinball loss.
+</Callout>
+
+<Callout type="piege">
+La **MAPE** explose quand $y_i$ est proche de 0 (une vente de 1 unité prévue à 3 : 200 % d'erreur) et pénalise davantage la surestimation que la sous-estimation. En prévision de ventes, on lui préfère souvent la **WAPE** $= \sum_i |e_i| / \sum_i |y_i|$, qui pondère par le volume. Autre piège : entraîner sur $\log y$ puis exponentier donne une prévision proche de la **médiane**, pas de la moyenne ; les totaux sont alors systématiquement sous-estimés.
+</Callout>
+
+<Callout type="entretien">
+« Mon $R^2$ est de 0,3, c'est mauvais ? » Pas forcément : en finance ou en marketing, expliquer 30 % de la variance peut avoir une grande valeur, alors qu'en physique ce serait faible. Le $R^2$ dépend de la variance de la cible dans le jeu évalué ; il ne se compare pas d'un jeu de données à l'autre. Compare plutôt la MAE ou la RMSE à une baseline pertinente (moyenne, dernière valeur, saisonnalité de l'an passé).
+</Callout>
+
+<Callout type="astuce">
+Reporte toujours une **baseline** à côté de ton modèle : prédire la moyenne, la médiane, la dernière valeur connue ou la même semaine l'an dernier. Un gradient boosting à 12,1 de MAE contre une baseline saisonnière à 12,4, ce n'est pas le même message qu'une baseline à 25.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quelle constante minimise la RMSE d'une série de valeurs ?",
+      options: ["La médiane", "La moyenne", "Le mode", "Le milieu entre min et max"],
+      answer: 1,
+      explain: "La moyenne minimise la somme des carrés des écarts ; la médiane minimise la somme des valeurs absolues.",
+    },
+    {
+      q: "Sur le jeu de test, R² = −0,2. Que signifie-t-il ?",
+      options: ["Erreur de calcul", "Le modèle fait pire que prédire la moyenne", "20 % de variance expliquée", "Le modèle est sous-confiant"],
+      answer: 1,
+      explain: "R² compare au modèle constant égal à la moyenne ; négatif signifie plus d'erreur quadratique que lui.",
+    },
+    {
+      q: "MAE = 5 et RMSE = 15. Interprétation ?",
+      options: ["Impossible", "Quelques très grosses erreurs, la plupart petites", "Toutes les erreurs valent 10", "Le modèle est parfait"],
+      answer: 1,
+      explain: "La RMSE amplifie les grosses erreurs ; un grand écart avec la MAE révèle des erreurs extrêmes.",
+    },
+    {
+      q: "Pourquoi éviter la MAPE pour des ventes de produits peu vendus ?",
+      options: ["Elle est trop lente à calculer", "Elle explose quand la vraie valeur est proche de 0", "Elle ignore les grosses erreurs", "Elle vaut toujours 0"],
+      answer: 1,
+      explain: "La division par y_i rend la métrique instable ; la WAPE est plus robuste.",
+    },
+    {
+      q: "Quelle loss pour prédire le niveau de stock couvrant la demande 95 % du temps ?",
+      options: ["MSE", "MAE", "Pinball loss avec τ = 0,95", "Log loss"],
+      answer: 2,
+      explain: "La pinball loss d'ordre τ fait apprendre le quantile τ.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="MAE ou RMSE : comment choisis-tu ?">
+Selon le coût réel des erreurs. La MAE traite toutes les erreurs proportionnellement : elle est robuste aux valeurs extrêmes et correspond à prédire la médiane. La RMSE pénalise fortement les grosses erreurs et correspond à prédire la moyenne : je la choisis quand une grosse erreur est disproportionnellement grave. Je regarde souvent les deux, car leur écart renseigne sur la présence d'erreurs extrêmes. Et si l'erreur est asymétrique, par exemple en gestion de stock, je passe à une pinball loss sur le quantile qui correspond au niveau de service visé.
+</Interview>
+
+<Interview q="Comment évaluerais-tu un modèle de prévision de la demande ?">
+Avec une validation temporelle, jamais un découpage aléatoire : on entraîne sur le passé et on évalue sur des périodes futures, en plusieurs plis glissants. Métriques en unités métier : WAPE ou MAE pondérée par produit, biais global (somme des erreurs, pour voir si on sous-estime systématiquement), et pinball loss avec la couverture si on prévoit des quantiles. Le tout comparé à des baselines naïves (dernière valeur, même période l'an passé), découpé par segment (produits à faible volume, promotions), avec une analyse des résidus dans le temps.
+</Interview>
+
+<Recap>
+- MAE (robuste, médiane), RMSE (pénalise les grosses erreurs, moyenne), $R^2$ (contre la baseline moyenne, peut être négatif).
+- La métrique choisit ce que le modèle prédit : moyenne, médiane, ou quantile avec la **pinball loss**.
+- MAPE instable près de 0 : préférer la WAPE en prévision.
+- Toujours une baseline, des résidus tracés, et une validation temporelle pour les séries.
+- Entraîner sur $\log y$ puis exponentier vise la médiane, pas la moyenne.
+</Recap>
+
+<LessonComplete />
