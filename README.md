@@ -121,4 +121,5 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 - [x] Phase 9 — Deep learning (suite) : régularisation, CNN, transfer learning, embeddings, RNN et LSTM
 - [x] Phase 9 (suite) — IA agentique : tool use (schémas JSON, MCP), boucle ReAct, mémoire et contexte, évaluation d'agents (pass@k, pass^k), sécurité (injection de prompt, moindre privilège)
 - [ ] Phase 9 (suite) — ACP
+- [x] Module spécial Entretiens : 133 questions types (QCM, réponses orales auto-évaluées, bugs à trouver, calculs, pièges) sur 9 thèmes, entraînement filtré et entretien blanc chronométré avec bilan
 - [ ] Phase 10 — vitrine publique : landing, SEO, images de partage, accessibilité, version anglaise

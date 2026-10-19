@@ -9,6 +9,11 @@ const KEYWORDS = new Set(
 );
 const BUILTINS = new Set("self print len range enumerate zip list dict tuple set int float str sum min max abs round super isinstance map sorted open type".split(" "));
 
+const SQL_KEYWORDS = new Set(
+  "SELECT FROM WHERE GROUP BY ORDER HAVING JOIN LEFT RIGHT INNER OUTER FULL ON AND OR NOT AS IN IS NULL DISTINCT LIMIT OFFSET UNION ALL WITH CASE WHEN THEN ELSE END OVER PARTITION ASC DESC INSERT INTO VALUES UPDATE SET DELETE CREATE TABLE BETWEEN LIKE EXISTS".split(" "),
+);
+const SQL_FUNCS = new Set("COUNT SUM AVG MIN MAX ROW_NUMBER RANK DENSE_RANK LAG LEAD COALESCE ROUND CAST DATE".split(" "));
+
 const RULES: [TokKind, RegExp][] = [
   ["com", /^#.*/],
   ["str", /^[rbfu]{0,2}("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')/i],
@@ -20,7 +25,8 @@ const RULES: [TokKind, RegExp][] = [
   ["plain", /^./],
 ];
 
-export function tokenize(code: string): Tok[] {
+export function tokenize(code: string, lang: "python" | "sql" = "python"): Tok[] {
+  if (lang === "sql") return tokenizeSql(code);
   const out: Tok[] = [];
   let rest = code;
   while (rest.length) {
@@ -40,6 +46,22 @@ export function tokenize(code: string): Tok[] {
       rest = rest.slice(t.length);
       break;
     }
+  }
+  return out;
+}
+
+function tokenizeSql(code: string): Tok[] {
+  const out: Tok[] = [];
+  const re = /(--.*)|('(?:''|[^'])*')|(\d+(?:\.\d+)?)|([A-Za-z_]\w*)|(\s+)|(.)/g;
+  for (const m of code.matchAll(re)) {
+    const [t, com, str, num, word] = m;
+    let k: TokKind = "plain";
+    if (com) k = "com";
+    else if (str) k = "str";
+    else if (num) k = "num";
+    else if (word) k = SQL_KEYWORDS.has(word.toUpperCase()) ? "kw" : SQL_FUNCS.has(word.toUpperCase()) ? "fn" : "plain";
+    else if (!/^\s/.test(t)) k = "op";
+    out.push({ k, t });
   }
   return out;
 }

@@ -5,10 +5,10 @@ import { Check, Copy } from "lucide-react";
 import { tokenize, TOK_CLASS } from "./highlight";
 
 /** Code coloré, sans cadre. Utilisé par les blocs, les exercices et les cartes. */
-export function Highlighted({ code, className, inline }: { code: string; className?: string; inline?: boolean }) {
+export function Highlighted({ code, className, inline, lang }: { code: string; className?: string; inline?: boolean; lang?: "python" | "sql" }) {
   return (
     <code className={clsx("code-raw whitespace-pre font-mono", inline ? "inline" : "block", "text-[0.86rem] leading-[1.65]", className)}>
-      {tokenize(code).map((t, i) => (
+      {tokenize(code, lang).map((t, i) => (
         <span key={i} className={TOK_CLASS[t.k]}>
           {t.t}
         </span>

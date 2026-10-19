@@ -4,6 +4,7 @@
 
 import { ALL_LESSONS, MODULES } from "./curriculum";
 import { conceptLevel } from "./mastery";
+import { QUESTIONS } from "./interview";
 
 export type Family = "regularite" | "maitrise" | "rigueur" | "curiosite" | "secret";
 export type Tier = "bronze" | "argent" | "or" | "platine";
@@ -49,6 +50,8 @@ export type Stats = {
   night: number;
   early: number;
   revisit: number;
+  interviewOk: number;
+  simulations: number;
 };
 
 const countPrefix = (rec: Record<string, true>, prefix: string) => Object.keys(rec).filter((k) => k.startsWith(prefix)).length;
@@ -115,6 +118,8 @@ export function computeStats(d: AchievementSource): Stats {
     night: explored["time:night"] ? 1 : 0,
     early: explored["time:early"] ? 1 : 0,
     revisit: explored["revisit"] ? 1 : 0,
+    interviewOk: countPrefix(explored, "itv-ok:"),
+    simulations: countPrefix(explored, "itv-sim:"),
   };
 }
 
@@ -175,6 +180,10 @@ export const ACHIEVEMENTS: Achievement[] = [
   a("quiz-perfect-5", "rigueur", "Perfectionniste", "5 quiz sans erreur.", 5, (s) => s.perfectQuizzes, "argent"),
   a("first-try-3", "rigueur", "Calcul mental", "3 exercices réussis du premier coup.", 3, (s) => s.exercisesFirstTry, "bronze"),
   a("first-try-10", "rigueur", "Machine à calculer", "10 exercices réussis du premier coup.", 10, (s) => s.exercisesFirstTry, "argent"),
+  a("itv-10", "rigueur", "Candidat", "Réussir 10 questions d'entretien.", 10, (s) => s.interviewOk, "bronze"),
+  a("itv-50", "rigueur", "Short-list", "Réussir 50 questions d'entretien.", 50, (s) => s.interviewOk, "argent"),
+  a("itv-all", "rigueur", "Offre signée", "Réussir toutes les questions d'entretien.", QUESTIONS.length, (s) => s.interviewOk, "or"),
+  a("itv-sim", "rigueur", "Entretien blanc", "Obtenir au moins 70 % à un entretien blanc.", 1, (s) => s.simulations, "argent"),
   a("persist-1", "rigueur", "Persévérant", "Réussir un exercice après au moins deux erreurs.", 1, (s) => s.persistence, "bronze"),
 
   // ------------------------------------------------ Curiosité

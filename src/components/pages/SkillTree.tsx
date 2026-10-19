@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import clsx from "clsx";
-import { Check, Lock, Play } from "lucide-react";
+import { ArrowRight, Briefcase, Check, Lock, Play } from "lucide-react";
 import { MODULES, modStyle, type Module } from "@/lib/curriculum";
 import { useProgress, conceptLevel } from "@/lib/store";
 import { useHydrated } from "@/components/ui/useHydrated";
@@ -16,7 +16,7 @@ export function SkillTree() {
     <div className="mx-auto max-w-4xl px-4 pt-10">
       <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Parcours</h1>
       <p className="mt-3 max-w-2xl text-lg text-muted">
-        Huit modules, des bases mathématiques jusqu'aux agents. Chaque concept passe par quatre niveaux : découvert,
+        Neuf modules, des bases mathématiques jusqu'aux agents, puis un module spécial pour préparer tes entretiens. Chaque concept passe par quatre niveaux : découvert,
         pratiqué, maîtrisé, puis consolidé quand ta mémoire tient sur la durée.
       </p>
 
@@ -32,6 +32,18 @@ export function SkillTree() {
           />
         ))}
       </ol>
+
+      <Link href="/entretiens" className="card group mt-8 flex items-center gap-4 p-5 transition-transform hover:-translate-y-0.5">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-ink text-white">
+          <Briefcase size={26} strokeWidth={2.3} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-bold text-muted">Module spécial</span>
+          <span className="block font-display text-xl font-bold">Préparer les entretiens</span>
+          <span className="block text-sm text-muted">Questions de théorie, études de cas, bugs à trouver, calculs et pièges, en entraînement libre ou en entretien blanc chronométré.</span>
+        </span>
+        <ArrowRight className="shrink-0 text-muted transition-transform group-hover:translate-x-1" />
+      </Link>
     </div>
   );
 }
