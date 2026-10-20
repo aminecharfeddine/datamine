@@ -1195,6 +1195,30 @@ export const CARDS: ReviewCard[] = [
     front: "Pourquoi les sous-agents doivent-ils renvoyer des résumés structurés ?",
     back: "Ce qu'ils renvoient s'accumule dans le contexte de l'orchestrateur : des résultats bruts le font déborder et coûtent cher. Un format court et structuré (avec sources) facilite aussi l'assemblage et la vérification.",
   },
+  // --- pca
+  {
+    id: "pca-1",
+    concept: "pca",
+    kind: "flash",
+    front: "Que sont les composantes principales d'une ACP ?",
+    back: "Les directions de variance maximale des données centrées, orthogonales entre elles : les vecteurs propres de la matrice de covariance. La valeur propre associée est la variance le long de chaque direction.",
+  },
+  {
+    id: "pca-2",
+    concept: "pca",
+    kind: "mcq",
+    front: "ACP sur surface (m²) et nombre de pièces, sans standardiser : la 1re composante explique 99,9 % de la variance. Pourquoi ?",
+    options: ["Les deux variables sont identiques", "La surface, de bien plus grande échelle, domine la variance totale", "L'ACP a convergé", "Il y a trop peu de données"],
+    answer: 1,
+    explain: "On standardise quand les unités diffèrent.",
+  },
+  {
+    id: "pca-3",
+    concept: "pca",
+    kind: "flash",
+    front: "Pourquoi une ACP peut-elle dégrader un modèle supervisé ?",
+    back: "Elle est non supervisée : elle garde la variance, pas l'information utile pour prédire. Une direction de faible variance mais très prédictive peut être supprimée. On choisit k par validation croisée et on vérifie le gain.",
+  },
   // --- knn
   {
     id: "knn-1",

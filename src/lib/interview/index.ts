@@ -11,10 +11,11 @@ import { STATS } from "./q-stats";
 import { TOPICS, type ItvKind, type ItvLevel, type ItvQuestion, type ItvTopic } from "./types";
 import { CHOIX } from "./q-choix";
 import { CONCEPTS } from "./q-concepts";
+import { SUITE } from "./q-suite";
 
 export * from "./types";
 
-export const QUESTIONS: ItvQuestion[] = [...FONDAMENTAUX, ...STATS, ...MODELES, ...CHOIX, ...EVALUATION, ...DATA, ...DEEP, ...LLM, ...PROD, ...CAS, ...CONCEPTS];
+export const QUESTIONS: ItvQuestion[] = [...FONDAMENTAUX, ...STATS, ...MODELES, ...CHOIX, ...EVALUATION, ...DATA, ...DEEP, ...LLM, ...PROD, ...CAS, ...CONCEPTS, ...SUITE];
 export const questionById = (id: string) => QUESTIONS.find((q) => q.id === id);
 
 /** Score à partir duquel une question est considérée comme réussie. */

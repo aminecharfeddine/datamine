@@ -1,0 +1,33 @@
+<FicheSection kind="essentiel">
+- Nouveaux axes : directions de variance maximale, orthogonales, décorrélées.
+- Vecteurs propres de la covariance ; calcul par SVD.
+- Standardiser si les unités diffèrent.
+- Choisir k : variance cumulée, coude, validation croisée.
+- Non supervisée, linéaire, sensible aux outliers.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\Sigma v_k = \lambda_k v_k \qquad \text{part expliquée} = \frac{\lambda_k}{\sum_j \lambda_j}
+$$
+
+Valeurs propres 2,4 ; 1,0 ; 0,4 ; 0,2 : les deux premières gardent 3,4 / 4 = 85 %.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- ACP sans standardisation sur des unités différentes.
+- Ajuster l'ACP sur train et test réunis.
+- Supposer que les composantes de forte variance sont les plus prédictives.
+- Interpréter les distances d'un t-SNE comme celles d'une ACP.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Expliquer l'ACP ?** Axes de variance maximale, vecteurs propres de la covariance, valeurs propres = variance, réduction avec perte minimale.
+
+**Quand l'éviter ?** Besoin d'interprétabilité, structure non linéaire, outliers, modèles d'arbres, pas de gain en validation.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `make_pipeline(StandardScaler(), PCA(n_components=0.90))`.
+- `explained_variance_ratio_.cumsum()` et `components_` pour les poids.
+</FicheSection>

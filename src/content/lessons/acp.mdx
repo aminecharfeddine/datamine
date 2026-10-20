@@ -1,0 +1,160 @@
+<Predict
+  id="hook"
+  question="Tu fais une ACP sur des appartements décrits par leur surface (en m²) et leur nombre de pièces, sans standardiser. La première composante explique 99,9 % de la variance. Bonne nouvelle ?"
+  options={[
+    "Oui : une seule dimension suffit à tout résumer",
+    "Non : la surface varie de dizaines de m², le nombre de pièces de quelques unités ; la composante ne fait que recopier la variable de plus grande échelle",
+    "Oui, si les données sont nombreuses",
+    "Non, l'ACP ne fonctionne qu'avec plus de deux variables",
+  ]}
+  answer={1}
+>
+L'ACP cherche les directions de **plus grande variance**. Si une variable s'exprime dans une unité qui donne de grands nombres, elle domine la variance totale, et la première composante se contente de la suivre. Changer les m² en cm² changerait le résultat. Sauf quand toutes les variables sont dans la même unité et que leurs écarts comptent vraiment, on **standardise** avant une ACP.
+</Predict>
+
+## L'idée : changer d'axes
+
+Avec beaucoup de variables corrélées, une partie de l'information est redondante. L'ACP (analyse en composantes principales, *PCA* en anglais) construit de nouveaux axes, les **composantes principales** :
+
+- la première est la direction selon laquelle les données s'étalent le plus ;
+- la deuxième est la direction de plus grande variance **orthogonale** à la première, et ainsi de suite ;
+- les composantes sont des combinaisons linéaires des variables d'origine, et elles sont décorrélées entre elles.
+
+Garder les $k$ premières revient à projeter les données sur le sous-espace qui conserve le plus de variance. C'est la même chose que **minimiser l'erreur de reconstruction** : la variance perdue, ce sont les distances des points à leur projection.
+
+<PcaLab id="projection" challenge="pca-axis" />
+
+## Les mathématiques
+
+On centre les données (et on les réduit si besoin), on calcule leur matrice de covariance $\Sigma$, puis ses vecteurs propres et valeurs propres :
+
+$$
+\Sigma\, v_k = \lambda_k\, v_k, \qquad \lambda_1 \geq \lambda_2 \geq \dots \geq \lambda_p
+$$
+
+Chaque vecteur propre $v_k$ est une direction principale, et sa valeur propre $\lambda_k$ est la variance des données le long de cette direction. La part de variance expliquée par la composante $k$ vaut :
+
+$$
+\frac{\lambda_k}{\sum_{j} \lambda_j}
+$$
+
+En pratique, on passe par une **décomposition en valeurs singulières** (SVD) de la matrice des données centrées, plus stable numériquement, et c'est ce que fait scikit-learn.
+
+<Exercise
+  id="part"
+  question="Une ACP sur 4 variables standardisées donne les valeurs propres 2,4 ; 1,0 ; 0,4 ; 0,2. Quelle part de la variance gardent les deux premières composantes (2 décimales) ?"
+  answer={0.85}
+  tolerance={0.005}
+  hint="Sur des variables standardisées, la variance totale est égale au nombre de variables."
+>
+$(2{,}4 + 1{,}0) / 4 = 0{,}85$ : 85 % de la variance avec 2 composantes au lieu de 4. Sur des données standardisées, la somme des valeurs propres vaut le nombre de variables, et une composante dont la valeur propre est inférieure à 1 explique moins qu'une seule variable d'origine (critère de Kaiser, une règle empirique parmi d'autres).
+</Exercise>
+
+## Combien de composantes ?
+
+- Une **part de variance cumulée** cible (80 %, 90 %, 95 %), selon l'usage.
+- Le **coude** de l'éboulis : là où les valeurs propres cessent de chuter.
+- Pour un modèle supervisé : on traite $k$ comme un hyperparamètre, choisi par validation croisée.
+- Pour la visualisation : 2 ou 3, en sachant ce qu'on perd.
+
+```python
+from sklearn.decomposition import PCA
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+acp = make_pipeline(StandardScaler(), PCA(n_components=0.90))   # garder 90 % de la variance
+Z_train = acp.fit_transform(X_train)                            # ajusté sur le train uniquement
+Z_test = acp.transform(X_test)
+
+pca = acp.named_steps["pca"]
+print(pca.n_components_, pca.explained_variance_ratio_.cumsum())
+print(pca.components_[0])                                       # poids des variables dans la 1re composante
+```
+
+<CodeChoice
+  id="fuite"
+  question="Sur quelles données ajuster le pipeline standardisation + ACP ?"
+  code={`acp.fit(___)
+Z_test = acp.transform(X_test)`}
+  options={["X_train", "np.vstack([X_train, X_test])", "X_test", "X_tout"]}
+  answer={0}
+>
+Les directions principales sont estimées à partir des données : les calculer sur tout le jeu ferait fuir l'information du test dans la préparation, comme pour un scaler. On ajuste donc la standardisation et l'ACP sur le train, dans un pipeline, et on applique la même transformation au test et en production.
+</CodeChoice>
+
+## À quoi ça sert, et les limites
+
+Usages : **visualiser** des données de grande dimension, **compresser** (moins de colonnes, modèles plus rapides), **décorréler** des variables avant un modèle linéaire, **débruiter** (les dernières composantes portent souvent surtout du bruit), ou résumer des variables très corrélées en un indice (un score « socio-économique » à partir de dix indicateurs).
+
+<Callout type="piege">
+L'ACP est **non supervisée** : elle garde ce qui varie beaucoup, pas ce qui prédit la cible. Une direction de faible variance peut être la plus prédictive, et l'ACP la jettera. Avant un modèle supervisé, on vérifie toujours par validation qu'elle aide ; avec un gradient boosting, elle dégrade souvent les résultats.
+</Callout>
+
+<Callout type="intuition">
+Imagine une nuée de points en forme de cigare dans l'espace. La première composante est l'axe du cigare, la deuxième sa plus grande largeur, la troisième son épaisseur. Si le cigare est très fin, deux axes suffisent à le décrire presque entièrement : c'est exactement ce que dit une part de variance cumulée élevée.
+</Callout>
+
+<Callout type="entretien">
+Les autres limites à citer : l'ACP est **linéaire** (pour des structures courbes, on utilise des méthodes non linéaires comme UMAP ou des autoencodeurs) ; elle est **sensible aux valeurs aberrantes**, qui gonflent la variance dans leur direction ; et ses composantes, mélanges de toutes les variables, sont souvent **difficiles à interpréter**. Pour la visualisation, t-SNE et UMAP montrent mieux les voisinages, mais leurs distances globales ne sont pas fiables, contrairement à celles de l'ACP.
+</Callout>
+
+<Callout type="astuce">
+Regarde les **poids** (loadings) des premières composantes : une composante où toutes les variables ont des poids de même signe est souvent un effet « taille » ou « niveau général » ; une composante qui oppose deux groupes de variables (sciences contre lettres) est souvent la plus intéressante à interpréter.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que maximise la première composante principale ?",
+      options: ["La corrélation avec la cible", "La variance des données projetées", "Le nombre de clusters", "La distance entre les classes"],
+      answer: 1,
+      explain: "C'est équivalent à minimiser l'erreur de reconstruction.",
+    },
+    {
+      q: "Pourquoi standardiser avant une ACP sur des variables d'unités différentes ?",
+      options: ["Pour accélérer le calcul", "Sinon les variables de grande échelle dominent la variance et les composantes", "Pour rendre les données normales", "Ce n'est jamais utile"],
+      answer: 1,
+      explain: "Une variable en euros écraserait une variable en années.",
+    },
+    {
+      q: "Que représente une valeur propre λₖ de la matrice de covariance ?",
+      options: ["Le poids d'une variable", "La variance des données le long de la k-ième direction principale", "Le nombre d'observations", "L'erreur du modèle"],
+      answer: 1,
+      explain: "Sa part dans la somme des valeurs propres est la variance expliquée par la composante.",
+    },
+    {
+      q: "Pourquoi une ACP avant un modèle supervisé peut-elle dégrader la performance ?",
+      options: ["Elle ajoute du bruit", "Elle ignore la cible : une direction de faible variance mais très prédictive peut être supprimée", "Elle crée des fuites", "Elle rend les données non linéaires"],
+      answer: 1,
+      explain: "On vérifie son intérêt par validation croisée, en traitant k comme un hyperparamètre.",
+    },
+    {
+      q: "Les composantes principales sont…",
+      options: ["Des sous-ensembles des variables d'origine", "Des combinaisons linéaires des variables d'origine, orthogonales et décorrélées entre elles", "Des clusters", "Des variables catégorielles"],
+      answer: 1,
+      explain: "D'où leur interprétation parfois difficile.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique l'ACP simplement.">
+L'ACP remplace des variables corrélées par de nouveaux axes, les composantes principales, ordonnés selon la quantité de variance qu'ils capturent. La première est la direction dans laquelle les données s'étalent le plus, la deuxième la plus étalée parmi les directions orthogonales à la première, etc. Mathématiquement, ce sont les vecteurs propres de la matrice de covariance des données centrées, et les valeurs propres donnent la variance de chaque axe. En gardant les premières composantes, on réduit la dimension en perdant le moins de variance possible. Il faut standardiser quand les unités diffèrent, et ajuster l'ACP sur le train uniquement.
+</Interview>
+
+<Interview q="Quand utiliserais-tu une ACP, et quand l'éviterais-tu ?">
+Je l'utiliserais pour visualiser rapidement des données de grande dimension, compresser des variables très corrélées (capteurs, indicateurs), décorréler avant un modèle linéaire, ou débruiter. Je l'éviterais quand j'ai besoin de variables interprétables, quand la structure est non linéaire, avec des valeurs aberrantes non traitées, ou avant un modèle d'arbres qui gère très bien les variables corrélées et n'a pas besoin de réduction. Pour un modèle supervisé, je la garde seulement si la validation croisée montre un gain.
+</Interview>
+
+<Recap>
+- Composantes principales : directions de variance maximale, orthogonales, décorrélées.
+- $\Sigma v_k = \lambda_k v_k$ ; part expliquée $\lambda_k / \sum \lambda_j$ ; calcul par SVD.
+- Max de variance conservée = min d'erreur de reconstruction.
+- **Standardiser** si les unités diffèrent ; ajuster sur le train, dans un pipeline.
+- Choisir $k$ : variance cumulée, coude, validation croisée.
+- Limites : non supervisée, linéaire, sensible aux outliers, composantes peu interprétables.
+</Recap>
+
+<LessonComplete />

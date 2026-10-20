@@ -73,6 +73,7 @@ export type DiffusionState = { steps: number; dist: number; minSteps: number };
 export type DetectionState = { tp: number; fp: number; fn: number };
 export type JudgeState = { estimate: number; truth: number };
 export type OrchState = { seconds: number; tokens: number; maxSeconds: number; maxTokens: number };
+export type PcaState = { standardized: boolean; share: number; best: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -660,4 +661,11 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Le parallélisme réduit la latence. Ce qui remonte à l'orchestrateur pèse sur le coût.",
     check: (s: OrchState) => s.seconds <= s.maxSeconds && s.tokens <= s.maxTokens,
   } satisfies Challenge<OrchState>,
+  "pca-axis": {
+    id: "pca-axis",
+    title: "Le premier axe",
+    goal: "Sur les données standardisées, trouve la direction de projection qui conserve le plus de variance (à 0,5 point près).",
+    hint: "Fais tourner l'axe et regarde la part de variance conservée : elle est maximale quand les points sont le plus étalés le long de l'axe, et les segments de projection les plus courts.",
+    check: (s: PcaState) => s.standardized && s.share >= s.best - 0.005,
+  } satisfies Challenge<PcaState>,
 };

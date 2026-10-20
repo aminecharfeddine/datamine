@@ -2,6 +2,7 @@
 export const LESSON_CONTENT: Record<string, () => Promise<{ default: React.ComponentType }>> = {
   "validation-croisee": () => import("@/content/lessons/validation-croisee.mdx"),
   knn: () => import("@/content/lessons/knn.mdx"),
+  acp: () => import("@/content/lessons/acp.mdx"),
   "series-temporelles": () => import("@/content/lessons/series-temporelles.mdx"),
   "interpretabilite": () => import("@/content/lessons/interpretabilite.mdx"),
   "optimisation-hyperparametres": () => import("@/content/lessons/optimisation-hyperparametres.mdx"),

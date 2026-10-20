@@ -148,7 +148,7 @@ export const MODULES: Module[] = [
     deep: "#075985",
     index: 3,
     title: "Modèles classiques",
-    tagline: "Régressions, arbres, ensembles, clustering.",
+    tagline: "Régressions, arbres, ensembles, clustering, ACP.",
     prereqs: ["fondamentaux"],
     concepts: [
       { id: "lineaire", title: "Régression linéaire & logistique" },
@@ -197,6 +197,14 @@ export const MODULES: Module[] = [
         summary: "Pas de réponse à prédire, seulement des données. Deux étapes répétées jusqu'à ce que rien ne bouge.",
         minutes: 15,
         concepts: ["clustering"],
+        available: true,
+      },
+      {
+        slug: "acp",
+        title: "ACP : réduire la dimension",
+        summary: "Trouver les axes qui résument le mieux des variables corrélées, et pourquoi il faut standardiser d'abord.",
+        minutes: 16,
+        concepts: ["pca"],
         available: true,
       },
     ],

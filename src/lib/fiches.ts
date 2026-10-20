@@ -11,6 +11,7 @@ export const FICHE_CONTENT: Record<string, () => Promise<{ default: React.Compon
   regularisation: () => import("@/content/fiches/regularisation.mdx"),
   "validation-croisee": () => import("@/content/fiches/validation-croisee.mdx"),
   knn: () => import("@/content/fiches/knn.mdx"),
+  acp: () => import("@/content/fiches/acp.mdx"),
   "series-temporelles": () => import("@/content/fiches/series-temporelles.mdx"),
   "interpretabilite": () => import("@/content/fiches/interpretabilite.mdx"),
   "optimisation-hyperparametres": () => import("@/content/fiches/optimisation-hyperparametres.mdx"),

@@ -93,3 +93,30 @@ describe("orchestration", () => {
     expect(orchestrate({ subAgents: 0, compact: false }).tokens).toBeGreaterThan(orchestrate({ subAgents: 6, compact: true }).tokens);
   });
 });
+
+import { APPARTS, pca2, prepare, projection, SCREE } from "./pca";
+import { CHALLENGES as CH } from "./challenges";
+
+describe("ACP", () => {
+  it("sans standardisation, la surface écrase tout ; standardisé, l'axe est à 45°", () => {
+    const raw = pca2(prepare(APPARTS, false));
+    expect(raw.l1 / raw.total).toBeGreaterThan(0.99);
+    expect(Math.min(raw.angle, 180 - raw.angle)).toBeLessThan(5);
+    const std = pca2(prepare(APPARTS, true));
+    expect(std.total).toBeCloseTo(2, 6);
+    expect(std.angle).toBeCloseTo(45, 0);
+  });
+  it("le premier axe maximise la variance projetée, et le défi est atteignable au degré près", () => {
+    const pts = prepare(APPARTS, true);
+    const { l1, total, angle } = pca2(pts);
+    for (const d of [0, 30, 60, 90, 120, 150]) expect(projection(pts, d).variance).toBeLessThanOrEqual(l1 + 1e-9);
+    const share = projection(pts, Math.round(angle)).share;
+    expect(CH["pca-axis"].check({ standardized: true, share, best: l1 / total })).toBe(true);
+    expect(CH["pca-axis"].check({ standardized: true, share: projection(pts, 120).share, best: l1 / total })).toBe(false);
+  });
+  it("éboulis : 8 valeurs propres décroissantes de somme 8", () => {
+    expect(SCREE).toHaveLength(8);
+    expect(SCREE.reduce((a, b) => a + b, 0)).toBeCloseTo(8, 6);
+    SCREE.forEach((l, i) => i && expect(l).toBeLessThanOrEqual(SCREE[i - 1]));
+  });
+});
