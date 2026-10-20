@@ -5,6 +5,7 @@ import { findLesson, conceptTitle, modStyle, moduleById } from "@/lib/curriculum
 import { LESSON_CONTENT } from "@/lib/lessons";
 import { LessonProvider } from "@/components/pedago/LessonContext";
 import { ModuleIcon } from "@/components/ui/ModuleIcon";
+import { SITE_URL } from "@/lib/site";
 
 export function generateStaticParams() {
   return Object.keys(LESSON_CONTENT).map((slug) => ({ slug }));
@@ -13,7 +14,15 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const l = findLesson(slug);
-  return l ? { title: l.title, description: l.summary } : {};
+  if (!l) return {};
+  const m = moduleById(l.moduleId);
+  return {
+    title: l.title,
+    description: l.summary,
+    alternates: { canonical: `/lecons/${slug}` },
+    openGraph: { type: "article", title: l.title, description: l.summary, url: `/lecons/${slug}`, section: m?.title },
+    twitter: { card: "summary_large_image", title: l.title, description: l.summary },
+  };
 }
 
 export default async function LessonPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -24,20 +33,35 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
   const { default: Content } = await load();
   const mod = moduleById(meta.moduleId)!;
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LearningResource",
+    name: meta.title,
+    description: meta.summary,
+    url: `${SITE_URL}/lecons/${slug}`,
+    inLanguage: "fr",
+    isAccessibleForFree: true,
+    learningResourceType: "Leçon interactive",
+    timeRequired: `PT${meta.minutes}M`,
+    teaches: meta.concepts.map(conceptTitle),
+    isPartOf: { "@type": "Course", name: `${mod.title} (Datamine)`, url: `${SITE_URL}/parcours#${mod.id}` },
+  };
+
   return (
     <LessonProvider slug={slug} concepts={meta.concepts}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <div style={modStyle(mod)}>
-        <header className="relative overflow-hidden text-white" style={{ background: mod.color }}>
+        <header className="relative overflow-hidden text-white" style={{ background: mod.deep }}>
           <ModuleIcon id={mod.id} size={260} className="pointer-events-none absolute -right-10 -top-10 opacity-15" />
           <div className="relative mx-auto max-w-3xl px-4 pb-10 pt-8">
-            <Link href={`/parcours#${mod.id}`} className="inline-flex items-center gap-1 rounded-lg py-1 text-sm font-semibold text-white/85 hover:text-white">
+            <Link href={`/parcours#${mod.id}`} className="inline-flex items-center gap-1 rounded-lg py-1 text-sm font-semibold text-white hover:underline">
               <ChevronLeft size={16} strokeWidth={2.6} />
               Module {mod.index}, {mod.title}
             </Link>
             <h1 className="mt-4 font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl">{meta.title}</h1>
-            <p className="mt-4 max-w-xl text-lg text-white/90">{meta.summary}</p>
+            <p className="mt-4 max-w-xl text-lg text-white">{meta.summary}</p>
             <div className="mt-6 flex flex-wrap gap-2 text-sm font-semibold">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-3 py-1">
                 <Clock size={14} strokeWidth={2.6} /> {meta.minutes} min
               </span>
               {meta.concepts.map((c) => (

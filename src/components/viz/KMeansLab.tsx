@@ -85,7 +85,7 @@ export function KMeansLab({ id = "kmeans", k: k0 = 3, mode: m0 = "random", seed:
       <div className="grid gap-8 lg:grid-cols-2">
         <div>
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h4 className="font-display text-lg font-bold">{BLOBS.length} points sans étiquette</h4>
+            <h3 className="font-display text-lg font-bold">{BLOBS.length} points sans étiquette</h3>
             <span className="text-xs font-semibold text-muted">
               {st.converged ? "Convergé" : st.iter === 0 ? "Centres placés" : `Étape ${st.iter}`}
             </span>
@@ -140,7 +140,7 @@ function Elbow({ elbow, k, current }: { elbow: number[]; k: number; current: num
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg font-bold">Inertie selon k</h4>
+        <h3 className="font-display text-lg font-bold">Inertie selon k</h3>
         <span className="text-xs text-muted">somme des distances² au centre</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Courbe du coude : l'inertie baisse fortement jusqu'à k = 4, puis lentement.">

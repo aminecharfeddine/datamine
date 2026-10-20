@@ -125,7 +125,7 @@ function FitChart({
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg">Le modèle et les données</h4>
+        <h3 className="font-display text-lg">Le modèle et les données</h3>
         <div className="flex gap-3 text-xs text-muted">
           <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-ink" /> entraînement</span>
           <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-accent" /> modèle</span>
@@ -170,7 +170,7 @@ function ErrorChart({ curve, degree }: { curve: { degree: number; train: number;
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg">Erreur selon la complexité</h4>
+        <h3 className="font-display text-lg">Erreur selon la complexité</h3>
         <div className="flex gap-3 text-xs text-muted">
           <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-ink" /> entraînement</span>
           <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-accent" /> test</span>

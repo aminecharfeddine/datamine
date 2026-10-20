@@ -102,8 +102,8 @@ export const MODULES: Module[] = [
   },
   {
     id: "fondamentaux",
-    color: "#0d9488",
-    deep: "#0f766e",
+    color: "#0f766e",
+    deep: "#115e59",
     index: 2,
     title: "Fondamentaux ML",
     tagline: "Pourquoi un modèle généralise (ou pas).",
@@ -144,7 +144,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "modeles",
-    color: "#0284c7",
+    color: "#0277b5",
     deep: "#075985",
     index: 3,
     title: "Modèles classiques",
@@ -211,7 +211,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "evaluation",
-    color: "#f43f5e",
+    color: "#e11d48",
     deep: "#be123c",
     index: 4,
     title: "Évaluation",
@@ -470,7 +470,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "transformers",
-    color: "#d97706",
+    color: "#b45309",
     deep: "#92400e",
     index: 7,
     title: "Transformers & LLM",
@@ -555,7 +555,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "agents",
-    color: "#16a34a",
+    color: "#15803d",
     deep: "#166534",
     index: 8,
     title: "IA agentique",

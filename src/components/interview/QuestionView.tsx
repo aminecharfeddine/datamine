@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { ArrowRight, BookOpen, Check, Eye, TriangleAlert, X } from "lucide-react";
@@ -74,7 +74,9 @@ function Verdict({ ok, children }: { ok: boolean; children: React.ReactNode }) {
 // ------------------------------------------------------------ QCM
 
 function Qcm({ q, done, onAnswer }: { q: QcmQ; done: boolean; onAnswer: (s: number) => void }) {
-  const order = useMemo(() => shuffle(q.options.map((_, i) => i), Math.random), [q]);
+  // Ordre mélangé après le montage : identique entre rendu serveur et client, puis aléatoire.
+  const [order, setOrder] = useState(() => q.options.map((_, i) => i));
+  useEffect(() => setOrder(shuffle(q.options.map((_, i) => i), Math.random)), [q]);
   const [picked, setPicked] = useState<number | null>(null);
   const pick = (i: number) => {
     if (done) return;
@@ -173,7 +175,7 @@ function Bug({ q, done, onAnswer }: { q: BugQ; done: boolean; onAnswer: (s: numb
   return (
     <div>
       <p className="mb-2 text-sm font-semibold text-muted">Clique sur la ligne fautive.</p>
-      <div className="overflow-x-auto rounded-2xl bg-[#171a2e] py-3">
+      <div className="overflow-x-auto rounded-2xl bg-[#171a2e] py-3" tabIndex={0}>
         {lines.map((l, i) => {
           const n = i + 1;
           const isBug = picked !== null && n === q.line;

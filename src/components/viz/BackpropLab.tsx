@@ -86,7 +86,7 @@ export function BackpropLab({ id = "backprop", challenge }: { id?: string; chall
       <Graph fwd={fwd} bwd={bwd} v={{ w, b, z, a, L }} g={{ dL_da, da_dz, dL_dz, dL_dw, dL_db }} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
-        <pre className="min-w-0 overflow-x-auto rounded-2xl bg-[#171a2e] p-3">
+        <pre className="min-w-0 overflow-x-auto rounded-2xl bg-[#171a2e] p-3" tabIndex={0}>
           {code.map((c, i) => (
             <div key={i} className={clsx("rounded px-1.5", c.on && "bg-white/10")}>
               <Highlighted code={c.t} />
@@ -135,7 +135,7 @@ function Graph({ fwd, bwd, v, g }: { fwd: boolean; bwd: boolean; v: V; g: G }) {
     ["a", "L", "∂L/∂a = −1/a", `= ${fwd ? fmt(g.dL_da) : "?"}`],
   ];
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" tabIndex={0}>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[640px]" role="img" aria-label="Graphe de calcul d'un neurone, avec valeurs (forward) et gradients (backward).">
         <defs>
           <marker id="bp-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">

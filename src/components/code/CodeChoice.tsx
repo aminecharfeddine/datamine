@@ -50,7 +50,7 @@ export function CodeChoice({
           {!done && <span className="ml-auto rounded-full bg-xp/15 px-2.5 py-0.5 text-xs text-[#93370d]">+5 XP</span>}
         </div>
         <p className="mb-4 font-display text-xl font-bold leading-snug">{question}</p>
-        <pre className="mb-5 overflow-x-auto rounded-2xl bg-[#171a2e] px-4 py-3.5">
+        <pre className="mb-5 overflow-x-auto rounded-2xl bg-[#171a2e] px-4 py-3.5" tabIndex={0}>
           <Highlighted code={before} inline />
           {done ? (
             <span className={clsx("rounded px-1", correct ? "bg-[#12b76a]/25" : "bg-[#eb6834]/25")}>

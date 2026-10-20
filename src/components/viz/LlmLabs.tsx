@@ -196,7 +196,7 @@ export function LoraLab({ id = "lora", challenge }: { id?: string; challenge?: s
               <Heat M={approx} title={`B · A, rang ${r}`} scale={scale} />
               <Heat M={resid} title="Ce qui manque" scale={scale} />
             </div>
-            <h4 className="mb-2 mt-6 font-display text-lg font-bold">Valeurs singulières de ΔW</h4>
+            <h3 className="mb-2 mt-6 font-display text-lg font-bold">Valeurs singulières de ΔW</h3>
             <div className="flex h-28 items-end gap-1">
               {lr.sigma.slice(0, 12).map((s, i) => (
                 <div key={i} className="flex flex-1 flex-col items-center gap-1">
@@ -299,7 +299,7 @@ export function InferenceLab({ id = "inference", challenge }: { id?: string; cha
         <Slider label="Séquences en parallèle (batch)" value={c.batch} min={1} max={32} step={1} onChange={set("batch")} display={String(c.batch)} />
       </div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg font-bold">Mémoire du GPU</h4>
+        <h3 className="font-display text-lg font-bold">Mémoire du GPU</h3>
         <span className={clsx("text-sm font-bold", b.fits ? "text-good" : "text-[#9c2a10]")}>{b.fits ? "Ça tient." : `Il manque ${fmt(b.total - cap, 1)} Go.`}</span>
       </div>
       <div className="relative h-10 overflow-hidden rounded-xl bg-sunken">

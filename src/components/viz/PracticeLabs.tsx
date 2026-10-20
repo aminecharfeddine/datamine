@@ -19,7 +19,7 @@ const pct = (v: number) => `${(v * 100).toFixed(1).replace(".", ",")} %`;
 
 function CodePanel({ code }: { code: string }) {
   return (
-    <pre className="min-w-0 overflow-x-auto rounded-2xl bg-[#171a2e] px-4 py-3">
+    <pre className="min-w-0 overflow-x-auto rounded-2xl bg-[#171a2e] px-4 py-3" tabIndex={0}>
       <Highlighted code={code} />
     </pre>
   );
@@ -64,7 +64,7 @@ export function PandasLab({ id = "pandas", challenge }: { id?: string; challenge
       </div>
       <div className="space-y-4">
         <CodePanel code={pandasCode(q)} />
-        <div className="max-h-96 overflow-auto rounded-2xl border border-line">
+        <div className="max-h-96 overflow-auto rounded-2xl border border-line" tabIndex={0}>
           <table className="w-full text-sm">
             <thead className="bg-paper text-left text-xs text-muted">
               <tr>{res.columns.map((c) => <th key={c} className="px-3 py-2 font-semibold">{c}</th>)}</tr>
@@ -211,7 +211,7 @@ export function FeatureLab({ id = "features", challenge }: { id?: string; challe
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
         <div>
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h4 className="font-display text-lg font-bold">Les 12 dernières semaines</h4>
+            <h3 className="font-display text-lg font-bold">Les 12 dernières semaines</h3>
             <span className="flex gap-3 text-xs text-muted">
               <span className="flex items-center gap-1"><span className="inline-block h-1 w-4 rounded bg-neg" /> ventes réelles</span>
               <span className="flex items-center gap-1"><span className="inline-block h-1 w-4 rounded bg-mod" /> prédiction</span>
@@ -281,7 +281,7 @@ export function DriftLab({ id = "drift", challenge }: { id?: string; challenge?:
       {year && (
         <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr] [&>*]:min-w-0">
           <div>
-            <h4 className="mb-2 font-display text-lg font-bold">Précision mensuelle du modèle en service</h4>
+            <h3 className="mb-2 font-display text-lg font-bold">Précision mensuelle du modèle en service</h3>
             <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Précision minimale sur l'année : ${pct(minAcc)}`}>
               {[0.5, 0.6, 0.7, 0.8, 0.9].map((v) => (
                 <g key={v}>

@@ -46,7 +46,7 @@ export function SigmoidLab({ id = "sigmoid", w: w0 = 0.4, x0: x00 = 3, challenge
       <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
         <div>
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h4 className="font-display text-lg font-bold">Probabilité de réussite selon les heures de révision</h4>
+            <h3 className="font-display text-lg font-bold">Probabilité de réussite selon les heures de révision</h3>
           </div>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Sigmoïde de pente ${fmt(w)} et de point de bascule ${fmt(x0, 1)} heures, sur ${STUDY.length} étudiants.`}>
             {[0, 0.5, 1].map((v) => (

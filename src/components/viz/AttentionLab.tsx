@@ -31,7 +31,7 @@ export function AttentionLab({ id = "attention", challenge }: { id?: string; cha
       </div>
       <div className="grid gap-8 lg:grid-cols-2">
         <div>
-          <h4 className="mb-2 font-display text-lg font-bold">Clés des tokens et query de « il »</h4>
+          <h3 className="mb-2 font-display text-lg font-bold">Clés des tokens et query de « il »</h3>
           <svg viewBox={`0 0 ${S} ${S}`} className="mx-auto w-full max-w-[360px] rounded-xl border border-line bg-paper" role="img" aria-label={`Query orientée à ${angle} degrés ; « chat » reçoit ${Math.round(w[TARGET] * 100)} % de l'attention.`}>
             <defs>
               <marker id="att-k" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--neg)" /></marker>
@@ -54,7 +54,7 @@ export function AttentionLab({ id = "attention", challenge }: { id?: string; cha
           </svg>
         </div>
         <div>
-          <h4 className="mb-2 font-display text-lg font-bold">Attention de « il » : softmax(q·k / √d)</h4>
+          <h3 className="mb-2 font-display text-lg font-bold">Attention de « il » : softmax(q·k / √d)</h3>
           <ul className="space-y-2">
             {ATTN_TOKENS.map((t, i) => (
               <li key={i} className="grid grid-cols-[4.5rem_1fr_3.2rem] items-center gap-2 text-sm">
@@ -96,7 +96,7 @@ export function AttentionMatrixLab({ id = "attention-matrix" }: { id?: string })
         <Segmented label="Masque causal" value={causal} onChange={setCausal} options={[{ value: "non", label: "Non" }, { value: "oui", label: "Oui" }]} />
       </div>
       <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-center">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0}>
           <svg viewBox={`0 0 ${L + n * C + 4} ${T + n * C + 4}`} className="w-full min-w-[300px] max-w-[440px]" role="img" aria-label={`Matrice d'attention ${n} par ${n}, entropie moyenne ${Math.round(ent * 100)} %.`}>
             {ATTN_TOKENS.map((t, j) => (
               <text key={`c${j}`} x={L + j * C + C / 2} y={T - 10} fontSize={11} fontWeight={700} textAnchor="end" transform={`rotate(-40 ${L + j * C + C / 2} ${T - 10})`} fill="var(--muted)">{t}</text>

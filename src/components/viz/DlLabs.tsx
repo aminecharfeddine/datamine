@@ -69,7 +69,7 @@ export function RegLab({ id = "regularisation", challenge }: { id?: string; chal
         <div className="grid gap-8 lg:grid-cols-2 [&>*]:min-w-0">
           <div>
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-              <h4 className="font-display text-lg font-bold">Loss au fil des époques</h4>
+              <h3 className="font-display text-lg font-bold">Loss au fil des époques</h3>
               <span className="flex gap-3 text-xs text-muted">
                 <span className="flex items-center gap-1"><span className="inline-block h-1 w-4 rounded bg-ink" /> entraînement</span>
                 <span className="flex items-center gap-1"><span className="inline-block h-1 w-4 rounded bg-mod" /> validation</span>
@@ -227,7 +227,7 @@ export function TransferLab({ id = "transfer", challenge }: { id?: string; chall
           </div>
           <div className="space-y-4">
             <div>
-              <h4 className="mb-2 font-display text-lg font-bold">Précision de test selon le nombre d'exemples</h4>
+              <h3 className="mb-2 font-display text-lg font-bold">Précision de test selon le nombre d'exemples</h3>
               <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Précision des trois stratégies selon la taille du jeu d'entraînement">
                 {[0.5, 0.6, 0.7, 0.8, 0.9, 1].map((v) => (
                   <g key={v}>
@@ -336,7 +336,7 @@ export function EmbeddingLab({ id = "embeddings", challenge }: { id?: string; ch
       {emb && (
         <div className="grid gap-8 lg:grid-cols-2 [&>*]:min-w-0">
           <div>
-            <h4 className="mb-2 font-display text-lg font-bold">Carte des mots (projection 2D)</h4>
+            <h3 className="mb-2 font-display text-lg font-bold">Carte des mots (projection 2D)</h3>
             <p className="mb-2 text-xs text-muted">Position de chaque groupe : projection des vecteurs. Dans un groupe, les mots sont écartés pour rester lisibles.</p>
             <svg viewBox={`0 0 ${S} ${S}`} className="mx-auto w-full max-w-[380px] rounded-xl border border-line bg-paper" role="img" aria-label="Carte des embeddings : quatre groupes de mots">
               {EMB_WORDS.map((w) => {
@@ -355,7 +355,7 @@ export function EmbeddingLab({ id = "embeddings", challenge }: { id?: string; ch
           </div>
           <div className="space-y-5">
             <div>
-              <h4 className="mb-2 font-display text-lg font-bold">Plus proches voisins de « {word} »</h4>
+              <h3 className="mb-2 font-display text-lg font-bold">Plus proches voisins de « {word} »</h3>
               <p className="mb-2 text-xs text-muted">Clique un mot sur la carte. Similarité cosinus dans l'espace complet (6 dimensions).</p>
               <ul className="space-y-1">
                 {neighbors(emb.E, emb.E[word], [word], 4).map((nb) => (
@@ -367,7 +367,7 @@ export function EmbeddingLab({ id = "embeddings", challenge }: { id?: string; ch
               </ul>
             </div>
             <div>
-              <h4 className="mb-2 font-display text-lg font-bold">Analogie : A − B + C ≈ ?</h4>
+              <h3 className="mb-2 font-display text-lg font-bold">Analogie : A − B + C ≈ ?</h3>
               <div className="grid grid-cols-3 gap-2">
                 <Select value={a} onChange={setA} label="A" />
                 <Select value={b} onChange={setB} label="− B" />
@@ -422,7 +422,7 @@ export function RnnLab({ id = "rnn", challenge }: { id?: string; challenge?: str
       </div>
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr] [&>*]:min-w-0">
         <div>
-          <h4 className="mb-2 font-display text-lg font-bold">Taille du gradient après t pas (échelle log)</h4>
+          <h3 className="mb-2 font-display text-lg font-bold">Taille du gradient après t pas (échelle log)</h3>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Gradient après ${T} pas : ${gT.toExponential(1)}`}>
             <rect x={M.l} width={W - M.l - M.r} y={y(10)} height={y(0.1) - y(10)} fill="color-mix(in srgb, var(--good-bg) 12%, white)" />
             {[1e-8, 1e-4, 1, 1e4, 1e8].map((v) => (

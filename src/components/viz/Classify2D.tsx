@@ -44,7 +44,7 @@ export function DecisionMap({
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg font-bold">{title}</h4>
+        <h3 className="font-display text-lg font-bold">{title}</h3>
         <div className="flex gap-3 text-xs text-muted">
           <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-fn" /> classe A</span>
           <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-fp" /> classe B</span>
@@ -103,7 +103,7 @@ export function AccCurve({
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg font-bold">{title}</h4>
+        <h3 className="font-display text-lg font-bold">{title}</h3>
         <div className="flex gap-3 text-xs text-muted">
           <span className="flex items-center gap-1"><span className="inline-block h-1 w-4 rounded bg-ink" /> entraînement</span>
           <span className="flex items-center gap-1"><span className="inline-block h-1 w-4 rounded bg-mod" /> test</span>

@@ -38,7 +38,7 @@ export function Quiz({ id, title = "Vérifie tes acquis", questions }: { id: str
           <ListChecks size={16} strokeWidth={2.6} />
         </span>
         <span className="text-sm font-bold" style={{ color: "var(--mod-deep)" }}>{title}</span>
-        <div className="ml-auto flex gap-1.5" aria-label={`Question ${Math.min(idx + 1, questions.length)} sur ${questions.length}`}>
+        <div className="ml-auto flex gap-1.5" role="group" aria-label={`Question ${Math.min(idx + 1, questions.length)} sur ${questions.length}`}>
           {questions.map((_, i) => (
             <span
               key={i}

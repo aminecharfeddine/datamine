@@ -75,7 +75,7 @@ function FitChart({ f, train }: { f: (x: number) => number; train: { x: number; 
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg font-bold">Polynôme de degré {RIDGE_DEGREE}</h4>
+        <h3 className="font-display text-lg font-bold">Polynôme de degré {RIDGE_DEGREE}</h3>
         <div className="flex gap-3 text-xs text-muted">
           <span className="flex items-center gap-1"><span className="inline-block h-1 w-4 rounded bg-mod" /> modèle</span>
           <span className="flex items-center gap-1"><span className="inline-block w-4 border-t-2 border-dashed border-muted" /> vraie fonction</span>
@@ -102,7 +102,7 @@ function LambdaChart({ curve, logLambda }: { curve: { logLambda: number; train: 
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg font-bold">Erreur selon λ</h4>
+        <h3 className="font-display text-lg font-bold">Erreur selon λ</h3>
         <div className="flex gap-3 text-xs text-muted">
           <span className="flex items-center gap-1"><span className="inline-block h-1 w-4 rounded bg-ink" /> entraînement</span>
           <span className="flex items-center gap-1"><span className="inline-block h-1 w-4 rounded bg-fp" /> test</span>
@@ -143,7 +143,7 @@ function CoefBars({ coef }: { coef: number[] }) {
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between">
-        <h4 className="font-display text-lg font-bold">Les 16 coefficients</h4>
+        <h3 className="font-display text-lg font-bold">Les 16 coefficients</h3>
         <span className="num text-sm font-semibold text-muted">‖w‖ = {fmt(norm, 2)}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-xl border border-line bg-paper" role="img" aria-label={`Coefficients du modèle, norme ${fmt(norm, 2)}`}>

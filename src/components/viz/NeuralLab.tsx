@@ -136,7 +136,7 @@ export function LossCurve({ losses, total = NN_EPOCHS, title = "Loss d'entraîne
   const d = line<number>().x((_, i) => x(i + 1)).y((v) => y(v))(losses) ?? "";
   return (
     <div>
-      <h4 className="mb-2 font-display text-lg font-bold">{title}</h4>
+      <h3 className="mb-2 font-display text-lg font-bold">{title}</h3>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`${title} : ${losses.length ? `dernière valeur ${losses.at(-1)!.toFixed(2)}` : "pas encore d'entraînement"}`}>
         {y.ticks(4).map((v) => (
           <g key={v}>

@@ -9,7 +9,7 @@ import { useHydrated } from "./useHydrated";
 import { AccountChip } from "./AccountChip";
 
 const NAV = [
-  { href: "/", label: "Aujourd'hui" },
+  { href: "/aujourdhui", label: "Aujourd'hui" },
   { href: "/parcours", label: "Parcours" },
   { href: "/revisions", label: "Révisions" },
   { href: "/fiches", label: "Fiches" },

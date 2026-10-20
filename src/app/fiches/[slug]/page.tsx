@@ -31,7 +31,7 @@ export default async function FichePage({ params }: { params: Promise<{ slug: st
       </Link>
       <FicheGate slug={slug} title={lesson.title}>
         <article className="fiche-sheet card overflow-hidden">
-          <header className="flex items-center gap-4 px-6 py-5 text-white" style={{ background: mod.color }}>
+          <header className="flex items-center gap-4 px-6 py-5 text-white" style={{ background: mod.deep }}>
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20">
               <ModuleIcon id={mod.id} size={22} />
             </span>

@@ -152,11 +152,11 @@ export function MulticlassLab({ id = "multiclasse", challenge }: { id?: string; 
       <div className="space-y-6">
         <div>
           <div className="mb-2 text-sm font-semibold text-muted">Confusion matrix (lignes : vraie classe, colonnes : prédite)</div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0}>
             <table className="num w-full max-w-xl border-separate text-center text-sm" style={{ borderSpacing: 3 }}>
               <thead>
                 <tr>
-                  <th />
+                  <th><span className="sr-only">Vraie classe</span></th>
                   {short.map((c) => <th key={c} className="pb-1 text-xs font-semibold text-muted">{c}</th>)}
                 </tr>
               </thead>
@@ -173,7 +173,7 @@ export function MulticlassLab({ id = "multiclasse", challenge }: { id?: string; 
                           <td
                             key={j}
                             className="rounded-lg py-2 font-bold"
-                            style={{ background: `color-mix(in srgb, ${col} ${Math.round(share * 85)}%, white)`, color: share > 0.5 ? "white" : "var(--ink)" }}
+                            style={{ background: `color-mix(in srgb, ${col} ${Math.round(share * 70)}%, white)`, color: "var(--ink)" }}
                           >
                             {v}
                           </td>
@@ -194,7 +194,7 @@ export function MulticlassLab({ id = "multiclasse", challenge }: { id?: string; 
         </div>
         <div>
           <div className="mb-2 text-sm font-semibold text-muted">Rapport par classe</div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0}>
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted">
@@ -335,7 +335,7 @@ export function RankingLab({ id = "ranking", challenge }: { id?: string; challen
             return (
               <li key={docId}>
                 {i === RANK_K && <div className="my-2 border-t-2 border-dashed border-line pt-1 text-xs font-semibold text-muted">hors du top {RANK_K}</div>}
-                <div className={clsx("flex items-center gap-2 rounded-xl border-2 px-2 py-1.5", i < RANK_K ? "border-line bg-surface" : "border-transparent bg-paper opacity-70")}>
+                <div className={clsx("flex items-center gap-2 rounded-xl border-2 px-2 py-1.5", i < RANK_K ? "border-line bg-surface" : "border-transparent bg-paper")}>
                   <span className="num w-5 shrink-0 text-center text-sm font-bold text-muted">{i + 1}</span>
                   <span className="h-8 w-1.5 shrink-0 rounded-full" style={{ background: GRADE_COLOR[d.grade] }} aria-hidden />
                   <div className="min-w-0 flex-1">

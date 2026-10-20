@@ -48,7 +48,7 @@ export function WeeklyGoal({ compact = false }: { compact?: boolean }) {
             <span
               className={clsx(
                 compact ? "h-8" : "h-11", "flex w-full items-center justify-center rounded-lg text-xs font-bold transition-colors",
-                w.active ? (reached ? "bg-good-bg text-white" : "bg-accent text-white") : w.future ? "bg-paper text-muted" : "bg-sunken text-muted",
+                w.active ? (reached ? "bg-good text-white" : "bg-accent text-white") : w.future ? "bg-paper text-muted" : "bg-sunken text-muted",
                 w.isToday && !w.active && "ring-2 ring-accent/40",
               )}
               title={w.key}

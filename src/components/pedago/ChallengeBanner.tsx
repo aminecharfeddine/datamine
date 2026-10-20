@@ -45,7 +45,7 @@ export function ChallengeBanner({ labId, challengeId, solved }: { labId: string;
       <div className="flex-1">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div className={clsx("text-sm font-bold", done ? "text-good" : "text-[#93370d]")}>Défi : {ch.title}</div>
-          <div className={clsx("rounded-full px-2.5 py-0.5 text-xs font-bold", done ? "bg-good-bg text-white" : "bg-xp/20 text-[#93370d]")}>
+          <div className={clsx("rounded-full px-2.5 py-0.5 text-xs font-bold", done ? "bg-good text-white" : "bg-xp/20 text-[#93370d]")}>
             {done ? (solved ? "Réussi !" : "Déjà réussi") : "+25 XP"}
           </div>
         </div>

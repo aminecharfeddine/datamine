@@ -71,7 +71,7 @@ function TrainLoopInner({ id = "loop", challenge }: { id?: string; challenge?: s
             </div>
           </div>
         </div>
-        <pre className="min-w-0 self-start overflow-x-auto rounded-2xl bg-[#171a2e] p-3">
+        <pre className="min-w-0 self-start overflow-x-auto rounded-2xl bg-[#171a2e] p-3" tabIndex={0}>
           {LOOP_CODE(bug).map((c, i) => (
             <div key={i} className={clsx("rounded px-1.5", c.bad && "bg-[#eb6834]/30")}>
               <Highlighted code={c.t} />
@@ -81,7 +81,7 @@ function TrainLoopInner({ id = "loop", challenge }: { id?: string; challenge?: s
       </div>
 
       <div className="mt-8 border-t-2 border-dashed border-line pt-6">
-        <h4 className="font-display text-lg font-bold">Courbe mystère</h4>
+        <h3 className="font-display text-lg font-bold">Courbe mystère</h3>
         <p className="mb-3 text-sm text-muted">Un collègue t'envoie cette courbe (autre initialisation, même réseau). Quel est son bug ?</p>
         <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
           <StepCurve run={mystery} reference={clean} title="Sa loss" />
@@ -118,7 +118,7 @@ function StepCurve({ run, reference, title }: { run: Run; reference?: Run; title
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg font-bold">{title}</h4>
+        <h3 className="font-display text-lg font-bold">{title}</h3>
         {reference && (
           <span className="flex items-center gap-3 text-xs text-muted">
             <span className="flex items-center gap-1"><span className="inline-block h-1 w-4 rounded bg-neg" /> boucle correcte</span>

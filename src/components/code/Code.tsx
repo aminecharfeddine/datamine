@@ -37,7 +37,7 @@ export function CodeBlock({ code, lang = "python", title }: { code: string; lang
           {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copié" : "Copier"}
         </button>
       </div>
-      <pre className="overflow-x-auto px-4 py-3.5">
+      <pre className="overflow-x-auto px-4 py-3.5" tabIndex={0}>
         <Highlighted code={code} />
       </pre>
     </figure>

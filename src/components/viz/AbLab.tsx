@@ -97,7 +97,7 @@ export function AbLab({
 
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <div>
-          <h4 className="font-display text-lg font-bold">Ce qu'on observerait si B ne changeait rien</h4>
+          <h3 className="font-display text-lg font-bold">Ce qu'on observerait si B ne changeait rien</h3>
           <p className="mb-2 text-sm text-muted">Distribution de l'écart B − A sous l'hypothèse nulle H₀</p>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Distribution sous H0. ${last ? `Écart observé ${pts(last.diff)}, p-value ${fmtP(last.p)}` : "Aucune expérience lancée"}`}>
             <path d={curve} fill="none" stroke="var(--ink)" strokeWidth={2} />
@@ -180,7 +180,7 @@ function PValueStrip({ runs, significant }: { runs: AbResult[]; significant: num
   return (
     <div className="mt-6 border-t border-line pt-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg font-bold">Toutes tes expériences</h4>
+        <h3 className="font-display text-lg font-bold">Toutes tes expériences</h3>
         <span className="text-sm font-semibold">
           <span className="num" style={{ color: "var(--mod-deep)" }}>
             {significant} / {runs.length}

@@ -82,7 +82,7 @@ export function LeakLab({ id = "leak", challenge }: { id?: string; challenge?: s
         </div>
 
         <div>
-          <h4 className="font-display text-lg font-bold">Précision de chaque pli</h4>
+          <h3 className="font-display text-lg font-bold">Précision de chaque pli</h3>
           {folds ? (
             <>
               <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" role="img" aria-label={`Précision moyenne ${pct(mean(folds))}`}>

@@ -57,7 +57,7 @@ export function ToolCallLab({ id = "tool-use", challenge }: { id?: string; chall
               </button>
             ))}
           </div>
-          <pre className="max-h-80 overflow-auto rounded-2xl bg-[#171a2e] px-4 py-3">
+          <pre className="max-h-80 overflow-auto rounded-2xl bg-[#171a2e] px-4 py-3" tabIndex={0}>
             <Highlighted code={toolJson(TOOLS[showTool])} />
           </pre>
         </div>
@@ -172,7 +172,7 @@ export function AgentLoopLab({ id = "agent-loop", challenge }: { id?: string; ch
             </p>
           )}
         </div>
-        <ol className="max-h-[440px] space-y-2 overflow-auto rounded-2xl bg-paper p-3">
+        <ol className="max-h-[440px] space-y-2 overflow-auto rounded-2xl bg-paper p-3" tabIndex={0}>
           <li className="text-xs text-muted">Contexte initial : prompt système, définitions des 4 outils, tâche ({AGENT_BASE_TOKENS} tokens).</li>
           {steps.map((s, i) => (
             <li key={i} className="rounded-xl bg-surface p-3 text-sm shadow-sm">
@@ -217,7 +217,7 @@ export function ContextLab({ id = "contexte", challenge }: { id?: string; challe
       </div>
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] [&>*]:min-w-0">
         <div>
-          <h4 className="mb-2 font-display text-lg font-bold">Contenu envoyé au modèle</h4>
+          <h3 className="mb-2 font-display text-lg font-bold">Contenu envoyé au modèle</h3>
           <ul className="space-y-1">
             {ctx.items.map((it) => (
               <li key={it.id} className="grid grid-cols-[1fr_auto] items-center gap-3 text-sm">
@@ -244,7 +244,7 @@ export function ContextLab({ id = "contexte", challenge }: { id?: string; challe
           </div>
           <Readout label="Numéro de commande dans le contexte" value={ctx.hasKey ? "Oui" : "Non"} strong />
           <div className={clsx("rounded-xl px-4 py-3 text-sm", verdict.ok ? "bg-[#ecfdf3] text-[#05603a]" : "bg-[#fff4ed] text-[#9c2a10]")}>
-            <div className="mb-1 text-xs font-semibold opacity-70">Réponse du modèle</div>
+            <div className="mb-1 text-xs font-semibold">Réponse du modèle</div>
             {verdict.text}
           </div>
         </div>

@@ -107,7 +107,7 @@ export function Parsons({ id, prompt, lines, children }: { id: string; prompt: s
                 </span>
               )}
             </div>
-            <ol className="min-h-16 overflow-x-auto rounded-2xl bg-[#171a2e] p-2">
+            <ol className="min-h-16 overflow-x-auto rounded-2xl bg-[#171a2e] p-2" tabIndex={0}>
               {placed.map((i, pos) => (
                 <li
                   key={pos}

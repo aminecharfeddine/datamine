@@ -96,7 +96,7 @@ function ModuleRow({ m, levels, done }: { m: Module; levels: number[]; done: Rec
               >
                 <span
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-                  style={done[l.slug] ? { background: m.color, color: "white" } : { background: `${m.color}1a`, color: m.deep }}
+                  style={done[l.slug] ? { background: m.deep, color: "white" } : { background: `${m.color}1a`, color: m.deep }}
                 >
                   {done[l.slug] ? <Check size={16} strokeWidth={3} /> : <Play size={14} strokeWidth={3} fill="currentColor" />}
                 </span>

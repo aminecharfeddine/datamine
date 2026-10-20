@@ -163,7 +163,7 @@ function ScoreHistogram({
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg">Scores du modèle</h4>
+        <h3 className="font-display text-lg">Scores du modèle</h3>
         <Legend />
       </div>
       <svg
@@ -306,7 +306,7 @@ function ConfusionGrid({ m }: { m: Metrics }) {
   );
   return (
     <div>
-      <h4 className="mb-3 font-display text-lg">Confusion matrix</h4>
+      <h3 className="mb-3 font-display text-lg">Confusion matrix</h3>
       <div className="grid grid-cols-[auto_1fr_1fr] gap-2 text-sm">
         <div />
         <div className="pb-1 text-center text-xs text-muted">prédit positif</div>
@@ -333,7 +333,7 @@ function MetricBars({ m }: { m: Metrics }) {
   ];
   return (
     <div>
-      <h4 className="mb-3 font-display text-lg">Métriques</h4>
+      <h3 className="mb-3 font-display text-lg">Métriques</h3>
       <div className="space-y-3.5">
         {rows.map(([name, v, formula]) => (
           <div key={name}>
@@ -387,7 +387,7 @@ function CurveChart({
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between">
-        <h4 className="font-display text-lg">{title}</h4>
+        <h3 className="font-display text-lg">{title}</h3>
         <span className="num rounded-full bg-sunken px-2.5 py-0.5 text-xs font-semibold">{badge}</span>
       </div>
       <svg viewBox={`0 0 ${S} ${S}`} className="mx-auto w-full max-w-[380px]" role="img" aria-label={`${title}, point courant x ${fmt(current.x)}, y ${fmt(current.y)}`}>

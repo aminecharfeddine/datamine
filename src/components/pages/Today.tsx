@@ -55,7 +55,7 @@ export function Today() {
         {next && nextMod ? (
           <Link
             href={`/lecons/${next.slug}`}
-            style={{ ...modStyle(nextMod), background: nextMod.color }}
+            style={{ ...modStyle(nextMod), background: nextMod.deep }}
             className="group relative overflow-hidden rounded-3xl p-6 text-white sm:p-8"
           >
             <ModuleIcon id={nextMod.id} size={180} className="pointer-events-none absolute -bottom-8 -right-6 opacity-15" />

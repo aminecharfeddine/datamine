@@ -43,9 +43,9 @@ export function CvLab({ id = "cv", degree: d0 = 10, k: k0 = 5, challenge }: { id
 
       <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr]">
         <div>
-          <h4 className="font-display text-lg font-bold">Comment les {N} exemples sont découpés</h4>
+          <h3 className="font-display text-lg font-bold">Comment les {N} exemples sont découpés</h3>
           <FoldDiagram k={k} />
-          <h4 className="mt-6 font-display text-lg font-bold">Erreur de chaque pli, degré {degree}</h4>
+          <h3 className="mt-6 font-display text-lg font-bold">Erreur de chaque pli, degré {degree}</h3>
           <FoldBars errors={folds} />
         </div>
         <div>
@@ -112,7 +112,7 @@ function CurveChart({ cv, truth, holdouts, degree }: { cv: number[]; truth: numb
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-display text-lg font-bold">Choisir le degré</h4>
+        <h3 className="font-display text-lg font-bold">Choisir le degré</h3>
         <div className="flex flex-wrap gap-3 text-xs text-muted">
           <span className="flex items-center gap-1"><span className="inline-block h-1 w-4 rounded bg-mod" /> validation croisée</span>
           <span className="flex items-center gap-1"><span className="inline-block w-4 border-t-2 border-dashed border-fp" /> erreur réelle</span>

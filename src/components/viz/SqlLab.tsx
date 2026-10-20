@@ -122,13 +122,13 @@ export function SqlLab({ id = "sql", challenge, starter }: { id?: string; challe
         )}
       </div>
       {showSolution && ex && (
-        <pre className="mt-3 overflow-x-auto rounded-2xl bg-[#171a2e] px-4 py-3">
+        <pre className="mt-3 overflow-x-auto rounded-2xl bg-[#171a2e] px-4 py-3" tabIndex={0}>
           <Highlighted code={ex.solution.replace(/ (FROM|WHERE|GROUP BY|HAVING|ORDER BY|LEFT JOIN|JOIN|LIMIT) /g, "\n$1 ")} />
         </pre>
       )}
       {error && <p className="mt-3 rounded-xl bg-[#fff4ed] px-4 py-3 font-mono text-xs text-[#9c2a10]">{error}</p>}
       {result && (
-        <div className="mt-4 max-h-80 overflow-auto rounded-2xl border border-line">
+        <div className="mt-4 max-h-80 overflow-auto rounded-2xl border border-line" tabIndex={0}>
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-paper text-left text-xs text-muted">
               <tr>{result.columns.map((c, i) => <th key={i} className="px-3 py-2 font-semibold">{c}</th>)}</tr>

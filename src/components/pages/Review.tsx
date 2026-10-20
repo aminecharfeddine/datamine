@@ -85,7 +85,7 @@ export function Review() {
               ? "Ton deck est vide. Termine une leçon pour y ajouter ses cartes."
               : "Tes cartes reviendront au moment où tu serais sur le point de les oublier."}
           </p>
-          <Link href={total === 0 ? "/parcours" : "/"} className="btn-3d mt-6 inline-block bg-accent px-5 py-2.5 text-sm text-white">
+          <Link href={total === 0 ? "/parcours" : "/aujourdhui"} className="btn-3d mt-6 inline-block bg-accent px-5 py-2.5 text-sm text-white">
             {total === 0 ? "Voir le parcours" : "Retour"}
           </Link>
         </div>

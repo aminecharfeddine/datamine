@@ -88,7 +88,7 @@ export function CiLab({
 
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <div>
-          <h4 className="font-display text-lg font-bold">Les {SHOWN} derniers sondages</h4>
+          <h3 className="font-display text-lg font-bold">Les {SHOWN} derniers sondages</h3>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`${count} intervalles tracés, ${hits} contiennent la vraie moyenne`}>
             {intervals.map((iv, i) => {
               const yy = 8 + (SHOWN - intervals.length + i) * row;
