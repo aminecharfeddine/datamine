@@ -66,6 +66,13 @@ export type ConstPredState = { maeHit: boolean; rmseHit: boolean };
 export type MulticlassState = { macroF1: number; best: number };
 export type CalibState = { eceBoosting: number; eceRegularise: number; target: number };
 export type RankState = { ndcg: number };
+export type ForecastState = { model: string; horizon: number; mae: number; seasonalMae: number };
+export type ShapState = { clientId: number; accepted: boolean; worstFeature: string };
+export type HpoState = { budget: number; gap: number };
+export type DiffusionState = { steps: number; dist: number; minSteps: number };
+export type DetectionState = { tp: number; fp: number; fn: number };
+export type JudgeState = { estimate: number; truth: number };
+export type OrchState = { seconds: number; tokens: number; maxSeconds: number; maxTokens: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -604,4 +611,53 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Le gain d'un document vaut 2^pertinence − 1, et il est d'autant plus réduit qu'il est bas dans la liste.",
     check: (s: RankState) => s.ndcg > 0.9999,
   } satisfies Challenge<RankState>,
+  "forecast-beat": {
+    id: "forecast-beat",
+    title: "Battre la baseline",
+    goal: "Sur un horizon de 28 jours, trouve un modèle dont la MAE est inférieure à celle de la baseline saisonnière.",
+    hint: "Les ventes ont un effet du jour de la semaine et une légère tendance à la hausse. Quel modèle capte les deux ?",
+    check: (s: ForecastState) => s.horizon === 28 && s.mae < s.seasonalMae - 1e-9,
+  } satisfies Challenge<ForecastState>,
+  "shap-compensation": {
+    id: "shap-compensation",
+    title: "Accepté malgré tout",
+    goal: "Trouve le client accepté (probabilité ≥ 50 %) dont le facteur le plus défavorable est le taux d'endettement.",
+    hint: "Regarde la plus longue barre négative de chaque client, puis vérifie la probabilité finale.",
+    check: (s: ShapState) => s.accepted && s.worstFeature === "endettement",
+  } satisfies Challenge<ShapState>,
+  "hpo-budget": {
+    id: "hpo-budget",
+    title: "Neuf essais, pas un de plus",
+    goal: "Avec un budget de 9 entraînements, trouve une configuration à moins de 0,005 du meilleur score possible.",
+    hint: "Une grille 3 × 3 ne teste que 3 valeurs de learning rate, alors que c'est lui qui compte. Une méthode qui s'appuie sur les essais passés fait mieux.",
+    check: (s: HpoState) => s.budget === 9 && s.gap < 0.005,
+  } satisfies Challenge<HpoState>,
+  "diffusion-steps": {
+    id: "diffusion-steps",
+    title: "Juste assez d'étapes",
+    goal: "Trouve le plus petit nombre d'étapes de débruitage pour lequel la distance moyenne aux données passe sous 0,03.",
+    hint: "Avec trop peu d'étapes, le modèle doit deviner l'image finale d'un seul coup à partir de bruit pur.",
+    check: (s: DiffusionState) => s.steps === s.minSteps && s.dist < 0.03,
+  } satisfies Challenge<DiffusionState>,
+  "nms-clean": {
+    id: "nms-clean",
+    title: "Une boîte par objet",
+    goal: "Règle le seuil de confiance et le seuil d'IoU du NMS pour détecter les trois objets sans aucun faux positif.",
+    hint: "Les deux personnes se chevauchent : un seuil d'IoU trop bas supprime l'une à cause de l'autre. Et le vélo a un score à peine plus élevé que la fausse détection en haut à droite.",
+    check: (s: DetectionState) => s.tp === 3 && s.fp === 0 && s.fn === 0,
+  } satisfies Challenge<DetectionState>,
+  "judge-unbiased": {
+    id: "judge-unbiased",
+    title: "Un juge honnête",
+    goal: "Configure l'évaluation pour que le taux de victoire estimé de B soit à moins de 2 points du vrai taux.",
+    hint: "Le juge a deux biais : il préfère la réponse placée en premier, et les réponses longues. Il faut neutraliser les deux.",
+    check: (s: JudgeState) => Math.abs(s.estimate - s.truth) <= 0.02,
+  } satisfies Challenge<JudgeState>,
+  "orch-budget": {
+    id: "orch-budget",
+    title: "Vite et pas cher",
+    goal: "Produis la note de veille en moins de 90 secondes et moins de 100 000 tokens.",
+    hint: "Le parallélisme réduit la latence. Ce qui remonte à l'orchestrateur pèse sur le coût.",
+    check: (s: OrchState) => s.seconds <= s.maxSeconds && s.tokens <= s.maxTokens,
+  } satisfies Challenge<OrchState>,
 };

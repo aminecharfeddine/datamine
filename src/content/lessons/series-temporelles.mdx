@@ -1,0 +1,154 @@
+<Predict
+  id="hook"
+  question="Tu prévois les ventes quotidiennes d'un magasin. Ton modèle de gradient boosting, évalué avec un train_test_split aléatoire, affiche une erreur de 3 %. En production, l'erreur est de 15 %. Cause la plus probable ?"
+  options={[
+    "Le boosting ne fonctionne pas sur les séries temporelles",
+    "Le découpage aléatoire mélange passé et futur : le modèle a interpolé entre des jours voisins au lieu de prévoir l'avenir",
+    "Il manque des arbres",
+    "Les ventes sont trop bruitées",
+  ]}
+  answer={1}
+>
+Avec un découpage aléatoire, le modèle s'entraîne sur le lundi et le mercredi pour « prévoir » le mardi : c'est de l'interpolation, bien plus facile que la prévision. Et les features construites sur des fenêtres glissantes laissent souvent fuir l'information du futur. Une série temporelle s'évalue **dans l'ordre du temps**, en reproduisant exactement ce qu'on saura au moment de prévoir.
+</Predict>
+
+## Ce qui rend les séries particulières
+
+Une série mélange en général :
+
+- une **tendance** (la croissance d'un magasin) ;
+- une ou plusieurs **saisonnalités** (le jour de la semaine, le mois, les fêtes) ;
+- des **événements** (promotions, ruptures de stock, météo) ;
+- du **bruit**.
+
+Les observations ne sont pas indépendantes : aujourd'hui ressemble à hier et au même jour de la semaine dernière. C'est une ressource (les valeurs passées sont d'excellentes features) et un piège (on peut facilement tricher sans le voir).
+
+## Toujours commencer par des baselines
+
+Avant tout modèle, on mesure des prévisions naïves : la **dernière valeur**, la **saisonnière naïve** (même jour la semaine précédente), une moyenne récente. Elles sont souvent étonnamment difficiles à battre, et elles donnent une échelle à l'erreur. La **MASE** rapporte d'ailleurs l'erreur d'un modèle à celle de la saisonnière naïve :
+
+$$
+\text{MASE} = \frac{\text{MAE}_{\text{modèle}}}{\text{MAE}_{\text{saisonnière naïve}}}
+$$
+
+Une MASE inférieure à 1 signifie qu'on fait mieux que la baseline ; au-dessus, le modèle n'apporte rien.
+
+<ForecastLab id="prevision" challenge="forecast-beat" />
+
+La dernière valeur ignore la saisonnalité, la moyenne sur 7 jours l'écrase, et la saisonnière naïve rate la tendance, qui s'accumule semaine après semaine sur un horizon long. Le modèle qui capte les deux composantes gagne, et son avance grandit avec l'horizon.
+
+## Valider dans le temps
+
+On simule la vie du modèle : entraîner sur le passé, prévoir la période suivante, avancer, recommencer. C'est le **backtest** (ou validation à origine glissante), que `TimeSeriesSplit` implémente :
+
+```python
+from sklearn.model_selection import TimeSeriesSplit
+
+tscv = TimeSeriesSplit(n_splits=5, test_size=28, gap=2)     # gap : délai entre la dernière donnée connue et la prévision
+for train_idx, test_idx in tscv.split(X):
+    model.fit(X.iloc[train_idx], y.iloc[train_idx])
+    erreurs.append(mean_absolute_error(y.iloc[test_idx], model.predict(X.iloc[test_idx])))
+```
+
+Les features de décalage suivent la même règle : seules les données **disponibles au moment de la prévision** sont autorisées.
+
+<CodeChoice
+  id="shift"
+  question="On prévoit chaque soir les ventes du lendemain. Quelle feature de moyenne glissante est correcte (df trié par date, une ligne par jour) ?"
+  code={`df["moy_7j"] = df["ventes"].___.rolling(7).mean()`}
+  options={["shift(1)", "shift(-1)", "diff()", "copy()"]}
+  answer={0}
+>
+Sans `shift(1)`, la fenêtre du jour J inclut les ventes de J lui-même : la cible fuit dans la feature. `shift(-1)` irait chercher le futur. Si la prévision était faite trois jours à l'avance, il faudrait `shift(3)`. Avec plusieurs séries (magasins, produits), on calcule par groupe : `df.groupby("magasin")["ventes"].transform(lambda s: s.shift(1).rolling(7).mean())`.
+</CodeChoice>
+
+## Quel modèle ?
+
+- **Lissage exponentiel, ARIMA** : peu de séries, courtes et régulières ; ils donnent des intervalles de prévision et restent de bonnes références.
+- **Boosting global** : un seul modèle pour des milliers de séries (produits × magasins), avec lags, calendrier, prix, promotions. Il partage l'information entre séries et domine souvent en pratique.
+- **Réseaux et modèles de fondation pour séries** : gros volumes, motifs complexes, ou prévision sans historique propre (zero-shot).
+
+Pour décider (stock, effectifs), on prévoit souvent un **quantile** plutôt que la moyenne, avec la pinball loss vue dans la leçon sur les métriques de régression.
+
+<Exercise
+  id="wape"
+  question="Ventes réelles sur 3 jours : 120, 95, 130. Prévision : 110 chaque jour. Quelle est la WAPE (somme des erreurs absolues / somme des ventes, 3 décimales) ?"
+  answer={0.13}
+  tolerance={0.002}
+  hint="Erreurs absolues : 10, 15, 20."
+>
+$45 / 345 \approx 0{,}130$, soit 13 %. La WAPE pondère par le volume : une erreur de 15 unités pèse pareil un jour calme ou chargé, contrairement à la MAPE qui exploserait sur un jour à très faibles ventes.
+</Exercise>
+
+<Callout type="intuition">
+Prévoir, c'est extrapoler : le modèle doit dire quelque chose de vrai sur une période qu'il n'a jamais vue. Tout ce qui le laisse « voir » cette période pendant l'évaluation (découpage aléatoire, fenêtre non décalée, normalisation calculée sur toute la série) donne une erreur flatteuse et fausse.
+</Callout>
+
+<Callout type="piege">
+Les ventes observées ne sont pas la demande : un jour de rupture de stock affiche des ventes faibles alors que la demande était forte. Entraîner sur ces jours apprend au modèle à sous-prévoir, qui provoque de nouvelles ruptures. On les marque (variable indicatrice) ou on les exclut, et on corrige la cible quand c'est possible.
+</Callout>
+
+<Callout type="entretien">
+Les arbres n'extrapolent pas : un boosting entraîné sur des ventes entre 50 et 150 ne prédira jamais 200, même si la tendance y mène. Solutions classiques : modéliser l'écart à une tendance, la variation plutôt que le niveau, ou un ratio (ventes / moyenne récente), puis recomposer.
+</Callout>
+
+<Callout type="astuce">
+Regarde l'erreur **par horizon** (J+1, J+7, J+28) et par segment (produits à faible volume, promotions, jours fériés). Une erreur moyenne correcte cache souvent un modèle très bon à court terme et mauvais là où l'on en a besoin.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Pourquoi ne pas utiliser un train_test_split aléatoire pour une série temporelle ?",
+      options: ["C'est trop lent", "Il mélange passé et futur : l'évaluation mesure de l'interpolation, pas de la prévision", "Il crée des valeurs manquantes", "Il est réservé à la classification"],
+      answer: 1,
+      explain: "On évalue dans l'ordre du temps, par backtest.",
+    },
+    {
+      q: "Une MASE de 1,3 signifie…",
+      options: ["Le modèle est 30 % meilleur que la baseline", "Le modèle fait 30 % d'erreur de plus que la saisonnière naïve", "R² = 1,3", "30 % des prévisions sont fausses"],
+      answer: 1,
+      explain: "Au-dessus de 1, le modèle fait moins bien que la baseline saisonnière.",
+    },
+    {
+      q: "Pour prévoir J+1 chaque soir, la feature « ventes d'hier » se calcule avec…",
+      options: ["shift(-1)", "shift(1)", "rolling(1)", "diff(-1)"],
+      answer: 1,
+      explain: "shift(1) décale vers le passé : la ligne J reçoit la valeur de J−1.",
+    },
+    {
+      q: "Pourquoi un gradient boosting peut-il sous-estimer une série en forte croissance ?",
+      options: ["Il est trop complexe", "Les arbres ne prédisent pas au-delà des valeurs vues à l'entraînement", "Il ignore les lags", "Il sur-apprend la saisonnalité"],
+      answer: 1,
+      explain: "On modélise une variation ou un écart à la tendance pour contourner ce problème.",
+    },
+    {
+      q: "Qu'est-ce que le paramètre gap de TimeSeriesSplit permet de simuler ?",
+      options: ["Des valeurs manquantes", "Le délai entre la dernière donnée disponible et la période prévue", "Une saisonnalité", "Un sous-échantillonnage"],
+      answer: 1,
+      explain: "Si les données arrivent avec deux jours de retard, il faut l'imposer aussi dans la validation.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment valides-tu un modèle de prévision ?">
+Par backtest : je reproduis la situation de production en entraînant sur le passé et en prévoyant la période suivante, puis j'avance l'origine et je recommence, sur plusieurs plis (TimeSeriesSplit avec un gap si les données arrivent en retard). Toutes les features sont construites avec les seules informations disponibles à la date de prévision. Je compare à des baselines naïves (dernière valeur, saisonnière) avec la MASE ou la WAPE, et je regarde l'erreur par horizon et par segment, ainsi que le biais (sous-prévision systématique).
+</Interview>
+
+<Interview q="ARIMA ou gradient boosting pour prévoir la demande de 10 000 produits ?">
+Avec 10 000 séries liées et des variables externes (prix, promotions, calendrier), je partirais d'un modèle global de type gradient boosting sur des features de décalage et de calendrier : il partage l'information entre produits, gère les promotions et s'entraîne en une fois. Un ARIMA par série serait lourd à maintenir et apprendrait mal les séries courtes ou intermittentes. Je garderais un lissage exponentiel ou une saisonnière naïve comme baselines, et je ferais attention aux produits à faible volume, souvent mieux servis par des méthodes dédiées à la demande intermittente.
+</Interview>
+
+<Recap>
+- Une série = tendance + saisonnalités + événements + bruit ; les observations ne sont pas indépendantes.
+- **Validation temporelle** (backtest, `TimeSeriesSplit`, gap), jamais de découpage aléatoire.
+- Features décalées : `shift` avant `rolling`, uniquement l'information disponible au moment de prévoir.
+- Toujours des **baselines naïves** ; MASE $< 1$ pour prouver un gain ; WAPE pour les volumes.
+- ARIMA et lissage pour peu de séries ; boosting global pour beaucoup de séries avec variables externes.
+- Les arbres n'extrapolent pas ; ruptures de stock = demande censurée.
+</Recap>
+
+<LessonComplete />

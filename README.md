@@ -120,6 +120,7 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 - [x] Phase 8 — ML en pratique : NumPy/pandas, pipelines scikit-learn, feature engineering, SQL (vrai SQLite dans le navigateur via sql.js), MLOps
 - [x] Phase 9 — Deep learning (suite) : régularisation, CNN, transfer learning, embeddings, RNN et LSTM
 - [x] Phase 9 (suite) — IA agentique : tool use (schémas JSON, MCP), boucle ReAct, mémoire et contexte, évaluation d'agents (pass@k, pass^k), sécurité (injection de prompt, moindre privilège)
+- [x] Phase 9 (suite) — Compléments modules 5 à 8 : séries temporelles, interprétabilité (SHAP, permutation, PDP), optimisation d'hyperparamètres, modèles génératifs (VAE, GAN, diffusion), détection et segmentation, évaluation des LLM, orchestration multi-agents
 - [ ] Phase 9 (suite) — ACP
 - [x] Module spécial Entretiens : 197 questions types centrées sur la compréhension des concepts et le choix de modèles (QCM, réponses orales auto-évaluées, bugs à trouver, 45 pièges) sur 10 thèmes, entraînement filtré et entretien blanc chronométré avec bilan
 - [ ] Phase 10 — vitrine publique : landing, SEO, images de partage, accessibilité, version anglaise

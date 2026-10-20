@@ -1,0 +1,33 @@
+<FicheSection kind="essentiel">
+- Grille : coûteuse, peu de valeurs de l'hyperparamètre important.
+- Aléatoire : défaut solide, parallélisable.
+- Bayésienne : modèle de substitution, utile quand un essai coûte cher.
+- Arrêt précoce des mauvais essais (Hyperband, pruners).
+- Meilleur score de recherche optimiste : test intact.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+P(\text{au moins un essai dans le top } q) = 1 - (1 - q)^n
+$$
+
+$q = 5\,\%$, $n = 60$ : 0,954.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Learning rate tiré uniformément au lieu de log.
+- Annoncer le meilleur score de la recherche comme performance.
+- Régler 15 hyperparamètres à la fois sur une petite validation.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Régler un modèle ?** Défauts + early stopping, 3 à 5 hyperparamètres clés en log, aléatoire ou Optuna avec pruning, CV adaptée, test final unique.
+
+**Quelle méthode ?** Grille : 1 ou 2 paramètres. Aléatoire : défaut. Bayésienne : essais chers.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `trial.suggest_float(..., log=True)`.
+- Graphiques d'importance des hyperparamètres d'Optuna.
+- Learning rate d'abord pour les réseaux.
+</FicheSection>

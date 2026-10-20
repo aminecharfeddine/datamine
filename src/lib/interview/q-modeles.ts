@@ -39,7 +39,7 @@ export const MODELES: ItvQuestion[] = [
     topic: "modeles",
     kind: "oral",
     level: 2,
-    lesson: "forets-et-boosting",
+    lesson: "optimisation-hyperparametres",
     q: "Quels hyperparamètres règles-tu en priorité sur un XGBoost ou un LightGBM, et comment limites-tu l'overfitting ?",
     points: [
       "learning_rate et nombre d'arbres, avec early stopping sur un jeu de validation",
@@ -57,7 +57,7 @@ export const MODELES: ItvQuestion[] = [
     kind: "qcm",
     level: 2,
     trap: true,
-    lesson: "forets-et-boosting",
+    lesson: "interpretabilite",
     q: "Dans une forêt aléatoire, la variable la plus importante (importance par impureté) est un identifiant client à 50 000 valeurs. Que penses-tu ?",
     options: [
       "C'est la variable la plus prédictive, il faut la garder",
@@ -191,6 +191,7 @@ export const MODELES: ItvQuestion[] = [
     topic: "modeles",
     kind: "oral",
     level: 3,
+    lesson: "interpretabilite",
     q: "Comment expliques-tu les prédictions d'un modèle de boosting à un métier qui veut comprendre ?",
     points: [
       "Global : importance par permutation sur données de validation",

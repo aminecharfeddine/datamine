@@ -1,0 +1,155 @@
+<Predict
+  id="hook"
+  question="Un détecteur d'objets renvoie souvent cinq ou six boîtes presque identiques autour d'une même personne. Comment n'en garder qu'une ?"
+  options={[
+    "On garde la boîte la plus grande",
+    "On garde la boîte la plus sûre et on supprime celles qui la chevauchent trop (non-maximum suppression)",
+    "On fait la moyenne de toutes les boîtes de l'image",
+    "On réentraîne le modèle",
+  ]}
+  answer={1}
+>
+Un détecteur propose des milliers de boîtes candidates, et plusieurs se déclenchent sur le même objet. La **non-maximum suppression** (NMS) trie les boîtes par score, garde la meilleure, supprime celles dont le chevauchement avec elle dépasse un seuil, et recommence. Tout repose sur une mesure de chevauchement, l'**IoU**, qui sert aussi à décider si une détection est correcte.
+</Predict>
+
+## Quatre tâches de vision
+
+- **Classification** : une étiquette pour toute l'image (« contient un chat »).
+- **Détection** : des boîtes avec une classe et un score pour chaque objet.
+- **Segmentation sémantique** : une classe par pixel (route, piéton, ciel), sans distinguer les individus.
+- **Segmentation d'instance** : un masque par objet (piéton 1, piéton 2).
+
+## L'IoU, mesure de base
+
+$$
+\text{IoU}(A, B) = \frac{|A \cap B|}{|A \cup B|}
+$$
+
+L'IoU vaut 1 pour deux boîtes identiques, 0 si elles ne se touchent pas. Une détection est en général jugée correcte si son IoU avec un objet réel dépasse **0,5** (et s'il n'a pas déjà été détecté).
+
+<DetectionLab id="nms" challenge="nms-clean" />
+
+Deux seuils interagissent. Le seuil de **confiance** élimine les boîtes peu sûres (fausses détections, mais aussi objets difficiles). Le seuil d'**IoU du NMS** décide quand deux boîtes sont « la même » : trop bas, il supprime un objet voisin réel (ici, deux personnes côte à côte) ; trop haut, il laisse passer les doublons.
+
+<Exercise
+  id="iou"
+  question="Boîte A de (0, 0) à (4, 4), boîte B de (2, 2) à (6, 6). Quelle est leur IoU (3 décimales) ?"
+  answer={0.143}
+  tolerance={0.002}
+  hint="Intersection : un carré de 2 × 2. Union : 16 + 16 − 4."
+>
+$4 / 28 \approx 0{,}143$. Deux boîtes décalées de la moitié de leur côté dans les deux directions ont une IoU faible : l'IoU est exigeante, d'où le seuil courant de 0,5 pour une détection correcte.
+</Exercise>
+
+## Évaluer : la mAP
+
+Pour chaque classe, on trie les détections par score et on trace la courbe precision-recall (une détection est un vrai positif si IoU ≥ seuil avec un objet non encore apparié). L'**AP** est l'aire sous cette courbe ; la **mAP** est la moyenne sur les classes. Le benchmark COCO moyenne en plus sur des seuils d'IoU de 0,5 à 0,95 : il récompense des boîtes précises, pas seulement bien placées.
+
+## Les architectures
+
+- **Deux étapes** (Faster R-CNN) : proposer des régions, puis les classer et ajuster. Précis, plus lent.
+- **Une étape** (famille YOLO, RetinaNet) : prédire directement boîtes et classes sur une grille. Rapide, standard pour le temps réel. RetinaNet a introduit la *focal loss*, qui réduit le poids des exemples faciles (l'immense fond) pour gérer le déséquilibre.
+- **DETR** et ses successeurs : un Transformer prédit un ensemble de boîtes, apparié aux objets par un appariement optimal pendant l'entraînement ; plus besoin de NMS.
+
+Pour la segmentation, le **U-Net** (encodeur qui réduit la résolution, décodeur qui la restaure, avec des connexions qui recopient les détails de l'encodeur) reste la référence, notamment en imagerie médicale. Mask R-CNN ajoute un masque par objet à la détection ; des modèles de fondation comme SAM segmentent n'importe quel objet à partir d'un clic ou d'une boîte.
+
+En segmentation, la classe d'intérêt (une tumeur) occupe souvent une petite fraction des pixels. On mesure alors avec le **Dice** plutôt qu'avec l'accuracy par pixel :
+
+$$
+\text{Dice}(A, B) = \frac{2\,|A \cap B|}{|A| + |B|}
+$$
+
+et on l'utilise aussi comme loss (1 − Dice), souvent combinée à la cross-entropy.
+
+```python
+import torch
+from torchvision.ops import box_iou, nms
+
+boxes = torch.tensor([[62, 54, 158, 228], [70, 45, 168, 222], [128, 63, 228, 232]], dtype=torch.float)
+scores = torch.tensor([0.95, 0.86, 0.91])
+garde = nms(boxes, scores, iou_threshold=0.5)     # indices des boîtes conservées, par score décroissant
+print(garde, box_iou(boxes, boxes))
+```
+
+<CodeChoice
+  id="nms-seuil"
+  question="Dans une scène de foule où les personnes se chevauchent beaucoup, des piétons réels disparaissent après le NMS. Que faire en premier ?"
+  code={`garde = nms(boxes, scores, iou_threshold=___)`}
+  options={["Augmenter le seuil (par exemple 0.7)", "Le baisser (par exemple 0.2)", "Le mettre à 0", "Supprimer le NMS"]}
+  answer={0}
+>
+Avec un seuil bas, deux personnes qui se chevauchent sont prises pour la même : la moins sûre est supprimée. Relever le seuil laisse coexister des boîtes qui se recouvrent davantage, au risque de garder quelques doublons. Pour les scènes très denses, on utilise des variantes (Soft-NMS, qui baisse le score au lieu de supprimer) ou des détecteurs sans NMS.
+</CodeChoice>
+
+<Callout type="intuition">
+Un détecteur, c'est un classifieur appliqué à des milliers de régions, plus une régression des coordonnées. Tout ce que tu sais sur les classifieurs s'applique : seuil de décision, compromis precision-recall, déséquilibre (le fond domine), calibration des scores.
+</Callout>
+
+<Callout type="piege">
+En imagerie médicale, un Dice moyen de 0,85 peut cacher des échecs complets sur les petites lésions, qui pèsent peu dans la moyenne. On regarde les résultats par taille de lésion et le taux de lésions manquées, et l'on découpe train et test **par patient**, jamais par image ou par coupe.
+</Callout>
+
+<Callout type="entretien">
+« Pourquoi la mAP COCO est-elle bien plus basse que la mAP à IoU 0,5 ? » Parce qu'elle moyenne sur des seuils jusqu'à 0,95 : une boîte un peu trop large compte comme une erreur aux seuils élevés. Elle évalue la précision de localisation, pas seulement la présence de l'objet.
+</Callout>
+
+<Callout type="astuce">
+Avant d'entraîner un détecteur, regarde la distribution des tailles d'objets et leur densité : de petits objets demandent une résolution d'entrée plus élevée, des scènes denses un seuil de NMS adapté. Et pars d'un modèle pré-entraîné (COCO) : avec quelques centaines d'images annotées, l'affinage donne déjà de bons résultats.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quelle tâche attribue une classe à chaque pixel sans distinguer les individus ?",
+      options: ["Classification", "Détection", "Segmentation sémantique", "Segmentation d'instance"],
+      answer: 2,
+      explain: "La segmentation d'instance, elle, sépare piéton 1 et piéton 2.",
+    },
+    {
+      q: "Que fait la non-maximum suppression ?",
+      options: ["Elle supprime les boîtes de score maximal", "Elle garde la boîte la plus sûre et supprime celles qui la chevauchent au-delà d'un seuil d'IoU", "Elle normalise les scores", "Elle augmente la résolution"],
+      answer: 1,
+      explain: "Elle transforme des détections redondantes en une boîte par objet.",
+    },
+    {
+      q: "Pourquoi utiliser le Dice plutôt que l'accuracy par pixel pour segmenter une tumeur ?",
+      options: ["Il est plus rapide", "La tumeur occupe peu de pixels : prédire « fond » partout donne une excellente accuracy et un Dice nul", "L'accuracy n'existe pas en segmentation", "Le Dice ignore les faux positifs"],
+      answer: 1,
+      explain: "Même logique que precision et recall face à l'accuracy sur des classes rares.",
+    },
+    {
+      q: "Quel est l'apport principal de la focal loss ?",
+      options: ["Accélérer l'inférence", "Réduire le poids des exemples faciles (le fond, très majoritaire) pour se concentrer sur les difficiles", "Remplacer le NMS", "Augmenter la résolution"],
+      answer: 1,
+      explain: "Elle a permis aux détecteurs à une étape d'atteindre la précision des détecteurs à deux étapes.",
+    },
+    {
+      q: "Quel modèle est la référence historique pour la segmentation d'images médicales ?",
+      options: ["YOLO", "U-Net", "BERT", "k-means"],
+      answer: 1,
+      explain: "Encodeur, décodeur et connexions qui recopient les détails fins.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment évalues-tu un détecteur d'objets ?">
+On apparie les détections aux objets réels par IoU (au-delà d'un seuil, 0,5 typiquement, chaque objet ne pouvant être apparié qu'une fois), ce qui donne vrais positifs, faux positifs et objets manqués. En triant par score, on obtient une courbe precision-recall par classe ; l'AP en est l'aire et la mAP la moyenne sur les classes, éventuellement sur plusieurs seuils d'IoU comme COCO. Je regarde aussi les résultats par taille d'objet et par condition (nuit, occlusion), et au seuil de fonctionnement réel, la precision et le recall qui comptent pour le métier.
+</Interview>
+
+<Interview q="YOLO ou Faster R-CNN ?">
+YOLO et les détecteurs à une étape prédisent boîtes et classes en une passe sur une grille : rapides, adaptés au temps réel et à l'embarqué, et aujourd'hui très précis. Faster R-CNN propose d'abord des régions puis les affine : historiquement plus précis sur les petits objets, mais plus lent. Pour un projet, je choisis selon la contrainte de latence et le matériel, je pars d'un modèle pré-entraîné, et je compare sur mes propres données plutôt que sur les chiffres de COCO.
+</Interview>
+
+<Recap>
+- Classification, détection (boîtes), segmentation sémantique (pixels), d'instance (masques).
+- $\text{IoU} = |A \cap B| / |A \cup B|$ ; détection correcte si IoU ≥ 0,5.
+- **NMS** : seuil de confiance + seuil d'IoU ; trop bas supprime les voisins, trop haut garde les doublons.
+- **mAP** : aire sous la courbe PR par classe, moyennée ; COCO moyenne aussi sur IoU 0,5 à 0,95.
+- Une étape (YOLO), deux étapes (Faster R-CNN), DETR sans NMS ; U-Net pour segmenter.
+- **Dice** $= 2|A\cap B|/(|A|+|B|)$ pour les petites structures ; découpage par patient.
+</Recap>
+
+<LessonComplete />

@@ -1,0 +1,159 @@
+<Predict
+  id="hook"
+  question="Un agent unique doit analyser 6 concurrents puis rédiger une synthèse. Il est lent et son contexte déborde. Tu le remplaces par un orchestrateur et 6 sous-agents. Qu'est-ce qui s'améliore à coup sûr ?"
+  options={[
+    "La qualité de la synthèse, toujours",
+    "La latence (les recherches se font en parallèle) et la taille de chaque contexte ; le coût et la qualité dépendent de la conception",
+    "Le coût, toujours divisé par 6",
+    "Rien, c'est la même chose",
+  ]}
+  answer={1}
+>
+Les sous-agents travaillent **en parallèle**, chacun dans un **contexte propre** et court : c'est leur double intérêt. Mais chaque agent relit ses consignes et ses outils, l'orchestrateur doit planifier et assembler, et ce qui remonte des sous-agents peut faire déborder son contexte à lui. Une architecture multi-agents est un compromis à concevoir, pas une amélioration automatique.
+</Predict>
+
+## Des briques plus simples d'abord
+
+Avant les agents autonomes, il existe des **workflows** composés d'appels de LLM, plus prévisibles :
+
+- **Chaînage** : une étape, puis la suivante (extraire, puis résumer, puis traduire), avec des vérifications entre les deux.
+- **Routage** : un premier appel classe la demande et l'envoie vers le traitement adapté (ou vers un modèle plus petit et moins cher).
+- **Parallélisation** : découper une tâche en morceaux indépendants traités en même temps, ou faire plusieurs tentatives et voter.
+- **Évaluateur-optimiseur** : un appel produit, un autre critique selon des critères, on recommence jusqu'à satisfaction.
+- **Orchestrateur-exécutants** : un modèle décompose dynamiquement la tâche et délègue à des sous-agents, puis assemble.
+
+Le dernier est le plus flexible, et le plus difficile à maîtriser. On ne l'utilise que si la décomposition ne peut pas être connue à l'avance.
+
+## Le compromis latence / tokens
+
+Un agent seul qui enchaîne $m$ recherches relit tout son historique à chaque étape. Avec un contexte de base $B$ et $r$ tokens de résultats par recherche, ses tokens d'entrée valent environ :
+
+$$
+T_{\text{seul}} \approx m\,B + r\,\frac{m(m+1)}{2}
+$$
+
+Répartir les recherches entre $k$ sous-agents coupe cette accumulation (chacun n'en fait que $m/k$), mais ajoute $k$ fois le coût de base, plus le travail de l'orchestrateur. La latence, elle, passe d'une somme à un maximum :
+
+$$
+\text{latence} \approx \left\lceil \frac{m}{k} \right\rceil t_{\text{tâche}} + t_{\text{synthèse}} + k\, t_{\text{lancement}}
+$$
+
+<OrchestrationLab id="veille" challenge="orch-budget" />
+
+Paralléliser réduit la latence ; demander des **résumés compacts** plutôt que tous les résultats bruts protège le contexte et le budget de l'orchestrateur. C'est le même principe de context engineering que pour un agent seul, appliqué à toute l'équipe.
+
+<Exercise
+  id="latence"
+  question="6 recherches de 40 s, réparties sur 3 sous-agents parallèles, puis une synthèse de 30 s (on néglige le lancement). Quelle latence totale, en secondes ?"
+  answer={110}
+  tolerance={0}
+  unit="s"
+  hint="Chaque sous-agent fait 2 recherches à la suite."
+>
+$2 \times 40 + 30 = 110$ s, contre $6 \times 40 + 30 = 270$ s pour un agent seul. Le gain dépend de la part parallélisable : la synthèse finale, elle, reste séquentielle (loi d'Amdahl).
+</Exercise>
+
+## Concevoir un système multi-agents
+
+```python
+async def veille(concurrents):
+    plan = await orchestrateur.planifier(concurrents)                        # une tâche précise par sous-agent
+    resumes = await asyncio.gather(*[
+        sous_agent(
+            consigne=t.consigne,                                              # objectif, format de sortie, limites
+            outils=["recherche_web", "lire_page"],                           # moindre privilège
+            budget_tokens=40_000,
+            format_sortie=ResumeConcurrent,                                  # schéma : 600 tokens max, sources
+        )
+        for t in plan.taches
+    ])
+    return await orchestrateur.synthetiser(resumes)
+```
+
+<CodeChoice
+  id="consigne"
+  question="Que doit contenir la consigne envoyée à un sous-agent ?"
+  code={`sous_agent(consigne=___, outils=[...], format_sortie=ResumeConcurrent)`}
+  options={[
+    "Un objectif précis, le périmètre à ne pas dépasser, le format attendu et les critères de fin",
+    "Toute la conversation de l'orchestrateur",
+    "Seulement le nom du concurrent",
+    "Rien, il devinera",
+  ]}
+  answer={0}
+>
+Un sous-agent ne voit que ce qu'on lui transmet. Une consigne vague produit du travail en double (deux sous-agents explorent la même piste) ou hors sujet ; une consigne qui recopie tout l'historique annule l'intérêt d'un contexte propre. On décrit la tâche comme pour un collègue : objectif, limites, format de restitution, quand s'arrêter.
+</CodeChoice>
+
+<Callout type="intuition">
+Pense à une équipe humaine : un chef de projet qui découpe le travail, des personnes qui avancent en parallèle sans se marcher dessus, et des comptes rendus courts. Les mêmes problèmes apparaissent : consignes ambiguës, travail en double, informations perdues dans les comptes rendus, et coût de coordination.
+</Callout>
+
+<Callout type="piege">
+En pratique, les systèmes multi-agents consomment souvent **beaucoup plus** de tokens qu'un agent seul : chaque sous-agent relit ses consignes, explore, et l'orchestrateur ajoute ses propres appels. Ils se justifient pour des tâches larges et parallélisables à forte valeur (recherche, analyse de nombreuses sources). Pour une tâche séquentielle où chaque étape dépend de la précédente (écrire du code cohérent dans un même fichier), un agent seul est souvent meilleur.
+</Callout>
+
+<Callout type="entretien">
+Les erreurs se propagent : un sous-agent qui renvoie une information fausse avec assurance contamine la synthèse. Parades classiques : sorties structurées avec sources, vérification par un agent évaluateur, limites d'étapes et de budget par sous-agent, et traces complètes de chaque appel pour déboguer (observabilité).
+</Callout>
+
+<Callout type="astuce">
+Les outils partagés entre agents gagnent à être exposés par un protocole standard comme MCP : chaque sous-agent reçoit seulement les serveurs d'outils dont il a besoin, et l'on applique les mêmes règles de sécurité partout. Commence par un agent seul bien outillé ; passe au multi-agents quand une mesure montre que la latence ou la saturation du contexte bloque.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quel est l'avantage principal des sous-agents ?",
+      options: ["Ils coûtent toujours moins cher", "Le parallélisme et un contexte propre et court pour chaque sous-tâche", "Ils ne font jamais d'erreur", "Ils évitent d'écrire des consignes"],
+      answer: 1,
+      explain: "Le coût total, lui, augmente souvent.",
+    },
+    {
+      q: "Une demande peut concerner la facturation, la technique ou les ventes, chacune avec ses outils. Quel motif simple ?",
+      options: ["Un orchestrateur avec 10 sous-agents", "Le routage : un premier appel classe la demande et l'oriente", "Un évaluateur-optimiseur", "Aucun LLM"],
+      answer: 1,
+      explain: "Simple, prévisible, et permet d'envoyer les cas faciles vers un modèle moins cher.",
+    },
+    {
+      q: "Pourquoi demander aux sous-agents des résumés structurés plutôt que leurs résultats bruts ?",
+      options: ["Pour la lisibilité seulement", "Pour protéger le contexte et le budget de l'orchestrateur, et faciliter l'assemblage", "Parce que les sous-agents ne peuvent pas renvoyer de texte long", "Pour réduire la latence des sous-agents"],
+      answer: 1,
+      explain: "Ce qui remonte s'accumule dans le contexte de l'orchestrateur.",
+    },
+    {
+      q: "Dans quel cas un agent seul est-il souvent préférable à plusieurs ?",
+      options: ["Analyser 50 sources indépendantes", "Une tâche séquentielle où chaque étape dépend étroitement de la précédente", "Une recherche large", "Quand la latence compte beaucoup"],
+      answer: 1,
+      explain: "Découper un travail très interdépendant crée des incohérences entre agents.",
+    },
+    {
+      q: "Que limite la loi d'Amdahl ici ?",
+      options: ["Le nombre d'outils", "Le gain de latence : la partie séquentielle (planification, synthèse) ne se parallélise pas", "Le nombre de tokens", "La qualité du juge"],
+      answer: 1,
+      explain: "Avec une synthèse de 30 s, la latence ne descend jamais sous 30 s, quel que soit le nombre de sous-agents.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Quand utiliserais-tu une architecture multi-agents ?">
+Quand la tâche se décompose en sous-tâches assez indépendantes et nombreuses (analyser beaucoup de sources, explorer plusieurs pistes), que la latence d'un agent seul pose problème ou que son contexte sature, et que la valeur justifie un coût en tokens plus élevé. Je commencerais par un workflow ou un agent seul, je mesurerais où ça bloque, puis j'introduirais un orchestrateur avec des sous-agents aux consignes précises, des outils limités, des budgets, et des sorties structurées et courtes. Pour une tâche très séquentielle et interdépendante, je resterais sur un agent seul.
+</Interview>
+
+<Interview q="Quels risques spécifiques posent les systèmes multi-agents ?">
+Le coût, qui se multiplie ; la coordination, avec du travail en double ou des trous si les consignes sont floues ; la perte d'information dans les résumés ; la propagation d'erreurs d'un sous-agent à la synthèse ; et le débogage, plus difficile quand dix agents interagissent. J'y réponds par des consignes et des formats de sortie précis, des limites d'étapes et de budget, des vérifications par un évaluateur sur les points critiques, une traçabilité complète de chaque appel, et une évaluation de bout en bout du système, pas seulement de chaque agent.
+</Interview>
+
+<Recap>
+- Motifs : chaînage, routage, parallélisation, évaluateur-optimiseur, orchestrateur-exécutants.
+- Sous-agents : **parallélisme** et **contextes propres** ; coût de base répété et coordination.
+- Agent seul : $T \approx mB + r\,m(m+1)/2$ ; latence $\approx \lceil m/k \rceil t + t_{\text{synthèse}}$.
+- Résumés structurés et courts vers l'orchestrateur.
+- Souvent plus de tokens au total : réserver aux tâches larges et parallélisables.
+- Consignes précises, budgets, vérification, traces.
+</Recap>
+
+<LessonComplete />

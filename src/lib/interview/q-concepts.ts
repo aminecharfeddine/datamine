@@ -258,7 +258,7 @@ export const CONCEPTS: ItvQuestion[] = [
     kind: "qcm",
     level: 2,
     trap: true,
-    lesson: "regression-logistique",
+    lesson: "interpretabilite",
     q: "Dans une régression du salaire, le coefficient de « nombre de langues parlées » vaut +3 000 €. Un manager propose de financer des cours de langues pour augmenter les salaires de 3 000 €. Ta réponse ?",
     options: [
       "C'est exactement ce que dit le coefficient",
@@ -548,6 +548,7 @@ export const CONCEPTS: ItvQuestion[] = [
     topic: "deep",
     kind: "qcm",
     level: 2,
+    lesson: "modeles-generatifs",
     q: "Qu'est-ce que l'apprentissage auto-supervisé ?",
     options: [
       "Un apprentissage sans aucune donnée",
@@ -613,6 +614,7 @@ export const CONCEPTS: ItvQuestion[] = [
     topic: "llm",
     kind: "qcm",
     level: 2,
+    lesson: "evaluer-un-llm",
     q: "Que mesure la perplexité d'un modèle de langage ?",
     options: [
       "Le nombre de paramètres",

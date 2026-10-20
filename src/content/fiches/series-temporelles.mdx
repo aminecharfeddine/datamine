@@ -1,0 +1,34 @@
+<FicheSection kind="essentiel">
+- Tendance, saisonnalités, événements, bruit ; observations dépendantes.
+- Backtest dans l'ordre du temps, avec un gap si les données arrivent en retard.
+- Features décalées : seulement ce qui est connu au moment de prévoir.
+- Baselines naïves d'abord (dernière valeur, saisonnière).
+- Boosting global pour beaucoup de séries ; ARIMA ou lissage pour peu de séries.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{MASE} = \frac{\text{MAE}_{\text{modèle}}}{\text{MAE}_{\text{saisonnière naïve}}} \qquad \text{WAPE} = \frac{\sum |y_t - \hat y_t|}{\sum |y_t|}
+$$
+
+Réel 120, 95, 130 ; prévu 110 : WAPE = 45 / 345 ≈ 0,130.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- train_test_split aléatoire sur une série.
+- rolling sans shift : la cible fuit.
+- Arbres qui n'extrapolent pas une tendance.
+- Ruptures de stock prises pour une faible demande.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Valider une prévision ?** Backtest à origine glissante, features point-in-time, baselines, MASE ou WAPE, erreur par horizon et segment, biais.
+
+**ARIMA ou boosting ?** Peu de séries régulières : ARIMA ou lissage. Beaucoup de séries avec variables externes : boosting global.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `TimeSeriesSplit(n_splits, test_size, gap)`.
+- Par groupe : `groupby(...).transform(lambda s: s.shift(1).rolling(7).mean())`.
+- Prévoir des quantiles pour décider (stock, effectifs).
+</FicheSection>

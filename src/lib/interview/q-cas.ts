@@ -55,7 +55,7 @@ export const CAS: ItvQuestion[] = [
     topic: "cas",
     kind: "oral",
     level: 2,
-    lesson: "metriques-de-regression",
+    lesson: "series-temporelles",
     q: "Un distributeur veut prévoir la demande quotidienne de 5 000 produits dans 200 magasins pour réapprovisionner. Ton approche ?",
     points: [
       "Validation temporelle glissante ; baselines naïves (même jour la semaine précédente, saisonnalité)",
@@ -121,7 +121,7 @@ export const CAS: ItvQuestion[] = [
     topic: "cas",
     kind: "qcm",
     level: 1,
-    lesson: "transfer-learning",
+    lesson: "detection-et-segmentation",
     q: "Une usine veut détecter des pièces défectueuses. Elle a 50 000 photos de pièces conformes et 40 photos de défauts. Quelle piste est la plus réaliste au départ ?",
     options: [
       "Un classifieur binaire entraîné tel quel",

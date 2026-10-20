@@ -102,7 +102,7 @@ sortie = poids @ v`,
     topic: "llm",
     kind: "oral",
     level: 2,
-    lesson: "rag",
+    lesson: "evaluer-un-llm",
     q: "Comment évalues-tu un système RAG ?",
     points: [
       "Jeu de questions représentatif avec réponses et passages de référence",

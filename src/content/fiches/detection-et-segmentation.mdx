@@ -1,0 +1,34 @@
+<FicheSection kind="essentiel">
+- Classification, détection, segmentation sémantique, segmentation d'instance.
+- IoU : chevauchement ; détection correcte si IoU ≥ 0,5.
+- NMS : confiance, puis suppression des chevauchements au-delà d'un seuil.
+- mAP : aire sous la courbe PR par classe, moyennée.
+- YOLO (une étape), Faster R-CNN (deux étapes), DETR (sans NMS), U-Net (segmentation).
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{IoU} = \frac{|A \cap B|}{|A \cup B|} \qquad \text{Dice} = \frac{2|A \cap B|}{|A| + |B|}
+$$
+
+(0,0)-(4,4) et (2,2)-(6,6) : IoU = 4 / 28 ≈ 0,143.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Seuil de NMS trop bas dans une foule.
+- Accuracy par pixel pour une petite lésion.
+- Découper par image au lieu de par patient.
+- Comparer une mAP@0,5 et une mAP COCO.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Évaluer un détecteur ?** Appariement par IoU, TP/FP/FN, courbe PR par classe, AP et mAP, par taille et condition, seuil de fonctionnement.
+
+**YOLO ou Faster R-CNN ?** Latence et matériel ; pré-entraîné ; comparer sur ses données.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `torchvision.ops.nms(boxes, scores, iou_threshold)`.
+- Soft-NMS pour les scènes denses.
+- Dice + cross-entropy comme loss de segmentation.
+</FicheSection>

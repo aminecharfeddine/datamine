@@ -1,0 +1,138 @@
+<Predict
+  id="hook"
+  question="Ta banque refuse un crédit avec un modèle de gradient boosting. Le client demande pourquoi, et la réglementation impose de lui répondre. Que fais-tu ?"
+  options={[
+    "On ne peut rien expliquer, c'est une boîte noire",
+    "On calcule la contribution de chaque variable à cette décision précise (valeurs SHAP) et on présente les principaux facteurs",
+    "On montre l'importance globale des variables du modèle",
+    "On ré-entraîne une régression linéaire pour ce client",
+  ]}
+  answer={1}
+>
+L'importance globale dit ce qui compte **en moyenne** pour le modèle ; elle ne dit pas pourquoi **ce** client a été refusé. Les valeurs SHAP décomposent une prédiction individuelle en contributions de chaque variable, qui s'additionnent exactement pour passer de la prédiction moyenne à celle du client. Expliquer un modèle, c'est donc répondre à deux questions différentes : qu'a-t-il appris globalement, et pourquoi a-t-il pris cette décision-là.
+</Predict>
+
+## Expliquer une décision : les valeurs SHAP
+
+Les valeurs SHAP viennent de la théorie des jeux (valeurs de Shapley) : les variables sont des « joueurs » qui coopèrent pour produire la prédiction, et l'on répartit équitablement le gain entre elles, en moyennant la contribution de chaque variable sur tous les ordres possibles d'arrivée. Propriété clé, l'**additivité** :
+
+$$
+f(x) = \underbrace{\mathbb{E}[f(X)]}_{\text{valeur de base}} + \sum_{j=1}^{p} \phi_j(x)
+$$
+
+Pour un modèle linéaire à variables indépendantes, $\phi_j = w_j\,(x_j - \mathbb{E}[x_j])$ : l'écart du client à la moyenne, pondéré par le coefficient. Pour des arbres, **TreeSHAP** calcule les valeurs exactes rapidement ; pour un modèle quelconque, KernelSHAP les approxime (lentement).
+
+<ShapLab id="credit" challenge="shap-compensation" />
+
+Un même facteur peut peser lourd sans décider : un endettement élevé peut être compensé par un revenu et une ancienneté solides. C'est ce que montre une décomposition locale, et qu'aucun classement global des variables ne dit.
+
+<Exercise
+  id="phi"
+  question="Dans un modèle additif en log-odds, le revenu a un poids de 0,7 par k€. Un client gagne 1,6 k€ ; le revenu moyen est de 3,0 k€. Quelle est sa valeur SHAP pour le revenu (2 décimales) ?"
+  answer={-0.98}
+  tolerance={0.005}
+  hint="φ = w × (x − moyenne)."
+>
+$0{,}7 \times (1{,}6 - 3{,}0) = -0{,}98$ : son revenu, inférieur à la moyenne, fait baisser son score de près d'un point de log-odds par rapport au client moyen.
+</Exercise>
+
+## Ce que le modèle a appris globalement
+
+- **Importance par permutation** : on mélange une colonne sur le jeu de validation et on mesure la dégradation de la métrique. Simple, applicable à tout modèle, mesurée sur des données non vues.
+- **Moyenne des |SHAP|** : importance globale cohérente avec les explications locales.
+- **Dépendance partielle (PDP)** et courbes **ICE** : comment la prédiction évolue quand on fait varier une variable, en moyenne (PDP) ou pour chaque individu (ICE, qui révèle les interactions).
+
+```python
+import shap
+from sklearn.inspection import permutation_importance, PartialDependenceDisplay
+
+explainer = shap.TreeExplainer(model)
+sv = explainer(X_valid)
+shap.plots.waterfall(sv[0])              # pourquoi cette prédiction
+shap.plots.beeswarm(sv)                  # vue globale : importance et sens de l'effet
+
+perm = permutation_importance(model, X_valid, y_valid, scoring="roc_auc", n_repeats=10, random_state=0)
+PartialDependenceDisplay.from_estimator(model, X_valid, ["endettement"], kind="both")   # PDP + ICE
+```
+
+<CodeChoice
+  id="valid"
+  question="Sur quelles données calculer l'importance par permutation pour savoir ce qui aide vraiment le modèle à généraliser ?"
+  code={`perm = permutation_importance(model, ___, scoring="roc_auc", n_repeats=10)`}
+  options={["X_valid, y_valid", "X_train, y_train", "X_valid, model.predict(X_valid)", "X_train, model.predict(X_train)"]}
+  answer={0}
+>
+Sur des données non vues, avec les vraies étiquettes. Sur le train, un modèle qui a mémorisé une variable bruitée (un identifiant, par exemple) la verrait importante ; sur la validation, la mélanger ne change rien, et son importance tombe à zéro. Comparer les deux est d'ailleurs un bon détecteur d'overfitting.
+</CodeChoice>
+
+<Callout type="piege">
+Avec des variables **corrélées**, toutes ces méthodes peuvent tromper. Coche la copie corrélée du revenu dans le labo : le modèle répartit le poids entre les deux, et chacune paraît peu importante, alors que l'information « revenu » reste essentielle. Mélanger une seule copie ne coûte rien puisque l'autre la remplace. On regroupe les variables corrélées avant d'interpréter, ou on mesure l'importance par groupe.
+</Callout>
+
+<Callout type="intuition">
+Une explication décrit le **modèle**, pas le monde. Si les SHAP montrent que « nombre d'appels au support » pousse vers le churn, cela veut dire que le modèle s'en sert pour prédire, pas qu'en réduisant les appels on réduira le churn. Pour décider d'une action, il faut un raisonnement causal ou une expérience.
+</Callout>
+
+<Callout type="entretien">
+LIME est l'autre méthode locale classique : on perturbe l'exemple, on observe les prédictions, et on ajuste un petit modèle linéaire local. Simple et universel, mais instable (deux exécutions peuvent donner des explications différentes) et dépendant de la manière de perturber. SHAP a des garanties plus fortes (additivité, cohérence), au prix d'un calcul plus lourd hors des arbres.
+</Callout>
+
+<Callout type="astuce">
+Avant de présenter des explications au métier, vérifie-les sur des cas où tu connais la réponse : un client caricatural, une variable que tu as volontairement bruitée. Et pour les décisions réglementées, préfère des facteurs actionnables et compréhensibles (« taux d'endettement de 52 % ») à des valeurs numériques brutes.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que garantit la propriété d'additivité des valeurs SHAP ?",
+      options: ["Les variables sont indépendantes", "La valeur de base plus la somme des contributions donne exactement la prédiction", "Le modèle est linéaire", "Les contributions sont toutes positives"],
+      answer: 1,
+      explain: "C'est ce qui permet le graphique en cascade, de la moyenne à la prédiction du client.",
+    },
+    {
+      q: "Pourquoi l'importance par impureté d'une forêt peut-elle tromper ?",
+      options: ["Elle est calculée sur la validation", "Elle est biaisée vers les variables à nombreuses valeurs et mesurée sur l'entraînement", "Elle est trop lente", "Elle ne fonctionne qu'en régression"],
+      answer: 1,
+      explain: "L'importance par permutation sur la validation, ou SHAP, sont plus fiables.",
+    },
+    {
+      q: "Deux variables presque identiques ont chacune une faible importance par permutation. Conclusion ?",
+      options: ["L'information qu'elles portent est inutile", "Elles se remplacent l'une l'autre : il faut les évaluer ensemble", "Le modèle est mal entraîné", "Il faut les supprimer toutes les deux"],
+      answer: 1,
+      explain: "Mélanger l'une laisse l'autre intacte. On mesure l'importance du groupe.",
+    },
+    {
+      q: "Quelle différence entre une PDP et des courbes ICE ?",
+      options: ["Aucune", "La PDP montre l'effet moyen d'une variable ; les ICE montrent l'effet pour chaque individu, ce qui révèle les interactions", "ICE ne marche que pour les réseaux", "La PDP est locale"],
+      answer: 1,
+      explain: "Des courbes ICE qui se croisent signalent que l'effet dépend d'autres variables.",
+    },
+    {
+      q: "Le SHAP de « possède un abonnement premium » est fortement positif pour la rétention. Peut-on conclure qu'offrir le premium retiendra les clients ?",
+      options: ["Oui", "Non : SHAP décrit ce qu'utilise le modèle, pas l'effet causal d'une intervention", "Oui si le modèle est un boosting", "Oui si l'AUC dépasse 0,8"],
+      answer: 1,
+      explain: "Les clients premium sont peut-être simplement les plus engagés. Il faut tester.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment expliques-tu les prédictions d'un modèle de gradient boosting ?">
+Au niveau global, l'importance par permutation calculée sur la validation et un résumé SHAP (beeswarm), qui donne aussi le sens de l'effet. Pour une décision individuelle, les valeurs SHAP via TreeSHAP, présentées en cascade de la prédiction moyenne à celle du client. Pour comprendre la forme d'un effet, des PDP avec les courbes ICE. Je précise toujours les limites : variables corrélées qui se partagent l'importance, et aucune interprétation causale. Si l'explicabilité est une exigence forte, je compare avec un modèle interprétable pour chiffrer ce qu'on perdrait.
+</Interview>
+
+<Interview q="Qu'est-ce qu'une valeur de Shapley, intuitivement ?">
+On considère les variables comme des joueurs qui coopèrent pour produire une prédiction. La valeur de Shapley d'une variable est sa contribution marginale moyenne : on regarde de combien la prédiction change quand on l'ajoute à un sous-ensemble des autres variables, et on fait la moyenne sur tous les ordres d'ajout possibles. C'est la seule répartition qui respecte des propriétés d'équité : les contributions s'additionnent pour donner l'écart à la moyenne, deux variables au rôle identique reçoivent la même part, et une variable sans effet reçoit zéro.
+</Interview>
+
+<Recap>
+- Deux questions : pourquoi **cette** décision (local), qu'a appris le modèle (global).
+- **SHAP** : contributions additives, de la valeur de base à la prédiction ; TreeSHAP exact pour les arbres.
+- Global : **importance par permutation** sur la validation, moyenne des |SHAP|, **PDP** et **ICE**.
+- Variables corrélées : l'importance se partage ; interpréter par groupe.
+- Expliquer le modèle n'est pas expliquer le monde : pas de lecture causale.
+</Recap>
+
+<LessonComplete />

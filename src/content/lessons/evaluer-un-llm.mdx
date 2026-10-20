@@ -1,0 +1,149 @@
+<Predict
+  id="hook"
+  question="Tu demandes à un LLM de dire laquelle de deux réponses est la meilleure. Tu inverses simplement l'ordre des deux réponses, et il change d'avis dans 30 % des cas. Que montre cette expérience ?"
+  options={[
+    "Le juge est aléatoire, il est inutilisable",
+    "Le juge a un biais de position : on doit évaluer dans les deux ordres et mesurer sa fiabilité avant de lui faire confiance",
+    "Les deux réponses sont identiques",
+    "Il faut augmenter la température",
+  ]}
+  answer={1}
+>
+Les LLM juges sont devenus l'outil standard pour évaluer des réponses ouvertes, mais ce sont des modèles, avec leurs biais : ils préfèrent souvent la réponse lue en premier, les réponses longues, parfois leur propre style. Un juge s'évalue et se corrige comme n'importe quel instrument de mesure. Plus largement, évaluer un LLM pour **ton** application ne ressemble pas aux classements publics : il te faut ton propre jeu d'évaluation.
+</Predict>
+
+## Benchmarks publics : utiles, pas suffisants
+
+Les benchmarks (connaissances générales, mathématiques, code, raisonnement) donnent une idée des capacités d'un modèle. Leurs limites :
+
+- **Contamination** : les questions ont pu se retrouver dans les données d'entraînement, et le score mesure alors de la mémorisation.
+- **Saturation** : les meilleurs modèles approchent 100 %, l'écart ne veut plus rien dire.
+- **Écart à ta tâche** : un bon score en mathématiques ne dit rien de la qualité de résumé de tes tickets clients.
+
+Pour choisir un modèle ou valider un changement de prompt, on construit un **jeu d'évaluation maison** : 100 à quelques centaines de cas réels, représentatifs, avec ce qu'on attend de chaque réponse.
+
+## Trois façons de noter
+
+- **Vérification automatique** quand c'est possible : réponse exacte, JSON valide, tests unitaires qui passent, présence de citations correctes.
+- **LLM juge en notation absolue** : une note selon une grille précise (de préférence des critères binaires : « la réponse cite-t-elle une source ? »).
+- **Comparaisons par paires** : le juge (ou un humain) choisit la meilleure de deux réponses. Plus fiable qu'une note absolue, et agrégeable en classement par un modèle de Bradley-Terry (le principe des classements de type Elo) :
+
+$$
+P(A \succ B) = \sigma(s_A - s_B) = \frac{1}{1 + e^{-(s_A - s_B)}}
+$$
+
+<JudgeLab id="juge" challenge="judge-unbiased" />
+
+Évaluer dans un seul ordre mesure surtout le biais de position. Moyenner les deux ordres le neutralise, mais pas le biais de longueur : il faut aussi une grille qui ne récompense pas la longueur, voire des réponses de longueurs comparables. Le prix est double : deux fois plus d'appels au juge.
+
+<Exercise
+  id="taille"
+  question="Tu veux estimer un taux de victoire autour de 50 % avec une marge de ± 3 points (IC à 95 %). Combien de comparaisons indépendantes faut-il environ ? (1,96 × √(0,25 / n) = 0,03)"
+  answer={1067}
+  tolerance={15}
+  hint="n = 0,25 × (1,96 / 0,03)²."
+>
+$n = 0{,}25 \times (1{,}96 / 0{,}03)^2 \approx 1\,067$. Avec 100 comparaisons, la marge est d'environ ± 10 points : de quoi voir une grosse différence, pas un écart de 3 points. C'est le même calcul que pour un test A/B.
+</Exercise>
+
+## Rendre un juge fiable
+
+```python
+GRILLE = """Évalue la réponse selon ces critères. Réponds en JSON.
+- exacte : la réponse est correcte au vu du document fourni (true/false)
+- fidele : chaque affirmation est soutenue par le document (true/false)
+- complete : elle répond à toutes les parties de la question (true/false)
+Ne tiens pas compte de la longueur ni du style."""
+
+def juger_paire(question, rep_a, rep_b):
+    v1 = juge(question, premiere=rep_a, seconde=rep_b)
+    v2 = juge(question, premiere=rep_b, seconde=rep_a)          # ordre inversé
+    if v1 == "premiere" and v2 == "seconde":
+        return "A"
+    if v1 == "seconde" and v2 == "premiere":
+        return "B"
+    return "egalite"                                              # désaccord entre les deux ordres
+```
+
+<CodeChoice
+  id="calibrer"
+  question="Avant d'utiliser ce juge pour décider entre deux prompts, que faut-il mesurer ?"
+  code={`accord = ___(juge_labels, humain_labels)`}
+  options={["cohen_kappa_score", "len", "max", "roc_auc_score"]}
+  answer={0}
+>
+On fait annoter un échantillon (100 à 200 cas) par des humains, puis on mesure l'accord du juge avec eux, par exemple avec le kappa de Cohen, qui corrige l'accord dû au hasard. Si le juge est d'accord avec les humains à peu près autant que les humains entre eux, on peut l'utiliser à grande échelle ; sinon, on améliore la grille ou on change de juge.
+</CodeChoice>
+
+<Callout type="intuition">
+Évaluer un LLM, c'est appliquer tout ce que tu sais sur l'évaluation, avec un instrument de mesure lui-même imparfait. Les questions restent les mêmes : la métrique reflète-t-elle ce qui compte ? L'échantillon est-il représentatif ? L'écart est-il plus grand que l'incertitude ?
+</Callout>
+
+<Callout type="piege">
+Itérer sur un prompt en regardant cinq exemples à l'œil, c'est l'équivalent d'ajuster un modèle sur son jeu de test. Chaque modification de prompt doit passer par le jeu d'évaluation complet, et l'on garde une partie de ce jeu de côté pour la validation finale. Un prompt optimisé pour quelques cas en casse souvent d'autres.
+</Callout>
+
+<Callout type="entretien">
+Biais connus des juges : **position** (préférence pour la première ou la seconde réponse), **verbosité** (réponses longues), **auto-préférence** (un modèle préfère son propre style), **complaisance** (se laisser influencer par une réponse qui affirme avec assurance). Parades : ordres inversés, grilles explicites et binaires, juge d'une autre famille que les modèles évalués, et calibrage sur des annotations humaines.
+</Callout>
+
+<Callout type="astuce">
+Mets tes évaluations dans la CI comme des tests de régression, et versionne ensemble prompt, modèle, paramètres de génération et jeu d'évaluation. En production, complète par des signaux réels : pouces levés ou baissés, reformulations, escalades vers un humain, et un échantillon relu régulièrement.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Qu'est-ce que la contamination d'un benchmark ?",
+      options: ["Un bug dans le code d'évaluation", "La présence des questions du benchmark dans les données d'entraînement du modèle, qui gonfle son score", "Un juge biaisé", "Un benchmark trop difficile"],
+      answer: 1,
+      explain: "Le score mesure alors en partie de la mémorisation.",
+    },
+    {
+      q: "Pourquoi présenter les deux réponses dans les deux ordres à un juge ?",
+      options: ["Pour aller plus vite", "Pour neutraliser son biais de position", "Pour réduire le coût", "Pour augmenter la température"],
+      answer: 1,
+      explain: "Un désaccord entre les deux ordres signale aussi un cas incertain.",
+    },
+    {
+      q: "Pourquoi préférer des critères binaires à une note de 1 à 10 ?",
+      options: ["Ils sont plus jolis", "Ils sont plus reproductibles et plus faciles à vérifier ; une note de 1 à 10 est mal calibrée et varie beaucoup", "Les juges ne savent pas compter", "Ce n'est pas mieux"],
+      answer: 1,
+      explain: "« Cite-t-il une source ? » est plus stable que « note la qualité de 1 à 10 ».",
+    },
+    {
+      q: "Comment savoir si un LLM juge est digne de confiance pour ta tâche ?",
+      options: ["Il est le plus gros du marché", "On mesure son accord avec des annotations humaines sur un échantillon", "Il répond vite", "Il donne des notes élevées"],
+      answer: 1,
+      explain: "Kappa de Cohen, ou taux d'accord comparé à l'accord entre humains.",
+    },
+    {
+      q: "Que modélise Bradley-Terry ?",
+      options: ["La longueur des réponses", "La probabilité qu'un modèle soit préféré à un autre à partir de scores latents, estimés sur des comparaisons par paires", "Le coût d'un LLM", "La contamination"],
+      answer: 1,
+      explain: "C'est la base des classements de type Elo entre modèles.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment choisirais-tu entre deux LLM pour ton application ?">
+Je ne me fierais pas aux classements publics seuls : je construirais un jeu d'évaluation de quelques centaines de cas réels de mon application, avec ce qu'on attend de chaque réponse. Je noterais automatiquement tout ce qui peut l'être (format, exactitude vérifiable, tests), puis le reste par comparaisons par paires avec un juge LLM présenté dans les deux ordres, avec une grille explicite, après avoir vérifié son accord avec des annotations humaines sur un échantillon. Je mettrais en regard la qualité, la latence et le coût par requête, avec des intervalles de confiance pour savoir si l'écart est réel.
+</Interview>
+
+<Interview q="Quels sont les biais d'un LLM juge et comment les corriges-tu ?">
+Biais de position (il préfère la réponse lue en premier ou en second), de verbosité (il préfère les réponses longues), d'auto-préférence (il préfère le style de sa propre famille de modèles) et de complaisance envers les réponses assurées. Je présente chaque paire dans les deux ordres et compte un désaccord comme une égalité, j'utilise des critères explicites et binaires qui précisent d'ignorer la longueur, je choisis un juge d'une autre famille que les modèles évalués, et je calibre le tout sur un échantillon annoté par des humains, en mesurant l'accord.
+</Interview>
+
+<Recap>
+- Benchmarks publics : contamination, saturation, écart à ta tâche. Il faut un **jeu d'évaluation maison**.
+- Noter : vérification automatique d'abord, puis LLM juge (grille binaire) ou **comparaisons par paires**.
+- Bradley-Terry : $P(A \succ B) = \sigma(s_A - s_B)$.
+- Biais du juge : position, verbosité, auto-préférence ; deux ordres, grille, autre famille, **calibrage humain** (kappa).
+- Incertitude : environ 1 000 comparaisons pour ± 3 points.
+- Itérer sur les prompts via le jeu d'évaluation, en CI.
+</Recap>
+
+<LessonComplete />

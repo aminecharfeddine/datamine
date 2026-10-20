@@ -1,0 +1,34 @@
+<FicheSection kind="essentiel">
+- Workflows d'abord : chaînage, routage, parallélisation, évaluateur-optimiseur.
+- Orchestrateur-exécutants quand la décomposition n'est pas connue d'avance.
+- Gains : parallélisme, contextes propres. Coûts : tokens, coordination.
+- Résumés structurés et courts vers l'orchestrateur.
+- Agent seul pour les tâches séquentielles interdépendantes.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+T_{\text{seul}} \approx mB + r\,\frac{m(m+1)}{2} \qquad \text{latence} \approx \left\lceil \frac{m}{k} \right\rceil t + t_{\text{synthèse}}
+$$
+
+6 recherches de 40 s sur 3 sous-agents + 30 s : 110 s.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Croire que le multi-agents réduit toujours le coût.
+- Consignes vagues : travail en double.
+- Remonter tous les résultats bruts à l'orchestrateur.
+- Propagation d'erreurs sans vérification.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Quand du multi-agents ?** Sous-tâches indépendantes et nombreuses, latence ou contexte bloquants, valeur suffisante ; après un agent seul mesuré.
+
+**Risques ?** Coût, coordination, perte d'information, propagation d'erreurs, débogage ; consignes, budgets, évaluateur, traces.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `asyncio.gather` pour lancer les sous-agents.
+- MCP pour partager des outils avec moindre privilège.
+- Évaluer le système de bout en bout.
+</FicheSection>

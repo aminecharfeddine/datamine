@@ -278,7 +278,7 @@ export const MODULES: Module[] = [
     deep: "#164e63",
     index: 5,
     title: "ML en pratique",
-    tagline: "pandas, scikit-learn, SQL, mise en production : le quotidien du métier.",
+    tagline: "pandas, scikit-learn, SQL, séries temporelles, interprétabilité, mise en production : le quotidien du métier.",
     prereqs: ["evaluation"],
     concepts: [
       { id: "pandas", title: "NumPy & pandas" },
@@ -286,6 +286,9 @@ export const MODULES: Module[] = [
       { id: "feature-engineering", title: "Feature engineering" },
       { id: "sql", title: "SQL pour la data" },
       { id: "mlops", title: "MLOps : déployer et surveiller" },
+      { id: "time-series", title: "Séries temporelles" },
+      { id: "interpretabilite", title: "Interprétabilité : SHAP & co" },
+      { id: "hpo", title: "Optimisation d'hyperparamètres" },
     ],
     lessons: [
       {
@@ -328,6 +331,30 @@ export const MODULES: Module[] = [
         concepts: ["mlops"],
         available: true,
       },
+      {
+        slug: "series-temporelles",
+        title: "Séries temporelles en pratique",
+        summary: "Baselines, backtest, features décalées sans fuite : prévoir sans tricher avec le futur.",
+        minutes: 18,
+        concepts: ["time-series"],
+        available: true,
+      },
+      {
+        slug: "interpretabilite",
+        title: "Interprétabilité : SHAP, permutation, PDP",
+        summary: "Expliquer une décision individuelle et ce que le modèle a appris, sans le confondre avec le monde.",
+        minutes: 18,
+        concepts: ["interpretabilite"],
+        available: true,
+      },
+      {
+        slug: "optimisation-hyperparametres",
+        title: "Optimisation d'hyperparamètres",
+        summary: "Grille, aléatoire, bayésienne, Optuna : chercher mieux à budget égal.",
+        minutes: 15,
+        concepts: ["hpo"],
+        available: true,
+      },
     ],
   },
   {
@@ -336,7 +363,7 @@ export const MODULES: Module[] = [
     deep: "#9d174d",
     index: 6,
     title: "Deep learning",
-    tagline: "Neurones, backprop, PyTorch, régularisation, CNN, transfer learning, embeddings, RNN.",
+    tagline: "Neurones, backprop, PyTorch, CNN, embeddings, RNN, modèles génératifs, détection.",
     prereqs: ["modeles"],
     concepts: [
       { id: "perceptron", title: "Neurone & MLP" },
@@ -347,6 +374,8 @@ export const MODULES: Module[] = [
       { id: "transfer", title: "Transfer learning" },
       { id: "embeddings", title: "Embeddings" },
       { id: "rnn", title: "RNN & LSTM" },
+      { id: "generatifs", title: "Modèles génératifs & diffusion" },
+      { id: "detection", title: "Détection & segmentation" },
     ],
     lessons: [
       {
@@ -413,6 +442,22 @@ export const MODULES: Module[] = [
         concepts: ["rnn"],
         available: true,
       },
+      {
+        slug: "modeles-generatifs",
+        title: "Modèles génératifs : VAE, GAN, diffusion",
+        summary: "Apprendre à générer : du débruitage pas à pas aux images de Stable Diffusion.",
+        minutes: 20,
+        concepts: ["generatifs"],
+        available: true,
+      },
+      {
+        slug: "detection-et-segmentation",
+        title: "Détection et segmentation",
+        summary: "IoU, NMS, mAP, YOLO, U-Net et Dice : la vision au-delà de la classification.",
+        minutes: 18,
+        concepts: ["detection"],
+        available: true,
+      },
     ],
   },
   {
@@ -421,7 +466,7 @@ export const MODULES: Module[] = [
     deep: "#92400e",
     index: 7,
     title: "Transformers & LLM",
-    tagline: "Tokens, attention, architecture, entraînement et inférence des LLM.",
+    tagline: "Tokens, attention, architecture, entraînement, inférence, RAG et évaluation des LLM.",
     prereqs: ["deep-learning"],
     concepts: [
       { id: "tokenisation", title: "Tokenization (BPE)" },
@@ -431,6 +476,7 @@ export const MODULES: Module[] = [
       { id: "sampling", title: "Décodage & sampling" },
       { id: "inference", title: "Inférence : KV cache, quantization" },
       { id: "rag", title: "RAG" },
+      { id: "eval-llm", title: "Évaluer un LLM" },
     ],
     lessons: [
       {
@@ -489,6 +535,14 @@ export const MODULES: Module[] = [
         concepts: ["rag"],
         available: true,
       },
+      {
+        slug: "evaluer-un-llm",
+        title: "Évaluer un LLM",
+        summary: "Benchmarks, jeu d'évaluation maison, LLM juge et ses biais, comparaisons par paires.",
+        minutes: 18,
+        concepts: ["eval-llm"],
+        available: true,
+      },
     ],
   },
   {
@@ -497,7 +551,7 @@ export const MODULES: Module[] = [
     deep: "#166534",
     index: 8,
     title: "IA agentique",
-    tagline: "Tool use, boucle d'agent, mémoire, évaluation et sécurité.",
+    tagline: "Tool use, boucle d'agent, mémoire, évaluation, sécurité et orchestration.",
     prereqs: ["transformers"],
     concepts: [
       { id: "tool-use", title: "Tool use" },
@@ -505,6 +559,7 @@ export const MODULES: Module[] = [
       { id: "memoire", title: "Mémoire & contexte" },
       { id: "eval-agents", title: "Évaluer un agent" },
       { id: "securite-agents", title: "Sécurité des agents" },
+      { id: "multi-agents", title: "Orchestration & multi-agents" },
     ],
     lessons: [
       {
@@ -545,6 +600,14 @@ export const MODULES: Module[] = [
         summary: "Injection de prompt, trio dangereux, moindre privilège : protéger les actions, pas seulement le modèle.",
         minutes: 18,
         concepts: ["securite-agents"],
+        available: true,
+      },
+      {
+        slug: "orchestration-multi-agents",
+        title: "Orchestration et multi-agents",
+        summary: "Workflows, sous-agents, parallélisme : quand plusieurs agents valent mieux qu'un.",
+        minutes: 18,
+        concepts: ["multi-agents"],
         available: true,
       },
     ],

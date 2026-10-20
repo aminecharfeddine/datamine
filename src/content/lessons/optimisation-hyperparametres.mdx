@@ -1,0 +1,154 @@
+<Predict
+  id="hook"
+  question="Tu as le budget pour 9 entraînements. Deux hyperparamètres : le learning rate (qui compte énormément) et la profondeur (qui compte peu). Grille 3 × 3 ou 9 tirages aléatoires ?"
+  options={[
+    "La grille, plus systématique",
+    "Les tirages aléatoires : ils testent 9 learning rates différents au lieu de 3",
+    "C'est équivalent",
+    "Aucun des deux, il faut 100 essais",
+  ]}
+  answer={1}
+>
+Une grille 3 × 3 ne teste que **3 valeurs** de l'hyperparamètre qui compte ; les 3 profondeurs différentes n'apportent presque rien. Avec 9 tirages aléatoires, chaque essai essaie un learning rate différent. C'est l'argument classique de Bergstra et Bengio : quand quelques hyperparamètres seulement comptent, ce qui est presque toujours le cas, la recherche aléatoire explore mieux à budget égal.
+</Predict>
+
+## Trois familles de méthodes
+
+- **Grille** : toutes les combinaisons d'une liste de valeurs. Lisible, mais le coût explose avec le nombre d'hyperparamètres et elle gaspille des essais sur ceux qui ne comptent pas.
+- **Recherche aléatoire** : on tire chaque configuration dans des distributions (log-uniforme pour un learning rate). Simple, parallélisable, souvent bien meilleure que la grille.
+- **Optimisation bayésienne** (processus gaussiens, TPE comme dans Optuna) : un modèle de substitution estime le score des configurations non testées à partir des essais passés, et propose le prochain point en équilibrant **exploitation** (là où c'est prometteur) et **exploration** (là où l'on sait peu).
+
+On y ajoute souvent l'**arrêt précoce des mauvais essais** (successive halving, Hyperband, pruners d'Optuna) : on donne peu de ressources à beaucoup de configurations, et l'on ne poursuit que les meilleures.
+
+<HpoLab id="recherche" challenge="hpo-budget" />
+
+Avec 9 essais, la grille plafonne à cause de ses 3 learning rates. La recherche bayésienne utilise ses premiers essais pour se concentrer sur la bonne zone.
+
+## Pourquoi l'aléatoire marche si bien
+
+Si l'on considère « bonne » une configuration dans les 5 % meilleures, la probabilité qu'au moins un tirage aléatoire sur $n$ y tombe vaut :
+
+$$
+P = 1 - (1 - 0{,}05)^n
+$$
+
+<Exercise
+  id="tirages"
+  question="Combien vaut cette probabilité avec n = 60 tirages aléatoires (3 décimales) ?"
+  answer={0.954}
+  tolerance={0.002}
+  hint="1 − 0,95 puissance 60."
+>
+$1 - 0{,}95^{60} \approx 0{,}954$ : avec 60 essais, on a 95 % de chances de trouver une configuration du top 5 %, quel que soit le nombre d'hyperparamètres. Une grille à 60 points sur 4 hyperparamètres ne testerait qu'environ 3 valeurs de chacun.
+</Exercise>
+
+## En pratique, avec Optuna
+
+```python
+import optuna
+from lightgbm import LGBMClassifier
+from sklearn.model_selection import cross_val_score
+
+def objective(trial):
+    params = {
+        "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.3, log=True),
+        "num_leaves": trial.suggest_int("num_leaves", 8, 256, log=True),
+        "min_child_samples": trial.suggest_int("min_child_samples", 5, 200),
+        "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+    }
+    model = LGBMClassifier(n_estimators=500, subsample_freq=1, **params)
+    return cross_val_score(model, X_train, y_train, cv=5, scoring="roc_auc").mean()
+
+study = optuna.create_study(direction="maximize")
+study.optimize(objective, n_trials=60)
+print(study.best_params)
+```
+
+<CodeChoice
+  id="log"
+  question="Le learning rate varie entre 0,001 et 0,3. Comment le tirer ?"
+  code={`lr = trial.suggest_float("learning_rate", 1e-3, 0.3, log=___)`}
+  options={["True", "False"]}
+  answer={0}
+>
+En échelle log : passer de 0,001 à 0,01 change autant le comportement que de 0,01 à 0,1. Un tirage uniforme placerait 97 % des essais au-dessus de 0,01 et n'explorerait presque jamais les petites valeurs. Même chose pour la régularisation (alpha, C, weight decay) et souvent pour les tailles (nombre de feuilles).
+</CodeChoice>
+
+<Callout type="intuition">
+Chaque essai coûte un entraînement complet : l'optimisation d'hyperparamètres est un problème de **budget**. Les méthodes intelligentes ne font pas de miracle, elles évitent de gaspiller des essais sur des zones déjà connues comme mauvaises ou sur des dimensions qui ne comptent pas.
+</Callout>
+
+<Callout type="piege">
+Le meilleur score de la recherche est **optimiste** : sur 200 essais, le gagnant a profité en partie du hasard du découpage. Ce score ne peut pas servir d'estimation de la performance ; on évalue le modèle retenu une seule fois sur un jeu de test intact, ou on fait une validation croisée imbriquée. Et plus on fait d'essais sur une petite validation, plus on risque de sur-ajuster les hyperparamètres à cette validation.
+</Callout>
+
+<Callout type="entretien">
+Ordre de grandeur à connaître : les hyperparamètres ne se valent pas. Pour un boosting, learning rate et nombre d'arbres (avec early stopping), puis la complexité des arbres et la taille minimale des feuilles ; pour un réseau, le learning rate d'abord, de loin. Savoir lesquels régler en priorité vaut mieux que de lancer une énorme recherche sur tout.
+</Callout>
+
+<Callout type="astuce">
+Commence par des valeurs par défaut raisonnables et l'early stopping, puis une recherche aléatoire ou Optuna sur 3 à 5 hyperparamètres importants, avec des bornes larges en échelle log. Regarde ensuite les graphiques d'importance des hyperparamètres d'Optuna : ils disent souvent qu'un ou deux suffisent.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Pourquoi la recherche aléatoire bat-elle souvent la grille à budget égal ?",
+      options: ["Elle est plus rapide par essai", "Elle teste plus de valeurs distinctes de chaque hyperparamètre, ce qui compte quand seuls quelques-uns sont importants", "Elle évite l'overfitting", "Elle utilise les gradients"],
+      answer: 1,
+      explain: "Une grille répète les mêmes valeurs de l'hyperparamètre important.",
+    },
+    {
+      q: "Que fait l'optimisation bayésienne ?",
+      options: [
+        "Elle teste toutes les combinaisons",
+        "Elle modélise le score en fonction des hyperparamètres à partir des essais passés et choisit le prochain essai en équilibrant exploration et exploitation",
+        "Elle applique le théorème de Bayes aux données",
+        "Elle entraîne un réseau de neurones",
+      ],
+      answer: 1,
+      explain: "Utile quand chaque essai coûte cher.",
+    },
+    {
+      q: "Que fait Hyperband (ou successive halving) ?",
+      options: ["Il augmente le learning rate", "Il lance beaucoup de configurations avec peu de ressources et ne poursuit que les meilleures", "Il remplace la validation croisée", "Il fixe la profondeur"],
+      answer: 1,
+      explain: "On arrête tôt les essais visiblement mauvais.",
+    },
+    {
+      q: "Le meilleur score de validation croisée parmi 300 essais vaut 0,912. Est-ce une bonne estimation de la performance future ?",
+      options: ["Oui", "Non, c'est optimiste : il faut évaluer le modèle retenu sur un test intact ou faire une CV imbriquée", "Oui si cv = 10", "Non, elle est pessimiste"],
+      answer: 1,
+      explain: "Choisir le maximum de nombreuses estimations bruitées introduit un biais positif.",
+    },
+    {
+      q: "Quelle distribution pour tirer un coefficient de régularisation entre 1e-6 et 1 ?",
+      options: ["Uniforme", "Log-uniforme", "Normale centrée sur 0,5", "Constante"],
+      answer: 1,
+      explain: "Les ordres de grandeur comptent plus que les valeurs absolues.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment règles-tu les hyperparamètres d'un modèle ?">
+Je commence par des valeurs par défaut solides et l'early stopping, pour avoir une référence. Ensuite je choisis 3 à 5 hyperparamètres qui comptent vraiment pour ce modèle, avec des plages larges en échelle log, et je lance une recherche aléatoire ou une optimisation bayésienne (Optuna) avec arrêt précoce des mauvais essais, évaluée par validation croisée adaptée aux données. Je regarde quels hyperparamètres ont réellement de l'effet, je resserre si besoin, puis j'évalue le modèle retenu une seule fois sur un jeu de test intact, puisque le meilleur score de la recherche est optimiste.
+</Interview>
+
+<Interview q="Grille, aléatoire ou bayésienne : quand choisir quoi ?">
+La grille pour un ou deux hyperparamètres à peu de valeurs, ou pour une étude systématique lisible. L'aléatoire par défaut dès qu'il y en a plusieurs : simple, parallélisable, robuste, et efficace parce que seuls quelques hyperparamètres comptent. La bayésienne quand chaque entraînement coûte cher et qu'on ne peut faire que quelques dizaines d'essais, en sachant qu'elle est plus séquentielle. Dans tous les cas, ajouter un arrêt précoce des essais visiblement mauvais fait souvent gagner plus que le choix de méthode.
+</Interview>
+
+<Recap>
+- Grille : lisible mais gaspille le budget ; **aléatoire** : plus de valeurs distinctes de ce qui compte.
+- **Bayésienne** (GP, TPE) : modèle de substitution, exploration et exploitation ; utile quand un essai coûte cher.
+- Hyperband, successive halving, pruners : arrêter tôt les mauvais essais.
+- Échelles **log** pour learning rate et régularisation.
+- Le meilleur score de recherche est optimiste : test intact ou CV imbriquée.
+- $P(\text{top } 5\,\%) = 1 - 0{,}95^n$.
+</Recap>
+
+<LessonComplete />

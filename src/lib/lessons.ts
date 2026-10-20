@@ -2,6 +2,13 @@
 export const LESSON_CONTENT: Record<string, () => Promise<{ default: React.ComponentType }>> = {
   "validation-croisee": () => import("@/content/lessons/validation-croisee.mdx"),
   knn: () => import("@/content/lessons/knn.mdx"),
+  "series-temporelles": () => import("@/content/lessons/series-temporelles.mdx"),
+  "interpretabilite": () => import("@/content/lessons/interpretabilite.mdx"),
+  "optimisation-hyperparametres": () => import("@/content/lessons/optimisation-hyperparametres.mdx"),
+  "modeles-generatifs": () => import("@/content/lessons/modeles-generatifs.mdx"),
+  "detection-et-segmentation": () => import("@/content/lessons/detection-et-segmentation.mdx"),
+  "evaluer-un-llm": () => import("@/content/lessons/evaluer-un-llm.mdx"),
+  "orchestration-multi-agents": () => import("@/content/lessons/orchestration-multi-agents.mdx"),
   "classification-multiclasse": () => import("@/content/lessons/classification-multiclasse.mdx"),
   "calibration": () => import("@/content/lessons/calibration.mdx"),
   "metriques-de-regression": () => import("@/content/lessons/metriques-de-regression.mdx"),

@@ -1,0 +1,34 @@
+<FicheSection kind="essentiel">
+- Local : pourquoi cette décision. Global : ce qu'a appris le modèle.
+- SHAP : contributions additives ; TreeSHAP exact et rapide pour les arbres.
+- Permutation importance sur la validation ; PDP (effet moyen) et ICE (par individu).
+- Variables corrélées : importance partagée.
+- Aucune lecture causale.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+f(x) = \mathbb{E}[f(X)] + \sum_j \phi_j(x)
+$$
+
+Modèle linéaire, variables indépendantes : $\phi_j = w_j (x_j - \mathbb{E}[x_j])$. Exemple : $0{,}7 \times (1{,}6 - 3{,}0) = -0{,}98$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Importance par impureté sur le train.
+- Conclure qu'une variable corrélée est inutile.
+- Lire une contribution SHAP comme un effet causal.
+- LIME instable d'une exécution à l'autre.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Expliquer un boosting ?** Permutation et beeswarm SHAP en global, waterfall SHAP en local, PDP et ICE, limites (corrélation, causalité).
+
+**Valeur de Shapley ?** Contribution marginale moyenne sur tous les ordres d'ajout ; seule répartition équitable et additive.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `shap.TreeExplainer(model)`, `shap.plots.waterfall`, `shap.plots.beeswarm`.
+- `permutation_importance(model, X_valid, y_valid, n_repeats=10)`.
+- Comparer importance train et validation pour repérer l'overfitting.
+</FicheSection>

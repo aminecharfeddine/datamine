@@ -193,6 +193,7 @@ export const CHOIX: ItvQuestion[] = [
     topic: "choix",
     kind: "oral",
     level: 2,
+    lesson: "series-temporelles",
     q: "Pour prévoir une série temporelle, comment choisis-tu entre un modèle statistique classique (ARIMA, lissage exponentiel), un boosting avec features de décalage, et un réseau de neurones ?",
     points: [
       "Modèles classiques : peu de séries, peu de variables externes, besoin d'intervalles et d'interprétabilité, données courtes",
@@ -224,7 +225,7 @@ export const CHOIX: ItvQuestion[] = [
     topic: "choix",
     kind: "oral",
     level: 2,
-    lesson: "pre-entrainement-et-fine-tuning",
+    lesson: "evaluer-un-llm",
     q: "Prompt engineering, fine-tuning LoRA ou fine-tuning complet : comment décides-tu ?",
     points: [
       "Prompting (avec exemples) d'abord : rapide, sans données d'entraînement, facile à itérer",
@@ -273,6 +274,7 @@ export const CHOIX: ItvQuestion[] = [
     topic: "choix",
     kind: "qcm",
     level: 2,
+    lesson: "modeles-generatifs",
     q: "Tu dois détecter des comportements anormaux sur des serveurs, sans aucun exemple étiqueté d'incident. Quelle approche ?",
     options: [
       "Une classification supervisée",
@@ -334,7 +336,7 @@ export const CHOIX: ItvQuestion[] = [
     topic: "choix",
     kind: "qcm",
     level: 3,
-    lesson: "cnn",
+    lesson: "detection-et-segmentation",
     q: "Pour classer des images médicales avec 5 000 exemples, CNN pré-entraîné ou Vision Transformer entraîné depuis zéro ?",
     options: [
       "ViT depuis zéro, plus moderne",
@@ -366,7 +368,7 @@ export const CHOIX: ItvQuestion[] = [
     topic: "choix",
     kind: "qcm",
     level: 2,
-    lesson: "boucle-agent",
+    lesson: "orchestration-multi-agents",
     q: "Un process métier consiste toujours en : extraire les champs d'une facture, vérifier le fournisseur en base, créer l'écriture comptable. Agent autonome ou workflow ?",
     options: [
       "Un agent autonome avec tous les outils, plus flexible",
@@ -431,6 +433,7 @@ export const CHOIX: ItvQuestion[] = [
     topic: "choix",
     kind: "oral",
     level: 2,
+    lesson: "interpretabilite",
     q: "Le métier demande un modèle « explicable ». Comment arbitres-tu entre un modèle interprétable et un modèle plus performant ?",
     points: [
       "Clarifier le besoin : explication globale, explication de chaque décision, exigence réglementaire, confiance des utilisateurs",

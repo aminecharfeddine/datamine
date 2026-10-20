@@ -187,7 +187,7 @@ print(df.head())`,
     kind: "qcm",
     level: 2,
     trap: true,
-    lesson: "feature-engineering",
+    lesson: "series-temporelles",
     q: "Pour prévoir les ventes du jour J, tu crées la feature « moyenne des ventes sur 7 jours » avec rolling(7).mean(). Le modèle est étonnamment bon. Pourquoi ?",
     options: [
       "Les moyennes glissantes sont toujours très prédictives",

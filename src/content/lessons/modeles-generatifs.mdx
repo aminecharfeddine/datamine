@@ -1,0 +1,148 @@
+<Predict
+  id="hook"
+  question="Un modèle de diffusion génère une image en partant de pur bruit. Que fait le réseau de neurones à chaque étape ?"
+  options={[
+    "Il dessine l'image pixel par pixel, de gauche à droite",
+    "Il estime le bruit présent dans l'image courante, qu'on retire un peu ; en répétant, le bruit devient une image",
+    "Il copie l'image la plus proche de son jeu d'entraînement",
+    "Il génère l'image en une seule passe, puis la corrige",
+  ]}
+  answer={1}
+>
+L'entraînement est étonnamment simple : on prend une vraie image, on y ajoute une quantité connue de bruit, et on demande au réseau de **retrouver ce bruit**. Pour générer, on part de bruit pur et on applique ce débruiteur des dizaines de fois, en enlevant un peu de bruit à chaque étape. C'est la famille de modèles derrière Stable Diffusion et la plupart des générateurs d'images et de vidéos actuels.
+</Predict>
+
+## Apprendre à générer
+
+Un modèle génératif apprend la distribution des données $p(x)$ pour pouvoir en tirer de nouveaux exemples : images, sons, molécules, texte. Les LLM en sont un cas particulier (ils modélisent $p(x)$ token par token). Quatre grandes familles :
+
+- **Autoencodeur (AE)** : un encodeur compresse l'entrée dans un petit vecteur (le goulot), un décodeur la reconstruit. Utile pour la compression, le débruitage, la détection d'anomalies (une erreur de reconstruction élevée signale un exemple inhabituel), mais son espace latent est irrégulier : on ne sait pas y tirer de nouveaux points.
+- **VAE** (autoencodeur variationnel) : l'encodeur produit une moyenne et une variance, l'espace latent est contraint vers une gaussienne par un terme de KL, et l'on peut échantillonner $z \sim \mathcal N(0, I)$ puis décoder. Génère des images souvent floues, mais son latent est très utile.
+- **GAN** : un générateur tente de tromper un discriminateur qui distingue vrai et faux. Images nettes, mais entraînement instable et risque de *mode collapse* (le générateur ne produit plus que quelques variantes).
+- **Diffusion** : bruiter progressivement, apprendre à débruiter, générer en débruitant pas à pas. Stable à entraîner, très haute qualité, mais génération en plusieurs étapes.
+
+## La diffusion en deux formules
+
+Le processus direct ajoute du bruit gaussien selon un planning $\bar\alpha_t$ qui décroît de 1 (données) à presque 0 (bruit pur) :
+
+$$
+x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1 - \bar\alpha_t}\, \varepsilon, \qquad \varepsilon \sim \mathcal{N}(0, I)
+$$
+
+Le réseau $\varepsilon_\theta$ reçoit $x_t$ et $t$ et apprend à prédire le bruit, par une simple régression :
+
+$$
+\mathcal{L} = \mathbb{E}_{x_0, t, \varepsilon}\big[\, \| \varepsilon - \varepsilon_\theta(x_t, t) \|^2 \,\big]
+$$
+
+À la génération, chaque étape estime le bruit, en déduit une estimation de $x_0$, puis se replace à un niveau de bruit un peu plus faible.
+
+<DiffusionLab id="spirale" challenge="diffusion-steps" />
+
+En une étape, le débruiteur doit deviner toute la spirale à partir de bruit pur : la meilleure réponse en moyenne est le centre, et tous les échantillons s'y effondrent. Avec plus d'étapes, chaque correction est petite et les points rejoignent la forme. Le compromis qualité / nombre d'étapes est au cœur de la recherche sur la diffusion (samplers rapides, distillation en quelques étapes).
+
+<Exercise
+  id="coefs"
+  question="À une étape où ᾱ_t = 0,36, quel est le coefficient qui multiplie le bruit ε dans x_t (2 décimales) ?"
+  answer={0.8}
+  tolerance={0.005}
+  hint="√(1 − ᾱ_t)."
+>
+$\sqrt{1 - 0{,}36} = 0{,}8$, et le signal est multiplié par $\sqrt{0{,}36} = 0{,}6$. La somme des carrés des deux coefficients vaut 1 : la variance totale reste constante, seule la part du signal diminue.
+</Exercise>
+
+## Dans les vrais systèmes
+
+- **Diffusion latente** : plutôt que de débruiter des millions de pixels, on diffuse dans l'espace latent compact d'un autoencodeur (VAE), puis on décode. C'est le principe de Stable Diffusion, bien moins coûteux.
+- **Conditionnement** : le texte (via un encodeur de texte comme celui de CLIP) entre dans le débruiteur par de la cross-attention. Le *classifier-free guidance* accentue l'effet de la consigne en combinant prédictions avec et sans texte.
+- **Évaluation** : la FID compare les statistiques d'images générées et réelles dans l'espace d'un réseau pré-entraîné ; on la complète par des évaluations humaines et par des mesures d'alignement au texte.
+
+```python
+# Une étape d'entraînement d'un modèle de diffusion (simplifiée)
+x0 = batch_images                                    # (B, C, H, W)
+t = torch.randint(0, T, (x0.shape[0],))
+eps = torch.randn_like(x0)
+a = alpha_bar[t].view(-1, 1, 1, 1)
+xt = a.sqrt() * x0 + (1 - a).sqrt() * eps            # bruiter
+loss = F.mse_loss(model(xt, t), eps)                 # prédire le bruit
+loss.backward(); optimizer.step(); optimizer.zero_grad()
+```
+
+<CodeChoice
+  id="cible"
+  question="Dans la version standard (DDPM), quelle est la cible de la loss ?"
+  code={`loss = F.mse_loss(model(xt, t), ___)`}
+  options={["eps", "x0", "xt", "t"]}
+  answer={0}
+>
+Le réseau prédit le bruit ajouté. On peut le reparamétrer pour prédire directement $x_0$ ou une combinaison des deux (la v-prediction), mais prédire $\varepsilon$ est la formulation d'origine, et elle a l'avantage d'une cible de même échelle à tous les niveaux de bruit.
+</CodeChoice>
+
+<Callout type="intuition">
+Le VAE et la diffusion partagent une idée : rendre la génération facile en partant d'une distribution simple (une gaussienne) et en apprenant une transformation vers les données. Le VAE le fait en un seul pas de décodage, d'où des images floues ; la diffusion le fait en beaucoup de petits pas, chacun facile à apprendre.
+</Callout>
+
+<Callout type="piege">
+Le débruiteur du labo est calculé exactement à partir des 160 points : avec assez d'étapes, il les **recopie**. Un modèle réel généralise parce qu'il apprend une fonction lisse, mais la mémorisation existe, surtout pour des images dupliquées dans les données d'entraînement. C'est un sujet de droits d'auteur et de vie privée : on déduplique les données et on teste la proximité des sorties avec le jeu d'entraînement.
+</Callout>
+
+<Callout type="entretien">
+Question fréquente : « Pourquoi les GAN ont-ils été remplacés par la diffusion pour les images ? » Entraînement plus stable (une simple régression au lieu d'un jeu à deux joueurs), meilleure couverture de la diversité des données (pas de mode collapse), et un conditionnement par le texte plus facile. Le prix : une génération en plusieurs étapes, que les samplers et la distillation réduisent.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Qu'apprend le réseau d'un modèle de diffusion ?",
+      options: ["À classer les images", "À prédire le bruit ajouté à une image bruitée, pour un niveau de bruit donné", "À discriminer vrai et faux", "À compresser l'image"],
+      answer: 1,
+      explain: "La loss est une MSE entre le bruit réel et le bruit prédit.",
+    },
+    {
+      q: "Pourquoi peut-on échantillonner dans un VAE et pas dans un autoencodeur classique ?",
+      options: ["Le VAE est plus gros", "Le terme de KL force l'espace latent vers une gaussienne connue, dans laquelle on peut tirer des points qui se décodent bien", "L'autoencodeur n'a pas de décodeur", "Le VAE n'a pas d'encodeur"],
+      answer: 1,
+      explain: "Le latent d'un AE classique a des trous : un point tiré au hasard se décode mal.",
+    },
+    {
+      q: "Qu'est-ce que le mode collapse d'un GAN ?",
+      options: ["Le discriminateur gagne toujours", "Le générateur ne produit plus que quelques variantes, sans couvrir la diversité des données", "La loss devient NaN", "Les images deviennent floues"],
+      answer: 1,
+      explain: "C'est l'un des problèmes classiques des GAN.",
+    },
+    {
+      q: "Quel est l'intérêt de la diffusion latente (Stable Diffusion) ?",
+      options: ["Générer du texte", "Débruiter dans l'espace compact d'un autoencodeur plutôt que dans l'espace des pixels, ce qui coûte beaucoup moins cher", "Supprimer le besoin de texte", "Éviter tout entraînement"],
+      answer: 1,
+      explain: "Le décodeur du VAE reconstruit ensuite l'image en haute résolution.",
+    },
+    {
+      q: "Comment détecter une anomalie avec un autoencodeur entraîné sur des données normales ?",
+      options: ["Par sa vitesse", "Par une erreur de reconstruction anormalement élevée", "Par le nombre de couches", "Par la taille du latent"],
+      answer: 1,
+      explain: "L'AE reconstruit bien ce qui ressemble à ses données d'entraînement, mal le reste.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique le fonctionnement d'un modèle de diffusion.">
+On définit un processus qui ajoute progressivement du bruit gaussien à une donnée, selon un planning, jusqu'à obtenir du bruit pur ; à n'importe quel niveau, l'image bruitée s'écrit en forme fermée comme un mélange de l'image et du bruit. On entraîne un réseau, souvent un U-Net ou un Transformer, à prédire le bruit contenu dans une image bruitée, avec une simple MSE. Pour générer, on part de bruit pur et on applique le réseau de façon itérative pour retirer le bruit petit à petit. On conditionne par du texte via de la cross-attention, on travaille souvent dans un espace latent pour réduire le coût, et le nombre d'étapes est un compromis entre qualité et vitesse.
+</Interview>
+
+<Interview q="VAE, GAN, diffusion : quelles différences ?">
+Le VAE apprend un encodeur et un décodeur avec un espace latent régularisé vers une gaussienne : entraînement stable, latent utile, mais générations souvent floues. Le GAN oppose un générateur et un discriminateur : images nettes et génération en une passe, mais entraînement instable et mode collapse. La diffusion apprend à débruiter : entraînement stable, très haute qualité et bonne diversité, au prix de plusieurs étapes de génération. En pratique, les systèmes modernes combinent souvent un VAE (pour l'espace latent) et la diffusion.
+</Interview>
+
+<Recap>
+- Génératif = apprendre $p(x)$ pour en tirer de nouveaux exemples.
+- **AE** : compresser et reconstruire (anomalies) ; **VAE** : latent gaussien échantillonnable ; **GAN** : générateur contre discriminateur.
+- **Diffusion** : $x_t = \sqrt{\bar\alpha_t}x_0 + \sqrt{1-\bar\alpha_t}\varepsilon$ ; le réseau prédit $\varepsilon$ (MSE) ; génération itérative.
+- Nombre d'étapes : compromis qualité / coût.
+- Diffusion latente, conditionnement par cross-attention, classifier-free guidance, FID.
+- Risque de mémorisation des données d'entraînement.
+</Recap>
+
+<LessonComplete />
