@@ -1,0 +1,34 @@
+<FicheSection kind="essentiel">
+- Mesurer par groupe : sélection, recall, faux positifs, precision, calibration.
+- Parité démographique, égalité des chances, égalité des cotes, parité prédictive.
+- Critères incompatibles quand les taux de base diffèrent.
+- Biais : données, étiquettes, proxys, objectif, rétroaction.
+- Remèdes et gouvernance ; AI Act.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{ratio} = \frac{\min_g P(\hat Y = 1 \mid g)}{\max_g P(\hat Y = 1 \mid g)} \geq 0{,}8 \qquad P(\hat Y = 1 \mid Y = 1, A) = P(\hat Y = 1 \mid Y = 1, B)
+$$
+
+50 % et 35 % : ratio 0,70.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Juger sur l'accuracy globale.
+- Retirer la variable sensible et s'arrêter là.
+- Seuils par groupe sans cadre juridique.
+- Étiquettes historiques prises pour la vérité.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Équité d'un modèle de crédit ?** Groupes et critère avec métier et juridique, métriques par groupe avec intervalles, proxys, actions, documentation, suivi, recours.
+
+**Parité démographique ou égalité des chances ?** Taux de sélection contre recall parmi les qualifiés ; hypothèses différentes.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `groupby("groupe")["retenu"].mean()`.
+- Fairlearn : MetricFrame.
+- Tableau par groupe dans chaque rapport d'évaluation.
+</FicheSection>

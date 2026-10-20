@@ -1,0 +1,32 @@
+<FicheSection kind="essentiel">
+- Espérance : moyenne à long terme, linéaire.
+- Variance : dispersion ; écart-type dans l'unité.
+- Covariance et corrélation : variations communes.
+- Diversification : combiner des sources peu corrélées réduit le risque.
+- Ensembles : décorréler plutôt que multiplier.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\operatorname{Var}(X+Y) = \operatorname{Var}X + \operatorname{Var}Y + 2\operatorname{Cov}(X,Y) \qquad \operatorname{Var}(\bar X_k) = \rho\sigma^2 + \frac{(1-\rho)\sigma^2}{k}
+$$
+
+$\operatorname{Var}(aX+b) = a^2\operatorname{Var}X$. $k = 10$, $\rho = 0{,}5$, $\sigma^2 = 1$ : 0,55.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Additionner des écarts-types.
+- $\mathbb{E}[f(X)] = f(\mathbb{E}[X])$ pour f non linéaire.
+- `np.var` (ddof = 0) contre pandas (ddof = 1).
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Variance et covariance ?** Dispersion contre variation commune ; covariance dans la variance d'une somme ; diversification et ensembles.
+
+**Pourquoi n − 1 ?** La moyenne d'échantillon est ajustée sur les données ; correction du biais.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Lancers jusqu'à un 6 : espérance 6 (loi géométrique).
+- Toujours rapporter une estimation avec son incertitude.
+</FicheSection>

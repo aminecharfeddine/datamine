@@ -1,0 +1,140 @@
+<Predict
+  id="hook"
+  question="Une couche nn.Linear(784, 128) reçoit un batch de 64 images aplaties. Quelle est la forme de la sortie ?"
+  options={["(784, 128)", "(64, 128)", "(64, 784)", "(128, 64)"]}
+  answer={1}
+>
+Une couche linéaire, c'est un produit matriciel : un batch de forme $(64, 784)$ multiplié par la transposée d'une matrice de poids $(128, 784)$ donne $(64, 128)$, plus un biais diffusé sur chaque ligne. Embeddings, attention, ACP, régression linéaire : presque tout le machine learning s'écrit en vecteurs et en matrices. Savoir lire les formes et ce que fait une matrice évite la moitié des bugs.
+</Predict>
+
+## Vecteurs : direction, longueur, similarité
+
+Un vecteur est une liste de nombres : les caractéristiques d'un client, les pixels d'une image, l'embedding d'un mot. Trois opérations reviennent partout :
+
+- la **norme** $\|x\| = \sqrt{\sum_i x_i^2}$ (sa longueur) ;
+- le **produit scalaire** $x \cdot y = \sum_i x_i y_i = \|x\|\,\|y\|\cos\theta$ ;
+- la **similarité cosinus**, qui compare les directions indépendamment des longueurs :
+
+$$
+\cos(x, y) = \frac{x \cdot y}{\|x\|\,\|y\|}
+$$
+
+C'est la mesure standard entre embeddings, et le produit scalaire est au cœur de l'attention ($QK^\top$).
+
+## Matrices : des transformations
+
+Une matrice $A$ de taille $m \times n$ transforme un vecteur de dimension $n$ en vecteur de dimension $m$. Ses **colonnes** sont les images des vecteurs de base : c'est la façon la plus simple de lire ce qu'elle fait. Composer deux transformations, c'est multiplier leurs matrices, dans un ordre qui compte ($AB \neq BA$ en général). La règle des formes : $(m \times n)(n \times p) = (m \times p)$, les dimensions intérieures doivent coïncider.
+
+Le **déterminant** d'une matrice carrée mesure le facteur par lequel elle multiplie les aires (les volumes en dimension supérieure). Un déterminant nul signifie que la matrice écrase l'espace sur une dimension inférieure : elle n'est pas inversible, de l'information est perdue.
+
+Un **vecteur propre** est une direction que la matrice ne fait qu'étirer : $Av = \lambda v$. Les vecteurs propres de la matrice de covariance sont les axes de l'ACP.
+
+<MatrixLab id="transformations" challenge="matrix-flatten" />
+
+La rotation n'a aucun vecteur propre réel : aucune direction n'est conservée. La matrice symétrique a deux vecteurs propres orthogonaux, ce qui est toujours le cas pour une matrice symétrique, comme une matrice de covariance.
+
+<Exercise
+  id="cosinus"
+  question="Quelle est la similarité cosinus entre les vecteurs (1, 2, 2) et (2, 1, 2) (3 décimales) ?"
+  answer={0.889}
+  tolerance={0.002}
+  hint="Produit scalaire : 2 + 2 + 4. Chaque norme vaut 3."
+>
+$8 / (3 \times 3) \approx 0{,}889$ : les deux vecteurs pointent dans des directions proches. Deux vecteurs orthogonaux ont un cosinus nul, deux vecteurs opposés un cosinus de −1.
+</Exercise>
+
+## Ce qu'il faut savoir lire dans le code
+
+```python
+import torch
+
+X = torch.randn(64, 784)          # 64 exemples, 784 variables
+W = torch.randn(128, 784)         # poids d'une couche : (sorties, entrées), comme nn.Linear
+b = torch.randn(128)
+
+H = X @ W.T + b                   # (64, 784) @ (784, 128) + (128,) diffusé → (64, 128)
+sim = torch.nn.functional.cosine_similarity(H[0], H[1], dim=0)
+```
+
+<CodeChoice
+  id="formes"
+  question="Avec X de forme (64, 784) et W de forme (128, 784), quelle expression donne une sortie (64, 128) ?"
+  code={`H = X @ ___`}
+  options={["W.T", "W", "X.T", "W @ X"]}
+  answer={0}
+>
+Il faut que la dimension intérieure coïncide : $(64, 784) \times (784, 128)$, donc la transposée de W. `X @ W` échoue (784 contre 128). C'est exactement ce que fait `nn.Linear`, qui stocke ses poids sous la forme (sorties, entrées).
+</CodeChoice>
+
+<Callout type="intuition">
+Lire une matrice par ses colonnes rend l'algèbre visuelle : la première colonne dit où va l'axe des x, la seconde où va l'axe des y. Tout le reste du plan suit linéairement. Une couche de réseau de neurones fait la même chose en grande dimension, suivie d'une non-linéarité qui « plie » l'espace.
+</Callout>
+
+<Callout type="piege">
+Des variables parfaitement colinéaires (prix HT et prix TTC) rendent la matrice $X^\top X$ de la régression linéaire singulière : déterminant nul, pas d'inverse, coefficients indéterminés. Presque colinéaires, elle est mal conditionnée : de minuscules changements des données font exploser les coefficients. La régularisation ridge ajoute $\lambda I$ et rend la matrice inversible.
+</Callout>
+
+<Callout type="entretien">
+« Pourquoi la similarité cosinus plutôt que la distance euclidienne pour comparer des embeddings ? » Le cosinus ne dépend que de la direction ; la norme d'un embedding reflète souvent des facteurs sans rapport avec le sens (fréquence d'un mot, longueur d'un texte). Avec des vecteurs normalisés, les deux classements sont d'ailleurs équivalents : $\|x - y\|^2 = 2 - 2\cos(x, y)$.
+</Callout>
+
+<Callout type="astuce">
+Quand un code de deep learning plante, imprime les formes (`x.shape`) à chaque étape et annote-les en commentaire. La plupart des erreurs viennent d'une dimension inversée, d'une transposée oubliée ou d'un broadcasting involontaire, qui ne plante pas mais calcule autre chose.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quelle est la forme de A @ B si A est (32, 10) et B (10, 5) ?",
+      options: ["(10, 10)", "(32, 5)", "(5, 32)", "Erreur"],
+      answer: 1,
+      explain: "Les dimensions intérieures (10) disparaissent.",
+    },
+    {
+      q: "Que signifie un déterminant nul ?",
+      options: ["La matrice est la matrice identité", "La matrice écrase l'espace sur une dimension inférieure et n'est pas inversible", "La matrice est une rotation", "Toutes les valeurs sont nulles"],
+      answer: 1,
+      explain: "Les colonnes sont linéairement dépendantes.",
+    },
+    {
+      q: "Qu'est-ce qu'un vecteur propre d'une matrice A ?",
+      options: ["Un vecteur de norme 1", "Un vecteur dont la direction est conservée par A : Av = λv", "La première colonne de A", "Un vecteur orthogonal à toutes les colonnes"],
+      answer: 1,
+      explain: "λ est le facteur d'étirement (la valeur propre).",
+    },
+    {
+      q: "Deux embeddings ont une similarité cosinus de 0. Cela signifie…",
+      options: ["Ils sont identiques", "Ils sont orthogonaux : aucune direction commune", "L'un des deux est nul", "Ils sont opposés"],
+      answer: 1,
+      explain: "Opposés donnerait −1.",
+    },
+    {
+      q: "Pourquoi une matrice de covariance a-t-elle des vecteurs propres orthogonaux ?",
+      options: ["Par hasard", "Parce qu'elle est symétrique", "Parce qu'elle est diagonale", "Parce que son déterminant est 1"],
+      answer: 1,
+      explain: "C'est ce qui garantit des composantes principales orthogonales.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Qu'est-ce qu'un vecteur propre, et où en rencontre-t-on en machine learning ?">
+Un vecteur propre d'une matrice est une direction que la transformation ne fait qu'étirer ou contracter, sans la tourner : $Av = \lambda v$, où $\lambda$ est la valeur propre. On en rencontre dans l'ACP, où les vecteurs propres de la matrice de covariance donnent les directions de variance maximale et les valeurs propres la variance le long de chacune ; dans PageRank, où le classement est le vecteur propre principal de la matrice des liens ; dans l'analyse spectrale de graphes et le clustering spectral ; et pour comprendre la stabilité de l'entraînement des réseaux récurrents, où des valeurs propres supérieures à 1 font exploser le gradient.
+</Interview>
+
+<Interview q="Comment expliquerais-tu une couche dense d'un réseau de neurones en termes d'algèbre linéaire ?">
+C'est une transformation affine : le vecteur d'entrée est multiplié par une matrice de poids, chaque ligne étant un neurone qui calcule un produit scalaire avec l'entrée, puis on ajoute un biais. Sur un batch, c'est un seul produit matriciel, très efficace sur GPU. Sans non-linéarité, empiler des couches donnerait un simple produit de matrices, donc une seule transformation linéaire ; c'est l'activation entre les couches qui permet de représenter des fonctions complexes.
+</Interview>
+
+<Recap>
+- Norme, produit scalaire, **cosinus** $= \frac{x\cdot y}{\|x\|\|y\|}$ (embeddings, attention).
+- Une matrice est une **transformation** ; ses colonnes sont les images des vecteurs de base.
+- Formes : $(m \times n)(n \times p) = (m \times p)$ ; $AB \neq BA$.
+- **Déterminant** : facteur d'aire ; nul = écrasement, non inversible (colinéarité).
+- **Vecteurs propres** : $Av = \lambda v$ ; orthogonaux pour une matrice symétrique (ACP).
+- Une couche dense : $XW^\top + b$.
+</Recap>
+
+<LessonComplete />

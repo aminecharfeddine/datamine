@@ -167,3 +167,50 @@ describe("modules 1 à 3 (suite)", () => {
     expect(q.noiseCount).toBeGreaterThan(3);
   });
 });
+
+describe("maths : variance et matrices", () => {
+  it("diversification : à ρ = 0,2 le mélange optimal est w = 0,75 et bat les deux actifs", async () => {
+    const { mix, minSdOnGrid, W_GRID, ASSET_A, ASSET_B, averagedSd } = await import("./maths2");
+    const best = W_GRID.reduce((b, w) => (mix(w, 0.2).sd < mix(b, 0.2).sd ? w : b), 0);
+    expect(best).toBeCloseTo(0.75, 9);
+    expect(minSdOnGrid(0.2)).toBeLessThan(Math.min(ASSET_A.sd, ASSET_B.sd));
+    expect(CHALLENGES["diversify"].check({ rho: 0.2, sd: mix(0.75, 0.2).sd, minSd: minSdOnGrid(0.2) })).toBe(true);
+    expect(averagedSd(10, 1, 0.5) ** 2).toBeCloseTo(0.55, 9);
+  });
+  it("valeurs propres : symétrique (2,1,1,2) → 3 et 1 ; rotation → pas de valeur propre réelle", async () => {
+    const { eigen, det } = await import("./maths2");
+    const e = eigen([2, 1, 1, 2]);
+    expect(e.real).toBe(true);
+    expect(e.values[0]).toBeCloseTo(3, 9);
+    expect(e.values[1]).toBeCloseTo(1, 9);
+    expect(eigen([0, -1, 1, 0]).real).toBe(false);
+    expect(det([1, 2, 0.5, 1])).toBe(0);
+  });
+});
+
+describe("évaluation : comparaison, lift, équité", () => {
+  it("le test apparié devient significatif à n = 800, le non apparié non", async () => {
+    const { compareModels, TEST_SIZES } = await import("./eval2");
+    const ok = TEST_SIZES.filter((n, i) => {
+      const r = compareModels(n);
+      const prev = i > 0 ? compareModels(TEST_SIZES[i - 1]).paired.p : 1;
+      return CHALLENGES["paired-test"].check({ n, pairedP: r.paired.p, unpairedP: r.unpaired.p, smallerPairedP: prev });
+    });
+    expect(ok).toEqual([800]);
+  });
+  it("le profit maximal est atteint en ciblant 20 % des clients", async () => {
+    const { targeting, TARGET_SHARES, BEST_PROFIT } = await import("./eval2");
+    const best = TARGET_SHARES.filter((s) => targeting(s).profit === BEST_PROFIT);
+    expect(best.map((s) => Math.round(s * 100))).toEqual([20]);
+    expect(targeting(1).lift).toBeCloseTo(1, 9);
+  });
+  it("aucun seuil commun ne satisfait l'égalité des chances, des seuils par groupe oui", async () => {
+    const { fairness } = await import("./eval2");
+    const st = (tA: number, tB: number) => {
+      const f = fairness(tA, tB);
+      return { tprGap: f.tprGap, minTpr: Math.min(f.a.tpr, f.b.tpr), precision: f.precision };
+    };
+    for (let t = 0.05; t <= 0.95; t += 0.01) expect(CHALLENGES["equal-opportunity"].check(st(t, t))).toBe(false);
+    expect(CHALLENGES["equal-opportunity"].check(st(0.46, 0.31))).toBe(true);
+  });
+});

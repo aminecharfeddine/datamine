@@ -2,6 +2,11 @@
 export const LESSON_CONTENT: Record<string, () => Promise<{ default: React.ComponentType }>> = {
   "validation-croisee": () => import("@/content/lessons/validation-croisee.mdx"),
   knn: () => import("@/content/lessons/knn.mdx"),
+  "esperance-et-variance": () => import("@/content/lessons/esperance-et-variance.mdx"),
+  "vecteurs-et-matrices": () => import("@/content/lessons/vecteurs-et-matrices.mdx"),
+  "comparer-deux-modeles": () => import("@/content/lessons/comparer-deux-modeles.mdx"),
+  "gain-et-lift": () => import("@/content/lessons/gain-et-lift.mdx"),
+  "equite-des-modeles": () => import("@/content/lessons/equite-des-modeles.mdx"),
   "lois-et-vraisemblance": () => import("@/content/lessons/lois-et-vraisemblance.mdx"),
   "correlation-et-causalite": () => import("@/content/lessons/correlation-et-causalite.mdx"),
   "fonctions-de-perte": () => import("@/content/lessons/fonctions-de-perte.mdx"),

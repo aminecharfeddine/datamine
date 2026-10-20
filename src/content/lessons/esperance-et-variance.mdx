@@ -1,0 +1,142 @@
+<Predict
+  id="hook"
+  question="Tu fais la moyenne des prédictions de 100 modèles. Chacun a la même variance d'erreur, mais leurs erreurs sont corrélées à 0,5 entre elles. De combien la variance de la moyenne baisse-t-elle par rapport à un seul modèle ?"
+  options={["Elle est divisée par 100", "Elle est à peu près divisée par 2, pas plus", "Elle ne change pas", "Elle augmente"]}
+  answer={1}
+>
+Pour une moyenne de $k$ variables de variance $\sigma^2$ deux à deux corrélées à $\rho$, la variance vaut $\rho\sigma^2 + (1-\rho)\sigma^2/k$. Avec $\rho = 0{,}5$, même avec une infinité de modèles, on ne descend jamais sous $0{,}5\,\sigma^2$ : la partie commune des erreurs ne se moyenne pas. C'est exactement pour cela qu'une forêt aléatoire décorrèle ses arbres. L'espérance et la variance sont les deux nombres qui résument presque tout ce qu'on calcule sur des grandeurs aléatoires.
+</Predict>
+
+## L'espérance : la moyenne à long terme
+
+L'espérance $\mathbb{E}[X]$ est la valeur moyenne qu'on obtiendrait en répétant l'expérience indéfiniment : $\sum_x x\,P(X = x)$ pour une variable discrète. Sa propriété clé est la **linéarité**, vraie que les variables soient indépendantes ou non :
+
+$$
+\mathbb{E}[aX + bY + c] = a\,\mathbb{E}[X] + b\,\mathbb{E}[Y] + c
+$$
+
+C'est l'outil des décisions sous incertitude : un coût attendu, un gain attendu, un seuil de décision (agir si $p \times \text{gain} > \text{coût}$).
+
+## La variance : la dispersion
+
+$$
+\operatorname{Var}(X) = \mathbb{E}\big[(X - \mathbb{E}[X])^2\big], \qquad \sigma = \sqrt{\operatorname{Var}(X)}
+$$
+
+L'écart-type $\sigma$ est dans l'unité de $X$. Les règles à connaître :
+
+- $\operatorname{Var}(aX + b) = a^2 \operatorname{Var}(X)$ : décaler ne change rien, multiplier par $a$ multiplie l'écart-type par $|a|$ ;
+- $\operatorname{Var}(X + Y) = \operatorname{Var}(X) + \operatorname{Var}(Y) + 2\operatorname{Cov}(X, Y)$ ;
+- pour des variables indépendantes, la covariance est nulle et les variances s'additionnent, d'où l'écart-type de la moyenne de $n$ observations : $\sigma / \sqrt n$.
+
+La **covariance** $\operatorname{Cov}(X, Y) = \mathbb{E}[(X - \mathbb{E}X)(Y - \mathbb{E}Y)]$, divisée par $\sigma_X\sigma_Y$, donne la corrélation $\rho$.
+
+<VarianceLab id="melange" challenge="diversify" />
+
+Tant que $\rho < 1$, un mélange peut être moins risqué que la source la moins risquée prise seule. Avec $\rho = 1$, aucune compensation n'est possible ; avec $\rho$ négatif, la compensation est très forte. C'est la diversification d'un portefeuille, et c'est le même mécanisme qui rend les ensembles de modèles plus stables.
+
+<Exercise
+  id="ensemble"
+  question="On moyenne 10 modèles dont les erreurs ont chacune une variance de 1 et sont deux à deux corrélées à 0,5. Quelle est la variance de l'erreur moyenne ?"
+  answer={0.55}
+  tolerance={0.005}
+  hint="ρσ² + (1 − ρ)σ²/k."
+>
+$0{,}5 \times 1 + 0{,}5 \times 1 / 10 = 0{,}55$. Avec 1 000 modèles, on n'atteindrait que 0,5005. Réduire la corrélation (bagging, sous-ensembles de variables, modèles de familles différentes) rapporte bien plus que multiplier les modèles.
+</Exercise>
+
+```python
+import numpy as np
+
+x = np.array([12.0, 15.0, 9.0, 14.0, 11.0])
+print(x.mean())                 # espérance estimée
+print(x.var(ddof=1))            # variance estimée sans biais (divise par n − 1)
+print(np.cov(x, y)[0, 1])       # covariance entre deux séries
+```
+
+<CodeChoice
+  id="ddof"
+  question="Pour estimer sans biais la variance d'une population à partir d'un échantillon, que vaut ddof ?"
+  code={`variance = np.var(x, ddof=___)`}
+  options={["1", "0", "len(x)", "2"]}
+  answer={0}
+>
+`ddof=1` divise par $n - 1$ au lieu de $n$ (correction de Bessel) : on a déjà utilisé les données pour estimer la moyenne, ce qui « consomme » un degré de liberté. Attention, NumPy utilise `ddof=0` par défaut, pandas `ddof=1` : un écart classique entre deux calculs qui devraient être identiques.
+</CodeChoice>
+
+<Callout type="intuition">
+L'espérance dit où l'on tombe en moyenne, la variance à quel point on peut s'en écarter. Deux stratégies de même espérance peuvent avoir des risques très différents : un bon data scientist rapporte toujours les deux, une estimation et son incertitude.
+</Callout>
+
+<Callout type="piege">
+$\mathbb{E}[f(X)] \neq f(\mathbb{E}[X])$ en général. La moyenne des rapports n'est pas le rapport des moyennes ; exponentier une prédiction faite en log ne donne pas la moyenne (on sous-estime) ; le temps moyen de trajet à vitesse moyenne n'est pas le temps moyen. L'égalité ne vaut que pour une fonction linéaire.
+</Callout>
+
+<Callout type="entretien">
+Question classique : « Vous lancez un dé jusqu'à obtenir un 6. Combien de lancers en moyenne ? » Le nombre de lancers suit une loi géométrique de paramètre 1/6, d'espérance 6. Raisonnement attendu : soit $E$ l'espérance ; le premier lancer réussit avec probabilité 1/6, sinon on recommence : $E = 1 + \tfrac56 E$, donc $E = 6$.
+</Callout>
+
+<Callout type="astuce">
+Pour une somme de nombreuses variables indépendantes, l'espérance et la variance suffisent : par le théorème central limite, la somme est approximativement normale. C'est ce qui permet d'estimer en deux lignes le risque d'un stock, d'un budget ou d'une campagne.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "L'espérance d'une somme est la somme des espérances…",
+      options: ["Seulement si les variables sont indépendantes", "Toujours", "Seulement pour des variables normales", "Jamais"],
+      answer: 1,
+      explain: "La linéarité de l'espérance ne demande aucune hypothèse d'indépendance.",
+    },
+    {
+      q: "Que vaut Var(3X + 5) si Var(X) = 2 ?",
+      options: ["11", "18", "6", "23"],
+      answer: 1,
+      explain: "3² × 2 = 18 ; la constante ne change pas la variance.",
+    },
+    {
+      q: "Pourquoi une forêt aléatoire décorrèle-t-elle ses arbres ?",
+      options: [
+        "Pour aller plus vite",
+        "Parce que la variance d'une moyenne ne descend pas sous ρσ² : réduire la corrélation ρ est ce qui réduit vraiment la variance",
+        "Pour réduire le biais",
+        "Pour supprimer les variables inutiles",
+      ],
+      answer: 1,
+      explain: "Plus d'arbres corrélés n'aident presque plus au-delà d'un point.",
+    },
+    {
+      q: "X et Y sont indépendantes, de variances 4 et 9. Écart-type de X + Y ?",
+      options: ["5", "√13 ≈ 3,6", "13", "6,5"],
+      answer: 1,
+      explain: "Les variances s'additionnent (13), pas les écarts-types.",
+    },
+    {
+      q: "Pour diviser par 3 l'écart-type d'une moyenne d'observations indépendantes, il faut…",
+      options: ["3 fois plus d'observations", "9 fois plus d'observations", "√3 fois plus", "Ce n'est pas possible"],
+      answer: 1,
+      explain: "L'écart-type de la moyenne vaut σ/√n.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique la différence entre variance et covariance, et pourquoi la covariance compte quand on combine des variables.">
+La variance mesure la dispersion d'une variable autour de sa moyenne. La covariance mesure comment deux variables varient ensemble : positive si elles s'écartent de leur moyenne dans le même sens, négative sinon. Quand on additionne des variables, la variance de la somme est la somme des variances plus deux fois les covariances : si les variables sont positivement corrélées, les écarts s'accumulent, si elles sont négativement corrélées, ils se compensent. C'est le principe de la diversification d'un portefeuille et la raison pour laquelle un ensemble de modèles aux erreurs peu corrélées est plus stable que chacun d'eux.
+</Interview>
+
+<Interview q="Pourquoi divise-t-on par n − 1 pour estimer une variance ?">
+Parce que les écarts sont calculés par rapport à la moyenne de l'échantillon, qui est elle-même ajustée sur ces données : elle est plus proche des observations que la vraie moyenne, donc la somme des carrés des écarts est en moyenne trop petite. Diviser par n − 1 au lieu de n corrige exactement ce biais. Avec beaucoup de données, la différence devient négligeable ; avec cinq observations, elle fait 25 %.
+</Interview>
+
+<Recap>
+- $\mathbb{E}$ est **linéaire**, toujours ; $\mathbb{E}[f(X)] \neq f(\mathbb{E}[X])$ sauf si $f$ est linéaire.
+- $\operatorname{Var}(aX + b) = a^2\operatorname{Var}(X)$ ; $\operatorname{Var}(X+Y) = \operatorname{Var}X + \operatorname{Var}Y + 2\operatorname{Cov}(X,Y)$.
+- Indépendance : les variances s'additionnent ; moyenne de $n$ : $\sigma/\sqrt n$.
+- Moyenne de $k$ variables corrélées à $\rho$ : $\rho\sigma^2 + (1-\rho)\sigma^2/k$ (ensembles, diversification).
+- Variance d'échantillon : diviser par $n - 1$ (`ddof=1`).
+</Recap>
+
+<LessonComplete />

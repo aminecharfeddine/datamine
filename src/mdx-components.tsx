@@ -41,6 +41,7 @@ import { DiffusionLab, DetectionLab } from "@/components/viz/DlLabs2";
 import { JudgeLab, OrchestrationLab } from "@/components/viz/LlmAgentLabs2";
 import { PcaLab } from "@/components/viz/PcaLab";
 import { MleLab, SimpsonLab, LossLab, SvmLab, DbscanLab } from "@/components/viz/FoundationLabs";
+import { VarianceLab, MatrixLab, CompareLab, LiftLab, FairnessLab } from "@/components/viz/MathsEvalLabs";
 import { NormBalls } from "@/components/viz/NormBalls";
 import { LearningCurves } from "@/components/viz/LearningCurves";
 
@@ -54,7 +55,7 @@ function MdxTable(props: React.ComponentProps<"table">) {
   );
 }
 
-const components: MDXComponents = { Predict, Quiz, Callout, Exercise, Interview, Recap, FicheSection, LessonComplete, ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab, AbLab, CiLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab, PandasLab, BroadcastLab, PipelineLab, FeatureLab, DriftLab, SqlLab, TransformerSizeLab, LoraLab, SamplingLab, InferenceLab, RagLab, RegLab, ConvLab, TransferLab, EmbeddingLab, RnnLab, ToolCallLab, AgentLoopLab, ContextLab, AgentEvalLab, SecurityLab, ConstantPredLab, MulticlassLab, CalibrationLab, RankingLab, ForecastLab, ShapLab, HpoLab, DiffusionLab, DetectionLab, JudgeLab, OrchestrationLab, PcaLab, MleLab, SimpsonLab, LossLab, SvmLab, DbscanLab, CodeBlock, CodeChoice, Parsons, pre: MdxPre, table: MdxTable, NormBalls, LearningCurves };
+const components: MDXComponents = { Predict, Quiz, Callout, Exercise, Interview, Recap, FicheSection, LessonComplete, ThresholdLab, BayesLab, GradientLab, CltLab, PolyFitLab, AbLab, CiLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab, PandasLab, BroadcastLab, PipelineLab, FeatureLab, DriftLab, SqlLab, TransformerSizeLab, LoraLab, SamplingLab, InferenceLab, RagLab, RegLab, ConvLab, TransferLab, EmbeddingLab, RnnLab, ToolCallLab, AgentLoopLab, ContextLab, AgentEvalLab, SecurityLab, ConstantPredLab, MulticlassLab, CalibrationLab, RankingLab, ForecastLab, ShapLab, HpoLab, DiffusionLab, DetectionLab, JudgeLab, OrchestrationLab, PcaLab, MleLab, SimpsonLab, LossLab, SvmLab, DbscanLab, VarianceLab, MatrixLab, CompareLab, LiftLab, FairnessLab, CodeBlock, CodeChoice, Parsons, pre: MdxPre, table: MdxTable, NormBalls, LearningCurves };
 
 export function useMDXComponents(): MDXComponents {
   return components;

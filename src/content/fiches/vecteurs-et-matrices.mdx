@@ -1,0 +1,33 @@
+<FicheSection kind="essentiel">
+- Vecteurs : norme, produit scalaire, cosinus.
+- Matrice = transformation ; colonnes = images de la base.
+- Formes : dimensions intérieures égales.
+- Déterminant : facteur d'aire ; nul = non inversible.
+- Vecteurs propres : directions conservées ; ACP, PageRank.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\cos(x, y) = \frac{x \cdot y}{\|x\|\,\|y\|} \qquad Av = \lambda v \qquad \det\begin{pmatrix} a & b \\ c & d \end{pmatrix} = ad - bc
+$$
+
+(1, 2, 2) et (2, 1, 2) : cos = 8 / 9 ≈ 0,889.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Transposée oubliée (X @ W au lieu de X @ W.T).
+- Broadcasting involontaire.
+- Variables colinéaires : matrice singulière.
+- AB ≠ BA.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Vecteur propre ?** Direction seulement étirée ; ACP, PageRank, stabilité des RNN.
+
+**Couche dense ?** Transformation affine XWᵀ + b ; non-linéarité indispensable entre les couches.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Annoter les formes en commentaire.
+- Vecteurs normalisés : distance euclidienne et cosinus classent pareil.
+</FicheSection>

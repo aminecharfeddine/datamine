@@ -1,0 +1,33 @@
+<FicheSection kind="essentiel">
+- Courbe de gain : part des positifs captés selon la part ciblée.
+- Lift : gain / part ciblée, comparé au hasard.
+- Profit : valeur des réponses moins coût des contacts.
+- Point mort : p > C / V.
+- Uplift : effet de l'action, avec groupe témoin.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{lift}(x) = \frac{\text{gain}(x)}{x} \qquad \text{profit}(k) = V \cdot \text{réponses}(k) - C \cdot k
+$$
+
+30 % des répondants dans les 10 % premiers : lift = 3.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Seuil de 0,5 par défaut.
+- Valeur brute au lieu de marge nette.
+- Seuil C / V avec des probabilités non calibrées.
+- Confondre « répondra » et « répondra grâce à l'action ».
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Combien cibler ?** Économie de l'action, seuil C / V ou courbe de profit, capacité, lift par décile, uplift.
+
+**Gain ou ROC ?** Volumes et métier contre qualité de classement.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Tri décroissant par score, `cumsum` des réponses.
+- Tableau de lift par décile pour le marketing.
+</FicheSection>

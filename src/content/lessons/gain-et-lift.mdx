@@ -1,0 +1,152 @@
+<Predict
+  id="hook"
+  question="Une campagne coûte 2 € par client contacté et chaque réponse rapporte 80 €. Ton modèle classe 10 000 clients par probabilité de répondre. Combien en contacter ?"
+  options={[
+    "Tous : plus on contacte, plus on a de réponses",
+    "Ceux dont la probabilité de réponse dépasse 2,5 %, c'est-à-dire tant qu'un contact rapporte en moyenne plus qu'il ne coûte",
+    "Les 50 % les mieux notés, par convention",
+    "Ceux dont le score dépasse 0,5",
+  ]}
+  answer={1}
+>
+Un contact rapporte en moyenne $p \times 80$ € et coûte 2 € : il est rentable si $p > 2/80 = 2{,}5\,\%$. Le bon nombre de clients à contacter n'est donc ni « tout le monde » ni un seuil de 0,5, mais celui où la probabilité de réponse des clients suivants tombe sous le point mort. Les courbes de **gain**, de **lift** et de **profit** sont les outils pour raisonner ainsi, et ce sont elles que le marketing comprend.
+</Predict>
+
+## Courbe de gain et lift
+
+On trie les clients par score décroissant, puis, pour chaque part $x$ de clients contactés, on regarde la part des répondants qu'on a captés : c'est la **courbe de gain** (ou gain cumulé). Un ciblage au hasard suit la diagonale ; un bon modèle monte vite.
+
+Le **lift** compare le ciblage au hasard :
+
+$$
+\text{lift}(x) = \frac{\text{part des répondants captés dans les } x\,\% \text{ premiers}}{x}
+$$
+
+Un lift de 4 sur les 10 % premiers signifie qu'on y trouve 4 fois plus de répondants qu'en tirant au hasard. Le lift décroît vers 1 quand on contacte tout le monde.
+
+## Le profit, ce qui décide
+
+Avec un coût par contact $C$ et une valeur par réponse $V$, contacter les $k$ premiers clients rapporte :
+
+$$
+\text{profit}(k) = V \times \text{réponses}(k) - C \times k
+$$
+
+Il augmente tant que les clients ajoutés répondent à plus de $C/V$, puis décroît. La capacité compte aussi : un centre d'appels qui peut joindre 1 500 personnes par semaine fixe un plafond.
+
+<LiftLab id="campagne" challenge="lift-profit" />
+
+Les premiers pourcents rapportent beaucoup : les meilleurs clients répondent bien plus souvent que la moyenne. Au-delà de l'optimum, chaque contact supplémentaire coûte plus qu'il ne rapporte, même si l'on capte encore quelques répondants.
+
+<Exercise
+  id="lift"
+  question="Les 10 % de clients les mieux notés contiennent 30 % de tous les répondants. Quel est le lift à 10 % ?"
+  answer={3}
+  tolerance={0.01}
+  hint="Part des répondants captés / part des clients contactés."
+>
+$30\,\% / 10\,\% = 3$ : cibler ces 10 % est trois fois plus efficace qu'un tirage au hasard. Le marketing raisonne souvent en lift par décile, un tableau qu'il est utile de savoir produire.
+</Exercise>
+
+```python
+import pandas as pd
+
+df = df.sort_values("score", ascending=False).reset_index(drop=True)
+df["part_contactee"] = (df.index + 1) / len(df)
+df["gain"] = df["repond"].cumsum() / df["repond"].sum()
+df["lift"] = df["gain"] / df["part_contactee"]
+df["profit"] = 80 * df["repond"].cumsum() - 2 * (df.index + 1)
+print(df.loc[df["profit"].idxmax(), ["part_contactee", "profit"]])
+```
+
+<CodeChoice
+  id="tri"
+  question="Pour construire la courbe de gain, comment trier les clients ?"
+  code={`df = df.sort_values("score", ascending=___)`}
+  options={["False", "True"]}
+  answer={0}
+>
+Du score le plus élevé au plus faible : on contacte d'abord les clients les plus susceptibles de répondre. Trier dans l'autre sens donnerait une courbe sous la diagonale, le pire ciblage possible.
+</CodeChoice>
+
+## Au-delà : l'uplift
+
+Prédire qui va répondre ne dit pas qui répond **grâce** à la campagne. Certains clients auraient acheté de toute façon ; contacter certains autres les fait même partir (un abonné qui découvre qu'il peut résilier). Les modèles d'**uplift** estiment l'effet de l'action pour chaque client, à partir d'un historique où la campagne a été donnée aléatoirement à une partie des clients, et ciblent les clients « persuadables ». On les évalue par des courbes d'uplift (ou de Qini), construites comme les courbes de gain mais sur l'écart entre groupe ciblé et groupe témoin.
+
+<Callout type="intuition">
+L'AUC dit si le modèle classe bien sur toute la population ; la courbe de gain dit ce qu'il apporte là où l'on agit vraiment, en haut du classement. Deux modèles de même AUC peuvent avoir des gains très différents sur les 5 % qu'on contactera.
+</Callout>
+
+<Callout type="piege">
+Le profit dépend de probabilités **calibrées** si l'on raisonne avec le seuil $C/V$ ; sinon, on choisit directement la part contactée sur la courbe de profit d'un jeu de validation. Et la valeur d'une réponse doit être nette (marge, pas chiffre d'affaires), sinon le ciblage optimal sera trop large.
+</Callout>
+
+<Callout type="entretien">
+« Le modèle de churn a une AUC de 0,85, comment montrer sa valeur au directeur marketing ? » Avec une courbe de gain et un tableau de lift par décile (« les 10 % les plus à risque concentrent 40 % des départs »), puis un calcul de profit selon la capacité de l'équipe et le coût de l'offre de rétention. Et idéalement un test avec groupe témoin pour mesurer l'effet réel de l'action.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que vaut le lift quand on contacte 100 % des clients ?",
+      options: ["0", "1", "Le lift maximal", "Il dépend du modèle"],
+      answer: 1,
+      explain: "On capte 100 % des répondants avec 100 % des clients.",
+    },
+    {
+      q: "Un contact coûte 5 €, une réponse rapporte 50 €. Au-dessus de quelle probabilité de réponse un contact est-il rentable ?",
+      options: ["5 %", "10 %", "50 %", "1 %"],
+      answer: 1,
+      explain: "5 / 50 = 10 %.",
+    },
+    {
+      q: "Pourquoi le profit finit-il par baisser quand on contacte plus de clients ?",
+      options: [
+        "Parce que le modèle se trompe",
+        "Les clients ajoutés ont une probabilité de réponse trop faible : leur coût dépasse ce qu'ils rapportent",
+        "Parce que le lift augmente",
+        "Il ne baisse jamais",
+      ],
+      answer: 1,
+      explain: "On s'arrête là où la probabilité marginale passe sous le point mort.",
+    },
+    {
+      q: "Que cherche un modèle d'uplift ?",
+      options: [
+        "Les clients les plus susceptibles d'acheter",
+        "Les clients dont le comportement change grâce à l'action",
+        "Les clients les plus rentables",
+        "Les clients à exclure de la base",
+      ],
+      answer: 1,
+      explain: "Il faut des données où l'action a été attribuée au hasard pour l'estimer.",
+    },
+    {
+      q: "La courbe de gain d'un modèle passe sous la diagonale. Explication probable ?",
+      options: ["Le modèle est excellent", "Les scores sont inversés (tri dans le mauvais sens ou classe inversée)", "La campagne est trop chère", "Le lift vaut 1"],
+      answer: 1,
+      explain: "Comme une AUC inférieure à 0,5.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment décides-tu combien de clients cibler avec un modèle de scoring ?">
+Je pars de l'économie de l'action : coût d'un contact et valeur nette d'une réponse. Si les probabilités sont calibrées, on cible tous les clients dont la probabilité dépasse le rapport coût sur valeur. Sinon, je construis la courbe de profit sur un jeu de validation en triant par score, et je prends le maximum, en tenant compte de la capacité opérationnelle. Je présente aussi la courbe de gain et le lift par décile, que le métier comprend. Et si l'objectif est l'effet de l'action, pas la simple réponse, je propose un modèle d'uplift avec un groupe témoin.
+</Interview>
+
+<Interview q="Quelle différence entre une courbe de gain et une courbe ROC ?">
+La ROC trace le taux de vrais positifs contre le taux de faux positifs, sur tous les seuils : elle mesure la qualité du classement, indépendamment de la proportion de positifs. La courbe de gain trace la part des positifs captés contre la part de la population ciblée : elle répond directement à « si je contacte x % des clients, quelle part des répondants j'atteins ? ». Elle dépend de la prévalence et parle au métier, puisqu'elle se traduit en volumes, en coûts et en profit.
+</Interview>
+
+<Recap>
+- **Gain** : part des positifs captés selon la part ciblée ; **lift** = gain / part ciblée.
+- **Profit** $= V \times \text{réponses} - C \times k$ ; cibler tant que $p > C/V$.
+- Capacité opérationnelle et valeur nette.
+- Lift par décile pour le métier ; gain là où l'on agit, l'AUC sur toute la population.
+- **Uplift** : effet de l'action, groupe témoin aléatoire, courbes de Qini.
+</Recap>
+
+<LessonComplete />

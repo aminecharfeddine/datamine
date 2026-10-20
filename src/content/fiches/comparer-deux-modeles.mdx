@@ -1,0 +1,33 @@
+<FicheSection kind="essentiel">
+- Mêmes exemples : test apparié.
+- McNemar pour l'accuracy ; bootstrap apparié pour toute métrique.
+- Plusieurs graines en deep learning.
+- Plis de CV dépendants ; comparaisons multiples.
+- Significatif ne veut pas dire utile.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+z = \frac{c - b}{\sqrt{b + c}}
+$$
+
+b = 10, c = 30 : z ≈ 3,16.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Test non apparié sur un même jeu de test.
+- Rééchantillonner différemment pour chaque modèle.
+- Une seule graine.
+- Garder la meilleure de 40 variantes sans test intact.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Modèle meilleur ?** Mêmes exemples, McNemar ou bootstrap apparié, graines, comparaisons multiples, valeur métier, test en ligne.
+
+**Écart-type de CV ?** Plis dépendants ; comparer pli par pli, tests corrigés.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `np.percentile(diffs, [2.5, 97.5])`.
+- Rapporter moyenne et dispersion sur plusieurs graines.
+</FicheSection>

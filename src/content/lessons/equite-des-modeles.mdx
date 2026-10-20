@@ -1,0 +1,150 @@
+<Predict
+  id="hook"
+  question="Un modèle de présélection de candidatures a la même accuracy pour les hommes et les femmes. Peut-on conclure qu'il est équitable ?"
+  options={[
+    "Oui, la performance est identique",
+    "Non : il peut retenir les bons candidats d'un groupe bien plus souvent que ceux de l'autre, ou sélectionner les deux groupes à des taux très différents ; l'équité se mesure avec plusieurs métriques, par groupe",
+    "Oui, si le genre n'est pas une variable du modèle",
+    "On ne peut jamais mesurer l'équité",
+  ]}
+  answer={1}
+>
+Une accuracy égale peut cacher des erreurs de nature différente : plus de bons candidats écartés dans un groupe, plus de candidats retenus à tort dans l'autre. Et retirer la variable sensible ne suffit pas : d'autres variables (le code postal, le parcours, des trous dans un CV) peuvent servir de proxys. L'équité d'un modèle se mesure explicitement, groupe par groupe, avec des définitions qu'il faut choisir, car elles ne sont pas toutes compatibles entre elles.
+</Predict>
+
+## Trois définitions courantes
+
+Pour deux groupes A et B, avec une décision $\hat Y$ (retenu ou non) et une vérité $Y$ (bon candidat ou non) :
+
+- **Parité démographique** : même **taux de sélection** dans chaque groupe, $P(\hat Y = 1 \mid A) = P(\hat Y = 1 \mid B)$. En pratique, on vérifie souvent la règle des quatre cinquièmes : le ratio des taux de sélection doit dépasser 0,8.
+- **Égalité des chances** (*equal opportunity*) : même **recall** pour chaque groupe, $P(\hat Y = 1 \mid Y = 1, A) = P(\hat Y = 1 \mid Y = 1, B)$ : un bon candidat a les mêmes chances d'être retenu quel que soit son groupe. Si l'on exige aussi le même taux de faux positifs, on parle d'**égalité des cotes** (*equalized odds*).
+- **Parité prédictive** et **calibration par groupe** : un score de 0,7 signifie la même chose dans chaque groupe ; parmi les retenus, la même proportion de bons candidats.
+
+Les deux premiers critères s'écrivent comme des écarts à mesurer :
+
+$$
+\text{ratio de sélection} = \frac{\min_g P(\hat Y = 1 \mid g)}{\max_g P(\hat Y = 1 \mid g)}, \qquad \text{écart de recall} = \big|\,\text{TPR}_A - \text{TPR}_B\,\big|
+$$
+
+Quand les taux de base diffèrent entre groupes, un résultat d'impossibilité montre qu'on ne peut pas satisfaire en même temps la calibration par groupe et l'égalité des taux d'erreur (sauf modèle parfait). Choisir une métrique d'équité est donc une décision, à prendre avec le métier, le juridique et les personnes concernées.
+
+<FairnessLab id="selection" challenge="equal-opportunity" />
+
+Avec un seuil commun, le groupe B, moins bien représenté dans les données et sous-noté par le modèle, voit ses bons candidats écartés bien plus souvent. Des seuils différents peuvent égaliser le recall, avec un effet sur la precision. Ce n'est qu'une correction a posteriori, qui soulève des questions juridiques (traiter différemment selon le groupe peut être interdit selon le contexte) : il vaut souvent mieux corriger le problème à la source.
+
+<Exercise
+  id="quatre-cinquiemes"
+  question="Le modèle sélectionne 50 % des candidats du groupe A et 35 % de ceux du groupe B. Quel est le ratio des taux de sélection (2 décimales) ?"
+  answer={0.7}
+  tolerance={0.005}
+  hint="Le plus petit taux divisé par le plus grand."
+>
+$0{,}35 / 0{,}50 = 0{,}70$, sous le seuil de 0,8 de la règle des quatre cinquièmes : c'est un signal d'impact disproportionné, à analyser. Ce n'est pas une preuve de discrimination (les taux de base peuvent différer), ni une absence de problème quand le ratio est au-dessus.
+</Exercise>
+
+## D'où viennent les biais
+
+- **Des données** : groupes sous-représentés (le modèle les apprend mal), étiquettes historiques biaisées (des décisions passées discriminantes deviennent la « vérité »), mesures de qualité inégale selon les groupes.
+- **Des proxys** : la variable sensible est absente mais d'autres variables la reconstituent.
+- **De l'objectif** : optimiser l'accuracy globale favorise le groupe majoritaire.
+- **De l'usage** : un modèle déployé change le monde qu'il observe (boucles de rétroaction).
+
+Les remèdes interviennent avant (collecte, rééquilibrage, correction des étiquettes), pendant (contraintes d'équité dans l'entraînement) ou après l'entraînement (seuils, recalibration), et surtout dans la **gouvernance** : documentation, audit, recours humain.
+
+```python
+import pandas as pd
+
+df["retenu"] = df["score"] >= seuil
+taux_selection = df.groupby("groupe")["retenu"].mean()
+recall = df[df["bon_candidat"] == 1].groupby("groupe")["retenu"].mean()
+print(taux_selection, taux_selection.min() / taux_selection.max())   # règle des 4/5
+print(recall, recall.max() - recall.min())                           # égalité des chances
+```
+
+<CodeChoice
+  id="tpr"
+  question="Comment calculer le recall de chaque groupe ?"
+  code={`recall = df[df["bon_candidat"] == 1].groupby("groupe")["retenu"].___()`}
+  options={["mean", "sum", "count", "max"]}
+  answer={0}
+>
+Parmi les bons candidats de chaque groupe, la moyenne d'un booléen « retenu » est la proportion retenue : le recall (taux de vrais positifs). Des bibliothèques comme Fairlearn calculent ces métriques par groupe (MetricFrame) et proposent des méthodes d'atténuation.
+</CodeChoice>
+
+<Callout type="intuition">
+Une métrique globale est une moyenne pondérée par la taille des groupes : un modèle peut être excellent pour 90 % de la population et mauvais pour les 10 % restants, sans que l'accuracy le montre. Découper les métriques par groupe, comme on découpe par segment de clients, c'est la première étape de toute analyse d'équité.
+</Callout>
+
+<Callout type="piege">
+Retirer la variable sensible du modèle (« fairness through unawareness ») ne garantit rien : les proxys transmettent l'information, et on se prive même de la possibilité de mesurer le problème. Pour auditer l'équité, il faut au contraire disposer de la variable sensible, au moins pour l'évaluation, dans le respect du cadre légal.
+</Callout>
+
+<Callout type="entretien">
+Le cadre réglementaire compte : l'AI Act européen classe à haut risque les systèmes utilisés pour le recrutement, le crédit ou l'accès aux services essentiels, avec des obligations de gestion des risques, de qualité des données, de documentation et de supervision humaine. En entretien, montre que tu sais mesurer l'équité, mais aussi que la décision du critère et des arbitrages ne revient pas qu'au data scientist.
+</Callout>
+
+<Callout type="astuce">
+Dans tout rapport d'évaluation d'un modèle qui touche des personnes, ajoute un tableau par groupe : taux de sélection, recall, taux de faux positifs, precision, calibration. Il ne coûte presque rien à produire et évite de découvrir un problème en production.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que demande l'égalité des chances (equal opportunity) ?",
+      options: ["Le même taux de sélection dans chaque groupe", "Le même recall dans chaque groupe : un bon candidat a les mêmes chances d'être retenu", "La même accuracy", "Le même nombre de candidats"],
+      answer: 1,
+      explain: "La parité démographique, elle, porte sur le taux de sélection.",
+    },
+    {
+      q: "Pourquoi retirer la variable « genre » du modèle ne suffit-il pas ?",
+      options: ["Parce que le modèle devient moins précis", "D'autres variables peuvent servir de proxys et reconstituer l'information", "Parce que c'est illégal", "Parce que le modèle la recrée automatiquement à partir de rien"],
+      answer: 1,
+      explain: "Et sans elle, on ne peut même plus mesurer l'écart.",
+    },
+    {
+      q: "Les taux de base diffèrent entre deux groupes. Que dit le résultat d'impossibilité ?",
+      options: [
+        "Qu'aucun modèle ne peut être entraîné",
+        "Qu'on ne peut pas avoir à la fois la calibration par groupe et l'égalité des taux d'erreur, sauf modèle parfait",
+        "Que la parité démographique est toujours atteinte",
+        "Qu'il faut supprimer un groupe",
+      ],
+      answer: 1,
+      explain: "Choisir la métrique d'équité est un arbitrage.",
+    },
+    {
+      q: "Le ratio des taux de sélection vaut 0,65. Que signale la règle des quatre cinquièmes ?",
+      options: ["Rien", "Un impact potentiellement disproportionné à analyser", "Une discrimination prouvée", "Un modèle parfait"],
+      answer: 1,
+      explain: "C'est un indicateur d'alerte, pas une preuve.",
+    },
+    {
+      q: "Le groupe B est sous-représenté dans les données et le modèle le classe moins bien. Quelle action à la source ?",
+      options: ["Ignorer le problème", "Collecter plus de données représentatives du groupe B et vérifier la qualité de ses étiquettes", "Supprimer le groupe B", "Augmenter le seuil de B"],
+      answer: 1,
+      explain: "Les corrections a posteriori traitent le symptôme ; les données traitent la cause.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment évaluerais-tu l'équité d'un modèle de crédit ?">
+Je commencerais par définir avec le métier et le juridique les groupes à protéger et le critère pertinent : égalité des chances (les bons payeurs ont les mêmes chances d'obtenir un crédit), égalité des taux d'erreur, ou calibration par groupe, en sachant qu'ils sont incompatibles quand les taux de base diffèrent. Je calculerais ces métriques par groupe sur un jeu de test, avec leurs intervalles de confiance, ainsi que le ratio des taux d'acceptation. Je chercherais les proxys et les biais dans les étiquettes historiques. Selon les résultats, j'agirais sur les données, l'entraînement ou les seuils, en documentant les arbitrages, et je mettrais en place un suivi en production et un recours humain.
+</Interview>
+
+<Interview q="Quelle différence entre parité démographique et égalité des chances ?">
+La parité démographique demande que chaque groupe soit sélectionné au même taux, indépendamment de qui est réellement qualifié : elle a du sens quand on pense que les différences de taux de base sont elles-mêmes le produit d'injustices, mais elle peut obliger à retenir des candidats moins qualifiés ou à en écarter des qualifiés. L'égalité des chances demande que, parmi les personnes réellement qualifiées, chaque groupe ait la même probabilité d'être retenu : elle accepte des taux de sélection différents si les taux de base diffèrent, mais elle suppose que les étiquettes de « qualification » ne sont pas elles-mêmes biaisées.
+</Interview>
+
+<Recap>
+- Mesurer **par groupe** : taux de sélection, recall, faux positifs, precision, calibration.
+- **Parité démographique** (taux de sélection, règle des 4/5), **égalité des chances** (recall), **égalité des cotes**, **parité prédictive**.
+- Taux de base différents : critères incompatibles, choix à arbitrer.
+- Biais : données, étiquettes historiques, proxys, objectif, boucles de rétroaction.
+- Remèdes avant, pendant, après l'entraînement ; gouvernance et cadre légal (AI Act).
+- Retirer la variable sensible ne suffit pas.
+</Recap>
+
+<LessonComplete />

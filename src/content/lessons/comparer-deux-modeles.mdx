@@ -1,0 +1,148 @@
+<Predict
+  id="hook"
+  question="Sur le même jeu de test de 800 exemples, le modèle A obtient 78,6 % d'accuracy et le modèle B 81,3 %. Un test classique de comparaison de deux proportions donne p = 0,19. Faut-il conclure qu'on ne peut pas départager les modèles ?"
+  options={[
+    "Oui, p > 0,05",
+    "Non : les deux modèles sont évalués sur les mêmes exemples ; un test apparié, qui n'utilise que les désaccords, est bien plus puissant",
+    "Oui, il faut 10 fois plus de données",
+    "Non, il suffit de regarder l'écart de 2,7 points",
+  ]}
+  answer={1}
+>
+Le test non apparié traite les deux résultats comme s'ils venaient de deux échantillons indépendants. Or les deux modèles réussissent et échouent souvent sur les **mêmes** exemples : les exemples faciles, réussis par les deux, et les très difficiles, ratés par les deux, n'apportent aucune information sur la différence. Un test **apparié** ne regarde que les cas où les modèles divergent, et il voit une différence là où l'autre ne voit que du bruit.
+</Predict>
+
+## Le test de McNemar
+
+On compte les exemples où les modèles sont en désaccord : $b$ (A juste, B faux) et $c$ (A faux, B juste). Si les deux modèles se valent, chaque désaccord a une chance sur deux de pencher d'un côté ou de l'autre :
+
+$$
+z = \frac{c - b}{\sqrt{b + c}}
+$$
+
+suit approximativement une loi normale centrée réduite (on utilise souvent $\chi^2 = (|c - b| - 1)^2 / (b + c)$, avec une correction de continuité). Les cas d'accord, eux, n'interviennent pas.
+
+<CompareLab id="mcnemar" challenge="paired-test" />
+
+La différence d'accuracy est la même pour les deux tests ; c'est l'incertitude qui change. Le test non apparié inclut la variabilité due à la difficulté des exemples, commune aux deux modèles ; le test apparié la retire. Avec 800 exemples, il est déjà concluant, alors que le non apparié demande deux fois plus de données.
+
+<Exercise
+  id="z"
+  question="Sur un jeu de test, A est juste et B faux sur 10 exemples ; A est faux et B juste sur 30 exemples. Quelle est la statistique z de McNemar (sans correction, 2 décimales) ?"
+  answer={3.16}
+  tolerance={0.01}
+  hint="(c − b) / √(b + c)."
+>
+$20 / \sqrt{40} \approx 3{,}16$, bien au-delà de 1,96 : la différence est significative au seuil de 5 %, quels que soient les centaines d'exemples où les deux modèles sont d'accord.
+</Exercise>
+
+## Pour n'importe quelle métrique : le bootstrap apparié
+
+Pour un F1, une AUC ou un NDCG, il n'y a pas toujours de formule simple. Le **bootstrap apparié** rééchantillonne les exemples du test avec remise, calcule la métrique des deux modèles **sur le même échantillon**, et répète des milliers de fois pour obtenir la distribution de la différence.
+
+```python
+import numpy as np
+from sklearn.metrics import f1_score
+
+rng = np.random.default_rng(0)
+n, diffs = len(y), []
+for _ in range(2000):
+    idx = rng.integers(0, n, n)
+    diffs.append(f1_score(y[idx], pred_b[idx]) - f1_score(y[idx], pred_a[idx]))
+print(np.percentile(diffs, [2.5, 97.5]))           # intervalle de confiance à 95 % de la différence
+```
+
+<CodeChoice
+  id="apparie"
+  question="Dans la boucle, quels indices utiliser pour les prédictions du modèle B ?"
+  code={`idx = rng.integers(0, n, n)
+diffs.append(f1_score(y[idx], pred_b[___]) - f1_score(y[idx], pred_a[idx]))`}
+  options={["idx", "rng.integers(0, n, n)", ":", "np.arange(n)"]}
+  answer={0}
+>
+Le même échantillon pour les deux modèles, sinon on perd l'appariement et l'on retombe sur un test non apparié, bien moins puissant. C'est le même principe que McNemar : comparer les modèles exemple par exemple.
+</CodeChoice>
+
+## Les autres sources de variance
+
+- **La validation croisée** : les scores des plis ne sont pas indépendants (les jeux d'entraînement se recouvrent), et leur écart-type sous-estime l'incertitude. On compare les modèles pli par pli (test apparié sur les mêmes plis), avec prudence.
+- **L'aléa de l'entraînement** : en deep learning, deux graines différentes donnent parfois des écarts aussi grands que la différence entre deux architectures. On entraîne plusieurs graines et on rapporte moyenne et dispersion.
+- **Les comparaisons multiples** : tester 30 variantes et garder la meilleure produit un gagnant par hasard. On confirme sur un jeu de test intact.
+
+<Callout type="intuition">
+Comparer deux modèles sur le même jeu, c'est comme comparer deux coureurs sur le même parcours : le vent et les côtes touchent les deux. Ce qui compte, c'est l'écart entre eux, course par course, pas la variabilité de chaque temps.
+</Callout>
+
+<Callout type="piege">
+Significatif ne veut pas dire utile. Sur 1 million d'exemples, un écart de 0,1 point sera significatif ; il ne justifiera pas forcément un modèle deux fois plus lent. Rapporte la différence avec son intervalle de confiance, et décide avec le coût, la latence et la maintenance.
+</Callout>
+
+<Callout type="entretien">
+« Votre nouveau modèle fait +0,8 point d'AUC sur le test. Vous le déployez ? » Réponse structurée : vérifier que l'écart dépasse l'incertitude (bootstrap apparié, plusieurs graines), qu'il n'a pas été obtenu en choisissant parmi beaucoup de variantes sur ce même test, qu'il se retrouve par segment, et qu'il se traduit en valeur métier ; puis le confirmer en ligne par un test A/B.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quels exemples utilise le test de McNemar ?",
+      options: ["Tous les exemples", "Seulement ceux où les deux modèles sont en désaccord", "Seulement ceux où les deux ont raison", "Seulement les positifs"],
+      answer: 1,
+      explain: "Les accords ne disent rien sur la différence entre les modèles.",
+    },
+    {
+      q: "Pourquoi un test apparié est-il plus puissant ici ?",
+      options: [
+        "Il utilise plus d'exemples",
+        "Il retire la variabilité due à la difficulté des exemples, commune aux deux modèles",
+        "Il suppose des données normales",
+        "Il augmente l'accuracy",
+      ],
+      answer: 1,
+      explain: "Les erreurs des deux modèles sont fortement corrélées.",
+    },
+    {
+      q: "Dans un bootstrap apparié, on rééchantillonne…",
+      options: [
+        "Indépendamment pour chaque modèle",
+        "Les mêmes indices d'exemples pour les deux modèles à chaque tirage",
+        "Seulement les erreurs",
+        "Les modèles eux-mêmes",
+      ],
+      answer: 1,
+      explain: "Sinon, on perd l'appariement.",
+    },
+    {
+      q: "Deux entraînements du même réseau avec des graines différentes donnent 84,1 % et 85,0 %. Ton nouveau modèle fait 85,2 %. Conclusion ?",
+      options: ["Il est meilleur", "L'écart est du même ordre que la variabilité due à la graine : il faut plusieurs graines pour conclure", "Il est moins bon", "Il faut changer de métrique"],
+      answer: 1,
+      explain: "On rapporte moyenne et dispersion sur plusieurs graines.",
+    },
+    {
+      q: "Tu as testé 40 variantes sur le même jeu de test et gardé la meilleure. Que vaut son score ?",
+      options: ["C'est une estimation fiable", "C'est une estimation optimiste : il faut la confirmer sur des données intactes", "C'est une estimation pessimiste", "Il est exact"],
+      answer: 1,
+      explain: "Choisir le maximum de nombreuses mesures bruitées introduit un biais positif.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment décides-tu qu'un modèle est significativement meilleur qu'un autre ?">
+Je les évalue sur exactement les mêmes exemples, et j'utilise un test apparié : McNemar pour une accuracy, ou un bootstrap apparié pour n'importe quelle métrique (F1, AUC, NDCG), qui donne un intervalle de confiance de la différence. S'il y a de l'aléa d'entraînement, je répète sur plusieurs graines. Je fais attention aux comparaisons multiples : si l'on a choisi parmi beaucoup de variantes, je confirme sur un jeu de test intact. Enfin, je regarde si l'écart compte vraiment pour le métier et je le confirme en ligne.
+</Interview>
+
+<Interview q="Pourquoi l'écart-type des scores de validation croisée ne suffit-il pas à comparer deux modèles ?">
+Les scores des plis ne sont pas indépendants, puisque les jeux d'entraînement se recouvrent largement : leur dispersion sous-estime l'incertitude réelle. Et comparer deux moyennes avec leurs écarts-types ignore que les deux modèles ont été évalués sur les mêmes plis. Il vaut mieux comparer pli par pli (différence par pli), avec des tests corrigés pour la dépendance, ou répéter la validation croisée avec différentes graines de découpage.
+</Interview>
+
+<Recap>
+- Mêmes exemples pour les deux modèles → **test apparié**, beaucoup plus puissant.
+- **McNemar** : $z = (c - b)/\sqrt{b + c}$, seulement les désaccords.
+- **Bootstrap apparié** : mêmes indices pour les deux modèles, intervalle de la différence, toute métrique.
+- Variabilité de la graine, plis dépendants, comparaisons multiples.
+- Significatif ≠ utile : différence, intervalle, coût, puis test en ligne.
+</Recap>
+
+<LessonComplete />

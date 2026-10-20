@@ -59,7 +59,7 @@ src/
   content/fiches/*.mdx    fiches récap (une par leçon, débloquée à la fin de la leçon, export PDF via l'impression)
   components/
     pedago/               Predict, Quiz, Callout, LessonComplete (utilisables dans le MDX)
-    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab, PandasLab, BroadcastLab, PipelineLab, FeatureLab, DriftLab, SqlLab, TransformerSizeLab, LoraLab, SamplingLab, InferenceLab, RagLab, RegLab, ConvLab, TransferLab, EmbeddingLab, RnnLab)
+    viz/                  labos interactifs (ThresholdLab, BayesLab, GradientLab, CltLab, CiLab, AbLab, PolyFitLab, RidgeLab, CvLab, LeakLab, KnnLab, TreeLab, SigmoidLab, LogRegLab, ForestLab, BoostLab, KMeansLab, NeuralLab, BackpropLab, TrainLoopLab, BpeLab, AttentionLab, AttentionMatrixLab, PandasLab, BroadcastLab, PipelineLab, FeatureLab, DriftLab, SqlLab, TransformerSizeLab, LoraLab, SamplingLab, InferenceLab, RagLab, RegLab, ConvLab, TransferLab, EmbeddingLab, RnnLab, VarianceLab, MatrixLab, CompareLab, LiftLab, FairnessLab…)
     code/                 blocs de code colorés (les ``` du MDX), CodeChoice (complète le code), Parsons (remets les lignes dans l'ordre)
     pages/                écrans client (Today, SkillTree, Review, Profile)
     game/                 avatar et cadres, médailles, célébrations, onglets Succès et Vestiaire
@@ -122,7 +122,8 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 - [x] Phase 9 (suite) — IA agentique : tool use (schémas JSON, MCP), boucle ReAct, mémoire et contexte, évaluation d'agents (pass@k, pass^k), sécurité (injection de prompt, moindre privilège)
 - [x] Phase 9 (suite) — Compléments modules 5 à 8 : séries temporelles, interprétabilité (SHAP, permutation, PDP), optimisation d'hyperparamètres, modèles génératifs (VAE, GAN, diffusion), détection et segmentation, évaluation des LLM, orchestration multi-agents
 - [x] Phase 9 (suite) — ACP (projection interactive, standardisation, éboulis)
-- [x] Module spécial Entretiens : 221 questions types centrées sur la compréhension des concepts et le choix de modèles (QCM, réponses orales auto-évaluées, bugs à trouver, 45 pièges) sur 10 thèmes, entraînement filtré et entretien blanc chronométré avec bilan
+- [x] Module spécial Entretiens : 231 questions types centrées sur la compréhension des concepts et le choix de modèles (QCM, réponses orales auto-évaluées, bugs à trouver, 50 pièges) sur 10 thèmes, entraînement filtré et entretien blanc chronométré avec bilan
 - [x] Compléments modules 1 à 3 : lois de probabilité et maximum de vraisemblance, corrélation et causalité (paradoxe de Simpson), fonctions de perte, SVM, clustering au-delà de k-means (DBSCAN, hiérarchique, GMM)
+- [x] Compléments modules 0 et 4 : espérance, variance et diversification, vecteurs et matrices (déterminant, vecteurs propres), comparaison de deux modèles (McNemar, bootstrap apparié), gain, lift et profit (uplift), équité des modèles (parité démographique, égalité des chances)
 - [x] Phase 10 — vitrine publique : page d'accueil avec mini-labo, SEO (métadonnées, sitemap, robots, données structurées), images de partage générées, accessibilité (audit axe sans violation sur toutes les pages, contrastes, lien d'évitement)
 - [ ] Phase 11 — version anglaise

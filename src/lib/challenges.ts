@@ -79,6 +79,11 @@ export type SimpsonState = { reversed: boolean; split: boolean };
 export type LossState = { outliers: boolean; slope: number; cleanSlope: number };
 export type SvmState = { testAcc: number; supportVectors: number };
 export type DbscanState = { algo: string; ari: number; noiseFound: number };
+export type VarianceState = { rho: number; sd: number; minSd: number };
+export type MatrixState = { det: number; zero: boolean };
+export type CompareState = { n: number; pairedP: number; unpairedP: number; smallerPairedP: number };
+export type LiftState = { profit: number; best: number };
+export type FairState = { tprGap: number; minTpr: number; precision: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -708,4 +713,39 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "k-means coupe l'espace en régions convexes. Un algorithme par densité suit les formes ; règle le rayon de voisinage pour que chaque lune reste connectée sans toucher l'autre.",
     check: (s: DbscanState) => s.algo === "dbscan" && s.ari >= 0.95 && s.noiseFound >= 0.8,
   } satisfies Challenge<DbscanState>,
+  "diversify": {
+    id: "diversify",
+    title: "Moins de risque, pas moins de gain",
+    goal: "Avec une corrélation de 0,2 entre A et B, trouve la répartition qui donne le plus petit écart-type possible.",
+    hint: "Tout mettre sur le moins risqué n'est pas l'optimum : tant que les deux ne sont pas parfaitement corrélés, un mélange compense une partie des écarts.",
+    check: (s: VarianceState) => Math.abs(s.rho - 0.2) < 1e-9 && s.sd <= s.minSd + 1e-9,
+  } satisfies Challenge<VarianceState>,
+  "matrix-flatten": {
+    id: "matrix-flatten",
+    title: "Écraser le plan",
+    goal: "Trouve une matrice non nulle qui écrase tout le plan sur une droite.",
+    hint: "L'aire du carré unité transformé vaut le déterminant. Quand vaut-elle zéro ? Quand les deux colonnes sont alignées.",
+    check: (s: MatrixState) => !s.zero && Math.abs(s.det) < 1e-9,
+  } satisfies Challenge<MatrixState>,
+  "paired-test": {
+    id: "paired-test",
+    title: "Le test qui voit la différence",
+    goal: "Trouve la plus petite taille de test pour laquelle le test apparié conclut (p < 0,05) alors que le test non apparié ne conclut pas.",
+    hint: "Le test apparié ne regarde que les exemples où les deux modèles sont en désaccord : il ignore la difficulté commune des exemples, qui ajoute du bruit au test non apparié.",
+    check: (s: CompareState) => s.pairedP < 0.05 && s.unpairedP >= 0.05 && s.smallerPairedP >= 0.05,
+  } satisfies Challenge<CompareState>,
+  "lift-profit": {
+    id: "lift-profit",
+    title: "La campagne rentable",
+    goal: "Choisis la part de clients à contacter qui maximise le profit de la campagne.",
+    hint: "Chaque contact coûte 2 € et chaque réponse rapporte 80 €. On contacte tant que le taux de réponse de la tranche suivante dépasse 2,5 %.",
+    check: (s: LiftState) => s.profit >= s.best,
+  } satisfies Challenge<LiftState>,
+  "equal-opportunity": {
+    id: "equal-opportunity",
+    title: "Égalité des chances",
+    goal: "Règle un seuil par groupe pour que le recall des deux groupes soit au moins de 80 % et diffère de 2 points au plus, avec une precision globale d'au moins 65 %.",
+    hint: "Avec un seul seuil, le groupe B, moins bien noté par le modèle, a un recall bien plus faible. Abaisse son seuil, et remonte celui du groupe A pour garder la precision.",
+    check: (s: FairState) => s.tprGap <= 0.02 && s.minTpr >= 0.8 && s.precision >= 0.65,
+  } satisfies Challenge<FairState>,
 };
