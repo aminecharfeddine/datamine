@@ -186,6 +186,7 @@ export const CAS: ItvQuestion[] = [
     kind: "oral",
     level: 3,
     trap: true,
+    lesson: "correlation-et-causalite",
     q: "Le directeur commercial te demande d'utiliser ton modèle de prévision des ventes pour choisir les prix qui maximisent le chiffre d'affaires. Qu'est-ce qui te gêne ?",
     points: [
       "Un modèle prédictif apprend des corrélations sous la politique de prix passée, pas l'effet causal d'un changement de prix",
@@ -202,6 +203,7 @@ export const CAS: ItvQuestion[] = [
     kind: "qcm",
     level: 2,
     trap: true,
+    lesson: "correlation-et-causalite",
     q: "Le modèle de churn montre que « nombre d'appels au service client » est la variable la plus importante : plus un client appelle, plus il part. Un manager propose de limiter les appels au support. Ta réponse ?",
     options: [
       "Bonne idée, cela réduira le churn",

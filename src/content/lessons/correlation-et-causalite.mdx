@@ -1,0 +1,153 @@
+<Predict
+  id="hook"
+  question="Dans un hôpital, le nouveau traitement A guérit mieux que le traitement B chez les patients légers, et aussi chez les patients graves. Pourtant, sur l'ensemble des patients, B a un meilleur taux de guérison. Comment est-ce possible ?"
+  options={[
+    "C'est impossible, il y a une erreur de calcul",
+    "A a surtout été donné aux patients graves, qui guérissent moins : la comparaison globale mélange l'effet du traitement et celui de la gravité",
+    "B est en réalité meilleur",
+    "L'échantillon est trop petit",
+  ]}
+  answer={1}
+>
+C'est le **paradoxe de Simpson**. La gravité influence à la fois le traitement reçu (les médecins réservent le nouveau traitement aux cas difficiles) et la guérison : c'est une **variable confondante**. Comparer les taux globaux revient à comparer des groupes qui ne se ressemblent pas. C'est le cœur du problème de la causalité : une association dans les données ne dit pas ce qui se passerait si l'on intervenait.
+</Predict>
+
+## Mesurer une association
+
+Le coefficient de **Pearson** mesure une relation **linéaire** :
+
+$$
+r = \frac{\operatorname{cov}(X, Y)}{\sigma_X\,\sigma_Y} \in [-1, 1]
+$$
+
+Le coefficient de **Spearman** est la corrélation de Pearson calculée sur les **rangs** : il capte toute relation **monotone** et résiste mieux aux valeurs extrêmes. Trois mises en garde :
+
+- $r = 0$ ne veut pas dire indépendance : $Y = X^2$ sur des $X$ symétriques donne $r \approx 0$ avec une dépendance parfaite ;
+- quelques points extrêmes peuvent créer ou détruire une corrélation ;
+- avec beaucoup de variables, on trouve toujours des corrélations fortes par hasard.
+
+## Pourquoi corrélation n'est pas causalité
+
+Une association entre $X$ et $Y$ peut venir de :
+
+- une **cause commune** (confusion) : la chaleur fait vendre des glaces et augmente les noyades ;
+- une **causalité inverse** : les clients qui contactent souvent le support partent plus, mais c'est leur problème qui cause les deux ;
+- un **biais de sélection** : on n'observe que les startups qui ont survécu, ou que les clients qui ont répondu à l'enquête ;
+- le **hasard**, surtout quand on a testé beaucoup de paires.
+
+<SimpsonLab id="hopital" challenge="simpson-reverse" />
+
+Avec une répartition équilibrée des patients graves entre A et B (comme dans un essai randomisé), le global dit la même chose que les sous-groupes. Plus A reçoit de cas graves, plus son taux global baisse, jusqu'à passer sous celui de B. La **standardisation** compare les traitements sur une même population de référence et retrouve le vrai sens de l'effet.
+
+<Exercise
+  id="standard"
+  question="A guérit 93 % des patients légers et 73 % des graves. Quel serait son taux de guérison dans une population à 50 % de patients graves (taux standardisé, 2 décimales) ?"
+  answer={0.83}
+  tolerance={0.005}
+  hint="Moyenne des deux taux, pondérée par la population de référence."
+>
+$0{,}5 \times 0{,}93 + 0{,}5 \times 0{,}73 = 0{,}83$. Pour B : $0{,}5 \times 0{,}87 + 0{,}5 \times 0{,}69 = 0{,}78$. À population égale, A reste meilleur de 5 points, quelle que soit la façon dont les patients ont été répartis.
+</Exercise>
+
+## Établir un effet causal
+
+- **L'expérience randomisée** (test A/B, essai clinique) : le tirage au sort rend les groupes comparables sur tout, y compris ce qu'on ne mesure pas. C'est la référence.
+- **Sans expérience**, il faut des hypothèses explicites :
+  - **ajuster** sur les confondants mesurés (stratification, régression, appariement, score de propension) ;
+  - **différence de différences** : comparer l'évolution d'un groupe exposé à celle d'un groupe témoin ;
+  - **variables instrumentales** et **régression sur discontinuité**, quand une source de variation « quasi aléatoire » existe.
+
+Aucune de ces méthodes ne protège contre un confondant **non mesuré** : c'est pourquoi on expérimente dès que c'est possible.
+
+```python
+import pandas as pd
+
+print(df[["temps_app", "panier", "anciennete"]].corr(method="spearman"))   # associations monotones
+
+# Comparaison naïve, puis à gravité égale
+print(df.groupby("traitement")["gueri"].mean())
+print(df.groupby(["gravite", "traitement"])["gueri"].mean().unstack())
+```
+
+<CodeChoice
+  id="spearman"
+  question="La relation entre le temps passé dans l'app et le panier moyen est croissante mais clairement non linéaire, avec quelques valeurs extrêmes. Quelle corrélation calculer ?"
+  code={`df[["temps_app", "panier"]].corr(method=___)`}
+  options={['"spearman"', '"pearson"', '"covariance"', '"kendall_inverse"']}
+  answer={0}
+>
+Spearman travaille sur les rangs : il mesure l'intensité d'une relation monotone, quelle que soit sa forme, et les valeurs extrêmes ne pèsent pas plus que les autres. Pearson ne capte que la composante linéaire et peut être dominé par quelques points.
+</CodeChoice>
+
+<Callout type="intuition">
+Une corrélation répond à « si j'observe que X est élevé, que puis-je en déduire sur Y ? ». Une question causale demande « si je **force** X à être élevé, que devient Y ? ». Ces deux questions ont la même réponse seulement si rien d'autre ne relie X et Y, ce que garantit la randomisation.
+</Callout>
+
+<Callout type="piege">
+Ajuster sur « toutes les variables disponibles » n'est pas toujours prudent. Ajuster sur une conséquence commune du traitement et du résultat (un **collider**) crée un biais là où il n'y en avait pas ; ajuster sur une variable située entre la cause et l'effet (un médiateur) efface une partie de l'effet qu'on cherche. Le choix des variables d'ajustement demande de raisonner sur le mécanisme, souvent avec un graphe causal.
+</Callout>
+
+<Callout type="entretien">
+Exemple classique : « Les utilisateurs qui ont activé la fonctionnalité X ont 30 % de rétention en plus. Faut-il la mettre en avant ? » Réponse : pas sur cette base. Ceux qui l'activent sont probablement déjà les plus engagés (sélection). Il faut un test A/B qui met en avant X pour un groupe tiré au sort, ou à défaut une analyse qui contrôle l'engagement préalable, avec ses limites.
+</Callout>
+
+<Callout type="astuce">
+Avant de présenter une corrélation surprenante, cherche l'histoire alternative : quelle variable pourrait causer les deux ? Le sens pourrait-il être inversé ? Qui manque dans les données ? Présente ensuite le résultat comme une association, avec la recommandation de l'expérience qui permettrait de conclure.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Un coefficient de Pearson proche de 0 signifie…",
+      options: ["Que X et Y sont indépendants", "Qu'il n'y a pas de relation linéaire, mais il peut exister une relation non linéaire forte", "Que les données sont fausses", "Que Spearman vaut aussi 0"],
+      answer: 1,
+      explain: "Y = X² sur des X symétriques en est l'exemple type.",
+    },
+    {
+      q: "Qu'est-ce qu'une variable confondante ?",
+      options: ["Une variable mal nommée", "Une variable qui influence à la fois la cause supposée et le résultat", "Une variable sans valeur manquante", "La variable cible"],
+      answer: 1,
+      explain: "Elle crée une association sans lien causal direct.",
+    },
+    {
+      q: "Pourquoi la randomisation permet-elle de conclure à un effet causal ?",
+      options: ["Elle augmente la taille d'échantillon", "Elle rend les groupes comparables en moyenne sur toutes les variables, mesurées ou non", "Elle supprime le bruit", "Elle remplace les tests statistiques"],
+      answer: 1,
+      explain: "La seule différence systématique entre les groupes devient le traitement.",
+    },
+    {
+      q: "Les villes avec plus de pompiers ont plus de dégâts d'incendie. Explication la plus probable ?",
+      options: ["Les pompiers causent les dégâts", "Les grands incendies mobilisent plus de pompiers et causent plus de dégâts : la taille de l'incendie est une cause commune", "Coïncidence", "Erreur de mesure"],
+      answer: 1,
+      explain: "La taille de l'incendie confond la relation.",
+    },
+    {
+      q: "Quelle méthode compare l'évolution d'un groupe exposé à celle d'un groupe témoin, avant et après ?",
+      options: ["La régression logistique", "La différence de différences", "Le k-means", "La validation croisée"],
+      answer: 1,
+      explain: "Elle suppose des tendances parallèles en l'absence de traitement.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique le paradoxe de Simpson avec un exemple.">
+C'est une situation où une tendance présente dans chaque sous-groupe s'inverse quand on agrège. Par exemple, un traitement guérit mieux chez les patients légers et chez les graves, mais paraît moins bon au global parce qu'on l'a surtout donné aux patients graves, qui guérissent moins de toute façon. La gravité est une variable confondante qui influence à la fois le traitement reçu et le résultat. La bonne comparaison se fait à gravité égale, par stratification ou standardisation, ou mieux, avec une répartition aléatoire des traitements.
+</Interview>
+
+<Interview q="Comment mesurerais-tu l'effet d'une fonctionnalité sur la rétention sans pouvoir faire de test A/B ?">
+J'essaierais d'abord de trouver une source de variation proche de l'aléatoire : un déploiement progressif par pays ou par date (différence de différences), un seuil d'éligibilité (régression sur discontinuité). À défaut, je comparerais utilisateurs exposés et non exposés en ajustant sur les confondants mesurés, notamment l'engagement avant exposition, par appariement ou score de propension. J'expliciterais les hypothèses, ferais des analyses de sensibilité, et je présenterais le résultat comme une estimation fragile, en plaidant pour un test randomisé.
+</Interview>
+
+<Recap>
+- Pearson : relation linéaire ; Spearman : relation monotone, sur les rangs, robuste.
+- $r = 0$ n'implique pas l'indépendance ; attention aux extrêmes et aux corrélations dues au hasard.
+- Corrélation ≠ causalité : confusion, causalité inverse, sélection, hasard.
+- **Paradoxe de Simpson** : comparer à niveau égal du confondant (stratification, standardisation).
+- Randomisation = référence ; sinon ajustement, différence de différences, instruments, discontinuité, avec hypothèses explicites.
+- Ne pas ajuster sur un collider ni un médiateur.
+</Recap>
+
+<LessonComplete />

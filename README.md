@@ -123,5 +123,6 @@ Accroche (`Predict`) → exploration (viz) → formalisation (KaTeX) → vérifi
 - [x] Phase 9 (suite) — Compléments modules 5 à 8 : séries temporelles, interprétabilité (SHAP, permutation, PDP), optimisation d'hyperparamètres, modèles génératifs (VAE, GAN, diffusion), détection et segmentation, évaluation des LLM, orchestration multi-agents
 - [x] Phase 9 (suite) — ACP (projection interactive, standardisation, éboulis)
 - [x] Module spécial Entretiens : 221 questions types centrées sur la compréhension des concepts et le choix de modèles (QCM, réponses orales auto-évaluées, bugs à trouver, 45 pièges) sur 10 thèmes, entraînement filtré et entretien blanc chronométré avec bilan
+- [x] Compléments modules 1 à 3 : lois de probabilité et maximum de vraisemblance, corrélation et causalité (paradoxe de Simpson), fonctions de perte, SVM, clustering au-delà de k-means (DBSCAN, hiérarchique, GMM)
 - [x] Phase 10 — vitrine publique : page d'accueil avec mini-labo, SEO (métadonnées, sitemap, robots, données structurées), images de partage générées, accessibilité (audit axe sans violation sur toutes les pages, contrastes, lien d'évitement)
 - [ ] Phase 11 — version anglaise

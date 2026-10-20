@@ -84,7 +84,7 @@ export const MODELES: ItvQuestion[] = [
     topic: "modeles",
     kind: "oral",
     level: 2,
-    lesson: "k-means",
+    lesson: "clustering-avance",
     q: "Quelles sont les limites de k-means, et quelles alternatives connais-tu ?",
     points: [
       "Il faut choisir k (coude, silhouette, sens métier)",
@@ -129,6 +129,7 @@ export const MODELES: ItvQuestion[] = [
     topic: "modeles",
     kind: "qcm",
     level: 2,
+    lesson: "svm",
     q: "Que permet le kernel trick dans un SVM ?",
     options: [
       "D'accélérer l'entraînement sur des milliards de lignes",

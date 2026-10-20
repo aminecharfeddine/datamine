@@ -1,0 +1,145 @@
+<Predict
+  id="hook"
+  question="Plusieurs droites séparent parfaitement deux nuages de points. Laquelle un SVM choisit-il ?"
+  options={[
+    "La première trouvée",
+    "Celle qui passe le plus loin des points les plus proches de chaque classe (marge maximale)",
+    "Celle qui passe par le centre des données",
+    "Celle qui minimise la distance moyenne à tous les points",
+  ]}
+  answer={1}
+>
+Le SVM (machine à vecteurs de support) cherche la frontière avec la **plus grande marge** : la bande la plus large possible sans point à l'intérieur. Intuitivement, une frontière éloignée des deux classes laisse de la place aux nouveaux exemples un peu différents, donc généralise mieux. Et elle ne dépend que des quelques points qui touchent la marge, les **vecteurs de support**.
+</Predict>
+
+## Marge dure, marge souple
+
+Pour une frontière linéaire $w \cdot x + b = 0$, la largeur de la marge vaut $2 / \|w\|$. Maximiser la marge revient donc à minimiser $\|w\|$. Comme les données réelles ne sont presque jamais parfaitement séparables, on tolère des erreurs, pénalisées par un paramètre $C$ :
+
+$$
+\min_{w,\,b} \; \frac{1}{2}\|w\|^2 + C \sum_{i=1}^{n} \max\big(0,\; 1 - y_i\,(w \cdot x_i + b)\big)
+$$
+
+Le second terme est la **hinge loss** : nulle pour un exemple bien classé hors de la marge, croissante sinon. $C$ règle le compromis : grand $C$, peu d'erreurs tolérées (marge étroite, risque d'overfitting) ; petit $C$, marge large et plus d'erreurs (plus de régularisation).
+
+## Le kernel trick
+
+Le problème d'optimisation ne dépend des données qu'à travers des **produits scalaires** $x_i \cdot x_j$. En les remplaçant par une fonction noyau $K(x_i, x_j)$, on obtient une frontière linéaire dans un espace transformé, sans jamais calculer cet espace. Le plus utilisé est le noyau **RBF** (gaussien) :
+
+$$
+K(x, x') = \exp\!\left(-\gamma\,\|x - x'\|^2\right)
+$$
+
+$\gamma$ règle la portée de l'influence de chaque point : petit $\gamma$, frontière lisse ; grand $\gamma$, chaque point crée sa propre bulle et le modèle mémorise.
+
+<SvmLab id="cercles" challenge="svm-sparse" />
+
+Le noyau linéaire est condamné sur des cercles concentriques. Avec le RBF, la bonne zone est large ; un $\gamma$ trop grand fait coller la frontière à chaque point et dégrade le test, et le nombre de vecteurs de support (la complexité du modèle) en dit long sur l'overfitting.
+
+<Exercise
+  id="marge"
+  question="Un SVM linéaire a pour vecteur de poids w = (3, 4). Quelle est la largeur de sa marge (2 / ‖w‖) ?"
+  answer={0.4}
+  tolerance={0.002}
+  hint="‖w‖ = √(3² + 4²)."
+>
+$\|w\| = 5$, donc la marge vaut $2/5 = 0{,}4$. Diviser $\|w\|$ par deux doublerait la marge : c'est pourquoi la régularisation $\tfrac12\|w\|^2$ et la recherche de marge maximale sont la même chose.
+</Exercise>
+
+## En pratique
+
+```python
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+from sklearn.model_selection import GridSearchCV
+
+pipe = make_pipeline(StandardScaler(), SVC(kernel="rbf"))
+grille = {"svc__C": [0.1, 1, 10, 100], "svc__gamma": [0.01, 0.1, 1, 10]}     # grille en échelle log
+recherche = GridSearchCV(pipe, grille, cv=5).fit(X_train, y_train)
+print(recherche.best_params_, len(recherche.best_estimator_[-1].support_))   # nombre de vecteurs de support
+```
+
+<CodeChoice
+  id="scaler"
+  question="Quelle étape est indispensable avant un SVM à noyau RBF ?"
+  code={`pipe = make_pipeline(___, SVC(kernel="rbf"))`}
+  options={["StandardScaler()", "PCA(n_components=2)", "OneHotEncoder()", "Aucune"]}
+  answer={0}
+>
+Le noyau RBF repose sur des distances euclidiennes : une variable en milliers d'euros écraserait une variable entre 0 et 1, et le $\gamma$ n'aurait pas le même sens selon les unités. La standardisation, ajustée sur le train dans le pipeline, est quasi obligatoire, comme pour le k-NN.
+</CodeChoice>
+
+<Callout type="intuition">
+Un SVM à noyau RBF ressemble à un vote pondéré des vecteurs de support : chacun « tire » la prédiction vers sa classe avec une influence qui décroît avec la distance. C'est un cousin du k-NN, avec deux différences : seuls les points utiles sont gardés, et leurs poids sont appris pour maximiser la marge.
+</Callout>
+
+<Callout type="piege">
+Un SVM ne donne pas de probabilités, seulement un score signé. `SVC(probability=True)` ajoute une calibration de Platt par validation croisée interne, ce qui ralentit l'entraînement ; pour des probabilités fiables, une régression logistique ou un boosting calibré est souvent plus simple.
+</Callout>
+
+<Callout type="entretien">
+Les limites à citer : un SVM à noyau coûte entre $O(n^2)$ et $O(n^3)$ à l'entraînement et garde les vecteurs de support en mémoire, donc il passe mal au-delà de quelques dizaines de milliers d'exemples ; il demande de régler $C$ et $\gamma$ ensemble ; et il est sensible à l'échelle des variables. Il reste intéressant pour des jeux petits ou moyens, en grande dimension (texte avec un SVM linéaire), avec une bonne séparation.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Que sont les vecteurs de support ?",
+      options: ["Tous les points d'entraînement", "Les points sur ou dans la marge, les seuls dont dépend la frontière", "Les centres des classes", "Les points aberrants"],
+      answer: 1,
+      explain: "Retirer un point qui n'est pas vecteur de support ne change pas le modèle.",
+    },
+    {
+      q: "Un SVM RBF a 100 % en train et 70 % en test, avec presque tous les points comme vecteurs de support. Que faire ?",
+      options: ["Augmenter γ", "Diminuer γ (et éventuellement C) pour lisser la frontière", "Supprimer la standardisation", "Passer à un noyau polynomial de degré 20"],
+      answer: 1,
+      explain: "Un γ trop grand rend chaque point influent seulement autour de lui : le modèle mémorise.",
+    },
+    {
+      q: "Que règle le paramètre C ?",
+      options: ["Le nombre de classes", "Le compromis entre largeur de la marge et erreurs tolérées", "La vitesse d'entraînement", "La dimension de l'espace"],
+      answer: 1,
+      explain: "Grand C : peu d'erreurs, marge étroite ; petit C : plus de régularisation.",
+    },
+    {
+      q: "Pourquoi le kernel trick évite-t-il de calculer l'espace transformé ?",
+      options: [
+        "Il compresse les données",
+        "L'optimisation n'utilise que des produits scalaires, que le noyau calcule directement",
+        "Il ne fonctionne qu'en 2D",
+        "Il utilise un réseau de neurones",
+      ],
+      answer: 1,
+      explain: "Le noyau RBF correspond même à un espace de dimension infinie.",
+    },
+    {
+      q: "Pour 5 millions d'exemples tabulaires, un SVM à noyau est-il un bon choix ?",
+      options: ["Oui, toujours", "Rarement : son coût est au moins quadratique en nombre d'exemples ; un boosting ou un modèle linéaire passera mieux à l'échelle", "Oui, avec γ = 100", "Oui, sans standardisation"],
+      answer: 1,
+      explain: "Le SVM linéaire, lui, passe bien à l'échelle.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique le fonctionnement d'un SVM.">
+Un SVM cherche la frontière qui sépare les classes avec la plus grande marge, c'est-à-dire la plus grande distance aux points les plus proches de chaque classe. Comme les données ne sont pas parfaitement séparables, on autorise des erreurs pénalisées par un paramètre C, ce qui revient à minimiser une hinge loss plus une régularisation L2 des poids. La solution ne dépend que des vecteurs de support. Grâce au kernel trick, on remplace les produits scalaires par un noyau, par exemple RBF, pour obtenir des frontières non linéaires sans construire explicitement l'espace transformé. Il faut standardiser les variables et régler C et gamma par validation croisée.
+</Interview>
+
+<Interview q="SVM ou régression logistique : comment choisis-tu ?">
+Sur une frontière linéaire, les deux donnent souvent des performances proches ; la logistique fournit des probabilités et des coefficients interprétables, et s'entraîne facilement sur de gros volumes, donc c'est mon choix par défaut. Le SVM linéaire est très efficace en grande dimension clairsemée, comme du texte. Le SVM à noyau devient intéressant pour des frontières non linéaires sur des jeux de taille modeste ; au-delà, je passerais plutôt à un boosting, plus simple à régler et qui passe mieux à l'échelle.
+</Interview>
+
+<Recap>
+- Marge maximale ; seuls les **vecteurs de support** comptent.
+- $\min \tfrac12\|w\|^2 + C\sum \max(0, 1 - y_i f(x_i))$ : hinge loss + régularisation ; marge $= 2/\|w\|$.
+- **C** : erreurs tolérées contre largeur de marge.
+- **Kernel trick** : RBF $\exp(-\gamma\|x - x'\|^2)$ ; γ grand = mémorisation.
+- Standardiser ; régler C et γ ensemble en échelle log.
+- Pas de probabilités natives ; coût au moins quadratique en n.
+</Recap>
+
+<LessonComplete />

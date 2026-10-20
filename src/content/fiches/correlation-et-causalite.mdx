@@ -1,0 +1,34 @@
+<FicheSection kind="essentiel">
+- Pearson : linéaire. Spearman : monotone, rangs, robuste.
+- Corrélation ≠ causalité : confusion, causalité inverse, sélection, hasard.
+- Paradoxe de Simpson : comparer à niveau égal du confondant.
+- Randomisation = référence.
+- Sans expérience : ajustement, différence de différences, instruments, discontinuité.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+r = \frac{\operatorname{cov}(X, Y)}{\sigma_X \sigma_Y}
+$$
+
+Taux standardisé de A (50 % graves) : $0{,}5 \times 0{,}93 + 0{,}5 \times 0{,}73 = 0{,}83$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Conclure à l'indépendance parce que r = 0.
+- Lire un effet causal dans une comparaison observationnelle.
+- Ajuster sur un collider ou un médiateur.
+- Ignorer les confondants non mesurés.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Simpson ?** Tendance inversée à l'agrégation ; confondant lié au traitement et au résultat ; stratifier ou randomiser.
+
+**Effet sans A/B ?** Variation quasi aléatoire, sinon ajustement sur confondants, hypothèses, sensibilité.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `df.corr(method="spearman")`.
+- `groupby([confondant, traitement]).mean().unstack()`.
+- Chercher l'histoire alternative avant de présenter une corrélation.
+</FicheSection>

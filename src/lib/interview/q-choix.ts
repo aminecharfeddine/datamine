@@ -89,7 +89,7 @@ export const CHOIX: ItvQuestion[] = [
     topic: "choix",
     kind: "qcm",
     level: 2,
-    lesson: "k-means",
+    lesson: "clustering-avance",
     q: "Tu veux regrouper des positions GPS de livraisons : zones de forme irrégulière, densités variables, quelques points isolés aberrants, et tu ne connais pas le nombre de zones. Quel algorithme ?",
     options: ["k-means", "DBSCAN ou HDBSCAN : clusters par densité, formes quelconques, points de bruit, pas de k à fixer", "Une régression logistique", "Une ACP"],
     answer: 1,
@@ -178,6 +178,7 @@ export const CHOIX: ItvQuestion[] = [
     topic: "choix",
     kind: "qcm",
     level: 2,
+    lesson: "svm",
     q: "SVM linéaire ou régression logistique : quelle différence pratique principale ?",
     options: [
       "Le SVM n'est pas linéaire",
@@ -385,7 +386,7 @@ export const CHOIX: ItvQuestion[] = [
     kind: "qcm",
     level: 2,
     trap: true,
-    lesson: "regression-logistique",
+    lesson: "fonctions-de-perte",
     q: "Pourquoi entraîne-t-on un classifieur avec la cross-entropy plutôt qu'avec une MSE sur les probabilités ?",
     options: [
       "La MSE est plus lente à calculer",

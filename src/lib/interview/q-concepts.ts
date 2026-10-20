@@ -25,7 +25,7 @@ export const CONCEPTS: ItvQuestion[] = [
     topic: "fondamentaux",
     kind: "qcm",
     level: 2,
-    lesson: "regression-logistique",
+    lesson: "lois-et-vraisemblance",
     q: "Quel lien entre maximum de vraisemblance et log loss pour une régression logistique ?",
     options: [
       "Aucun",
@@ -175,6 +175,7 @@ export const CONCEPTS: ItvQuestion[] = [
     kind: "qcm",
     level: 2,
     trap: true,
+    lesson: "correlation-et-causalite",
     q: "Tu mesures l'effet d'un nouveau design sur 1 000 sessions provenant de 50 utilisateurs très actifs. Pourquoi les intervalles de confiance classiques sont-ils trop étroits ?",
     options: [
       "1 000 sessions, c'est trop",

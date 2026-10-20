@@ -1,0 +1,146 @@
+<Predict
+  id="hook"
+  question="Un service client reçoit en moyenne 3,6 appels par heure. Pour dimensionner l'équipe, tu modélises le nombre d'appels par heure. Quelle loi est la plus naturelle ?"
+  options={["Une loi normale de moyenne 3,6", "Une loi de Poisson de paramètre 3,6", "Une loi uniforme entre 0 et 7", "Une loi exponentielle"]}
+  answer={1}
+>
+Un nombre d'événements indépendants survenant à un rythme moyen constant suit une **loi de Poisson** : elle ne donne que des entiers positifs, elle est asymétrique quand la moyenne est faible, et sa variance est égale à sa moyenne. Une normale donnerait des probabilités à des valeurs négatives ou non entières. Choisir la loi, c'est choisir les hypothèses qu'on fait sur le phénomène, et c'est aussi choisir la perte qu'on minimisera en l'ajustant.
+</Predict>
+
+## Les lois à connaître
+
+| Loi | Ce qu'elle modélise | Espérance | Variance |
+|---|---|---|---|
+| Bernoulli($p$) | un succès ou un échec (clic, achat, churn) | $p$ | $p(1-p)$ |
+| Binomiale($n, p$) | nombre de succès sur $n$ essais | $np$ | $np(1-p)$ |
+| Poisson($\lambda$) | nombre d'événements sur une période | $\lambda$ | $\lambda$ |
+| Exponentielle($\lambda$) | temps d'attente entre deux événements | $1/\lambda$ | $1/\lambda^2$ |
+| Normale($\mu, \sigma^2$) | somme de nombreux petits effets, erreurs de mesure | $\mu$ | $\sigma^2$ |
+| Log-normale | grandeurs positives multiplicatives (revenus, durées, prix) | $e^{\mu + \sigma^2/2}$ | forte queue à droite |
+
+Deux réflexes : regarder le **type** de la variable (binaire, comptage, durée, continue positive) et comparer **moyenne et variance**. Des comptages dont la variance dépasse nettement la moyenne (surdispersion) appellent une binomiale négative plutôt qu'une Poisson.
+
+## Le maximum de vraisemblance
+
+Une fois la loi choisie, il faut ses paramètres. La **vraisemblance** mesure à quel point des paramètres $\theta$ rendent les données observées probables :
+
+$$
+L(\theta) = \prod_{i=1}^{n} p(x_i \mid \theta), \qquad \hat\theta = \arg\max_\theta \; \sum_{i=1}^{n} \log p(x_i \mid \theta)
+$$
+
+On maximise la somme des logarithmes, plus stable numériquement et plus simple à dériver. Pour une Poisson, la dérivée de la log-vraisemblance s'annule en $\hat\lambda = \bar x$ : l'estimateur du maximum de vraisemblance est la moyenne empirique.
+
+<MleLab id="appels" challenge="mle-fit" />
+
+La normale peut s'approcher, mais elle met de la probabilité sur des valeurs impossibles et rate l'asymétrie : la Poisson obtient une meilleure vraisemblance avec un seul paramètre. La log-vraisemblance permet de **comparer des modèles** sur les mêmes données, ce que formalisent les critères AIC et BIC en pénalisant le nombre de paramètres.
+
+<Exercise
+  id="zero"
+  question="Le nombre de pannes par jour suit une loi de Poisson de paramètre 2. Quelle est la probabilité d'une journée sans panne (3 décimales) ?"
+  answer={0.135}
+  tolerance={0.002}
+  hint="P(X = k) = e^(−λ) λ^k / k!, avec k = 0."
+>
+$P(X=0) = e^{-2} \approx 0{,}135$ : environ une journée sur sept sans panne. Et $P(X \geq 1) = 1 - e^{-2} \approx 0{,}865$.
+</Exercise>
+
+## Le lien avec les pertes du machine learning
+
+Minimiser une perte, c'est très souvent maximiser une vraisemblance :
+
+- supposer un bruit **gaussien** autour de la prédiction donne exactement la **MSE** ;
+- supposer un bruit de **Laplace** donne la **MAE** ;
+- supposer une sortie **Bernoulli** de probabilité $\hat p$ donne la **log loss** de la régression logistique ;
+- supposer une sortie **Poisson** donne la perte de Poisson, disponible dans les boosting pour les comptages.
+
+```python
+import numpy as np
+from scipy import stats
+
+appels = np.array([...])                        # comptages horaires
+lam = appels.mean()                             # maximum de vraisemblance pour une Poisson
+print(appels.var() / lam)                       # rapport variance / moyenne : proche de 1 pour une Poisson
+print(stats.poisson.sf(7, lam))                 # P(plus de 7 appels dans l'heure) : dimensionnement
+```
+
+<CodeChoice
+  id="lambda"
+  question="Quel est l'estimateur du maximum de vraisemblance du paramètre λ d'une loi de Poisson ?"
+  code={`lam_hat = ___`}
+  options={["appels.mean()", "appels.var()", "appels.max()", "np.median(appels)"]}
+  answer={0}
+>
+La log-vraisemblance vaut $\sum_i (x_i \log\lambda - \lambda) + \text{cste}$ ; sa dérivée $\sum_i x_i/\lambda - n$ s'annule en $\hat\lambda = \bar x$. Pour une normale, de même, $\hat\mu = \bar x$ et $\hat\sigma^2$ est la variance empirique divisée par $n$ (légèrement biaisée, d'où le $n-1$ habituel).
+</CodeChoice>
+
+<Callout type="intuition">
+La vraisemblance retourne la question habituelle : au lieu de « quelle est la probabilité des données si je connais le paramètre ? », on demande « quel paramètre rend ces données les moins surprenantes ? ». C'est le principe derrière l'entraînement de presque tous les modèles, des régressions aux LLM (qui maximisent la vraisemblance du token suivant).
+</Callout>
+
+<Callout type="piege">
+Les données réelles ont souvent des **queues lourdes** : revenus, tailles de paniers, temps de réponse. Une normale y sous-estime gravement les valeurs extrêmes, alors que ce sont elles qui coûtent (une panne exceptionnellement longue, une commande géante). Trace l'histogramme en échelle log, compare les quantiles, et ne suppose pas la normalité par défaut.
+</Callout>
+
+<Callout type="entretien">
+« Pourquoi la régression linéaire minimise-t-elle la somme des carrés ? » Réponse attendue : parce que c'est l'estimateur du maximum de vraisemblance si le bruit est gaussien, de variance constante et indépendant ; c'est aussi l'estimateur linéaire sans biais de variance minimale (théorème de Gauss-Markov), même sans normalité.
+</Callout>
+
+<Callout type="astuce">
+Pour simuler un phénomène (stock, file d'attente, test de charge), choisis la loi avec le métier, ajuste-la par maximum de vraisemblance, puis vérifie l'ajustement : histogramme superposé, comparaison des quantiles (QQ-plot), et surtout le comportement dans les queues.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quelle loi pour le temps d'attente entre deux arrivées de clients, quand les arrivées suivent une loi de Poisson ?",
+      options: ["Normale", "Exponentielle", "Binomiale", "Uniforme"],
+      answer: 1,
+      explain: "Comptages Poisson et durées exponentielles décrivent le même processus.",
+    },
+    {
+      q: "Des comptages ont une moyenne de 4 et une variance de 15. Que conclure ?",
+      options: ["C'est une Poisson parfaite", "Surdispersion : une binomiale négative est plus adaptée qu'une Poisson", "Les données sont normales", "Il y a une erreur de calcul"],
+      answer: 1,
+      explain: "Une Poisson impose variance = moyenne.",
+    },
+    {
+      q: "Que maximise-t-on dans la méthode du maximum de vraisemblance ?",
+      options: ["La variance", "La probabilité des données observées en fonction des paramètres", "Le nombre de paramètres", "L'accuracy"],
+      answer: 1,
+      explain: "En pratique, la somme des log-probabilités.",
+    },
+    {
+      q: "Minimiser la MSE revient à faire du maximum de vraisemblance sous quelle hypothèse ?",
+      options: ["Bruit de Poisson", "Bruit gaussien de variance constante", "Sortie Bernoulli", "Aucune"],
+      answer: 1,
+      explain: "La log-densité gaussienne est, à constantes près, moins le carré du résidu.",
+    },
+    {
+      q: "Pourquoi les revenus suivent-ils souvent une loi log-normale plutôt que normale ?",
+      options: ["Ils sont toujours négatifs", "Ils sont positifs, asymétriques et résultent d'effets multiplicatifs", "Ils sont discrets", "Ils sont bornés"],
+      answer: 1,
+      explain: "Le logarithme d'une log-normale est normal ; d'où l'usage de log(revenu) en modélisation.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique le maximum de vraisemblance.">
+On choisit un modèle probabiliste des données, avec des paramètres inconnus. La vraisemblance est la probabilité des données observées vue comme une fonction de ces paramètres. On cherche les paramètres qui la maximisent, en pratique en maximisant la somme des log-probabilités, analytiquement quand c'est possible (la moyenne pour une Poisson ou une normale) ou par optimisation numérique sinon. C'est le principe derrière la plupart des pertes : MSE pour un bruit gaussien, log loss pour une sortie de Bernoulli, et l'entraînement des LLM sur le token suivant. Avec peu de données, on peut ajouter un a priori, ce qui donne l'estimation du maximum a posteriori, équivalente à une régularisation.
+</Interview>
+
+<Interview q="Comment choisirais-tu une loi pour modéliser une variable ?">
+Je pars du type de la variable et du mécanisme : binaire (Bernoulli), nombre de succès sur des essais (binomiale), nombre d'événements sur une période (Poisson, ou binomiale négative si la variance dépasse la moyenne), durée d'attente (exponentielle, Weibull), grandeur positive multiplicative (log-normale), somme de nombreux petits effets (normale). Ensuite j'ajuste par maximum de vraisemblance et je vérifie : histogramme superposé, QQ-plot, comparaison moyenne/variance, comportement des queues, et AIC ou BIC pour départager des candidats.
+</Interview>
+
+<Recap>
+- Bernoulli, binomiale, Poisson ($E = V = \lambda$), exponentielle, normale, log-normale : choisir selon le type et le mécanisme.
+- Surdispersion (variance > moyenne) : binomiale négative.
+- Maximum de vraisemblance : $\hat\theta = \arg\max \sum \log p(x_i \mid \theta)$ ; pour une Poisson, $\hat\lambda = \bar x$.
+- MSE = bruit gaussien, MAE = Laplace, log loss = Bernoulli, perte de Poisson pour les comptages.
+- Comparer des modèles : log-vraisemblance, AIC, BIC ; vérifier les queues.
+</Recap>
+
+<LessonComplete />

@@ -1,0 +1,32 @@
+<FicheSection kind="essentiel">
+- Bernoulli, binomiale, Poisson, exponentielle, normale, log-normale.
+- Choisir selon le type de variable et le mécanisme.
+- Poisson : variance = moyenne ; sinon binomiale négative.
+- Maximum de vraisemblance : les paramètres qui rendent les données les plus probables.
+- Pertes = vraisemblances : MSE (gaussien), MAE (Laplace), log loss (Bernoulli).
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\hat\theta = \arg\max_\theta \sum_i \log p(x_i \mid \theta) \qquad P_{\text{Poisson}}(X = k) = \frac{e^{-\lambda}\lambda^k}{k!}
+$$
+
+Poisson : $\hat\lambda = \bar x$. $\lambda = 2$ : $P(X = 0) = e^{-2} \approx 0{,}135$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Supposer la normalité par défaut.
+- Ignorer les queues lourdes.
+- Poisson sur des comptages surdispersés.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Maximum de vraisemblance ?** Paramètres maximisant la probabilité des données ; somme des logs ; lien avec les pertes ; MAP = régularisation.
+
+**Choisir une loi ?** Type et mécanisme, ajustement, QQ-plot, moyenne/variance, queues, AIC/BIC.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Rapport variance / moyenne pour tester la Poisson.
+- `scipy.stats` : `pmf`, `sf` pour les probabilités de dépassement.
+</FicheSection>

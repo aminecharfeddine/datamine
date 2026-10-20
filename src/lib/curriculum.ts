@@ -65,15 +65,24 @@ export const MODULES: Module[] = [
     deep: "#5b21b6",
     index: 1,
     title: "Statistiques",
-    tagline: "Distributions, échantillonnage, incertitude.",
+    tagline: "Lois, vraisemblance, incertitude, tests et causalité.",
     prereqs: ["maths"],
     concepts: [
       { id: "distributions", title: "Distributions" },
       { id: "tcl", title: "Théorème central limite" },
       { id: "tests", title: "Tests & p-values" },
       { id: "ic", title: "Intervalles de confiance" },
+      { id: "causalite", title: "Corrélation & causalité" },
     ],
     lessons: [
+      {
+        slug: "lois-et-vraisemblance",
+        title: "Lois de probabilité et vraisemblance",
+        summary: "Poisson, binomiale, normale, log-normale : choisir la bonne loi, puis l'ajuster par maximum de vraisemblance.",
+        minutes: 18,
+        concepts: ["distributions"],
+        available: true,
+      },
       {
         slug: "theoreme-central-limite",
         title: "Le théorème central limite",
@@ -98,6 +107,14 @@ export const MODULES: Module[] = [
         concepts: ["tests"],
         available: true,
       },
+      {
+        slug: "correlation-et-causalite",
+        title: "Corrélation et causalité",
+        summary: "Pearson, Spearman, variables confondantes, paradoxe de Simpson : quand une association ne dit pas ce qu'on croit.",
+        minutes: 18,
+        concepts: ["causalite"],
+        available: true,
+      },
     ],
   },
   {
@@ -112,6 +129,7 @@ export const MODULES: Module[] = [
       { id: "generalisation", title: "Train / test & généralisation" },
       { id: "biais-variance", title: "Bias-variance tradeoff" },
       { id: "regularisation", title: "Régularisation" },
+      { id: "pertes", title: "Fonctions de perte" },
       { id: "cross-validation", title: "Cross-validation" },
       { id: "leakage", title: "Data leakage" },
     ],
@@ -122,6 +140,14 @@ export const MODULES: Module[] = [
         summary: "Apprendre par cœur ou comprendre : la courbe en U qui gouverne tout le ML.",
         minutes: 20,
         concepts: ["generalisation", "biais-variance"],
+        available: true,
+      },
+      {
+        slug: "fonctions-de-perte",
+        title: "Fonctions de perte",
+        summary: "MSE, MAE, Huber, log loss, hinge : la perte encode le coût des erreurs, et change le modèle obtenu.",
+        minutes: 16,
+        concepts: ["pertes"],
         available: true,
       },
       {
@@ -148,7 +174,7 @@ export const MODULES: Module[] = [
     deep: "#075985",
     index: 3,
     title: "Modèles classiques",
-    tagline: "Régressions, arbres, ensembles, clustering, ACP.",
+    tagline: "Régressions, SVM, arbres, ensembles, clustering, ACP.",
     prereqs: ["fondamentaux"],
     concepts: [
       { id: "lineaire", title: "Régression linéaire & logistique" },
@@ -156,6 +182,8 @@ export const MODULES: Module[] = [
       { id: "arbres", title: "Decision trees" },
       { id: "ensembles", title: "Random forest & boosting" },
       { id: "clustering", title: "Clustering (k-means)" },
+      { id: "clustering-avance", title: "DBSCAN, hiérarchique, GMM" },
+      { id: "svm", title: "SVM" },
       { id: "pca", title: "PCA" },
     ],
     lessons: [
@@ -173,6 +201,14 @@ export const MODULES: Module[] = [
         summary: "Dis-moi qui sont tes voisins, je te dirai qui tu es. À condition que tes unités soient cohérentes.",
         minutes: 15,
         concepts: ["knn"],
+        available: true,
+      },
+      {
+        slug: "svm",
+        title: "SVM : la marge maximale",
+        summary: "Vecteurs de support, marge souple, kernel trick : une frontière aussi loin que possible des deux classes.",
+        minutes: 18,
+        concepts: ["svm"],
         available: true,
       },
       {
@@ -197,6 +233,14 @@ export const MODULES: Module[] = [
         summary: "Pas de réponse à prédire, seulement des données. Deux étapes répétées jusqu'à ce que rien ne bouge.",
         minutes: 15,
         concepts: ["clustering"],
+        available: true,
+      },
+      {
+        slug: "clustering-avance",
+        title: "Au-delà de k-means : DBSCAN, hiérarchique, GMM",
+        summary: "Groupes par densité, par fusions successives ou par mélange de gaussiennes, et comment évaluer un clustering.",
+        minutes: 18,
+        concepts: ["clustering-avance"],
         available: true,
       },
       {

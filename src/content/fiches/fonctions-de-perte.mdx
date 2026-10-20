@@ -1,0 +1,33 @@
+<FicheSection kind="essentiel">
+- Perte : minimisée à l'entraînement. Métrique : évaluation et décision.
+- MSE : moyenne, sensible aux aberrants. MAE : médiane, robuste.
+- Huber : quadratique puis linéaire. Pinball : quantile. Poisson, gamma : comptages, montants.
+- Log loss, hinge, focal loss, poids de classes.
+- Pertes ≈ vraisemblances.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+L_\delta(r) = \begin{cases} \tfrac12 r^2 & |r| \leq \delta \\ \delta(|r| - \tfrac12\delta) & \text{sinon} \end{cases} \qquad \text{hinge} = \max(0, 1 - y f(x))
+$$
+
+$\delta = 1$, $r = 3$ : 2,5 (contre 4,5 pour $\tfrac12 r^2$).
+</FicheSection>
+
+<FicheSection kind="pieges">
+- MSE avec des erreurs de mesure grossières.
+- Entraîner en MSE et juger en MAE ou MAPE.
+- MSE en classification.
+- Ignorer de vraies valeurs extrêmes en les traitant comme du bruit.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Choisir une perte ?** Cible, coût des erreurs, robustesse, loi des données, alignement avec la métrique.
+
+**Perte et vraisemblance ?** MSE = gaussien, MAE = Laplace, log loss = Bernoulli, Poisson = comptages ; régularisation = a priori.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `HuberRegressor`, `HistGradientBoostingRegressor(loss="poisson" | "quantile")`.
+- Regarder la distribution des résidus pour choisir.
+</FicheSection>

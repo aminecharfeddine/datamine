@@ -1,0 +1,151 @@
+<Predict
+  id="hook"
+  question="Deux groupes de points forment deux croissants de lune imbriqués, avec quelques points isolés autour. Que fait k-means avec k = 2 ?"
+  options={[
+    "Il retrouve les deux croissants",
+    "Il coupe l'espace par une frontière droite et mélange les deux croissants ; il range aussi les points isolés dans un groupe",
+    "Il refuse de converger",
+    "Il crée un troisième groupe pour le bruit",
+  ]}
+  answer={1}
+>
+k-means affecte chaque point au centre le plus proche : ses groupes sont des régions **convexes**, séparées par des frontières droites. Il ne suit pas une forme allongée ou courbe, et il n'a pas de notion de bruit : chaque point appartient à un groupe. D'autres familles d'algorithmes font d'autres hypothèses sur ce qu'est un « groupe ».
+</Predict>
+
+## Trois autres façons de voir un groupe
+
+**Par densité (DBSCAN, HDBSCAN).** Un groupe est une région dense, séparée des autres par des zones vides. Un point est **cœur** s'il a au moins `minPts` voisins à moins de $\varepsilon$ ; les groupes sont les ensembles de points cœurs connectés, plus les points de **bordure** à leur portée ; le reste est du **bruit**. Pas besoin de fixer le nombre de groupes, formes quelconques, bruit identifié. Mais un seul $\varepsilon$ gère mal des groupes de densités différentes, ce que corrige HDBSCAN.
+
+**Hiérarchique (agglomératif).** On part d'un groupe par point et on fusionne pas à pas les deux groupes les plus proches. La règle de distance entre groupes (le **linkage**) change tout : *single* (plus proches points, suit les formes mais crée des chaînes), *complete* (points les plus éloignés), *average*, *Ward* (fusion qui augmente le moins la variance, proche de k-means). Le **dendrogramme** montre toutes les échelles ; on le coupe au niveau voulu.
+
+**Probabiliste (mélange gaussien, GMM).** Les données viennent d'un mélange de gaussiennes, chacune avec sa moyenne et sa covariance :
+
+$$
+p(x) = \sum_{k=1}^{K} \pi_k\, \mathcal{N}(x \mid \mu_k, \Sigma_k)
+$$
+
+ajusté par l'algorithme EM. Chaque point reçoit une **probabilité** d'appartenance à chaque groupe (affectation souple), les groupes peuvent être elliptiques, et le BIC aide à choisir $K$.
+
+<DbscanLab id="lunes" challenge="dbscan-moons" />
+
+Avec un $\varepsilon$ trop petit, chaque lune se morcelle et beaucoup de points deviennent du bruit ; trop grand, les deux lunes fusionnent. Entre les deux, une large plage retrouve exactement les deux formes et isole les points perdus.
+
+## Évaluer un clustering
+
+Sans étiquettes, on mesure la cohérence interne. Le **coefficient de silhouette** compare, pour chaque point, la distance moyenne $a$ à son propre groupe et la distance moyenne $b$ au groupe voisin le plus proche :
+
+$$
+s = \frac{b - a}{\max(a, b)} \in [-1, 1]
+$$
+
+Proche de 1 : point bien placé ; proche de 0 : à la frontière ; négatif : probablement mal affecté. Attention, la silhouette favorise les groupes convexes et bien séparés : elle notera mal les deux lunes, même parfaitement retrouvées. Avec des étiquettes de référence, on utilise l'**indice de Rand ajusté** (ARI), qui vaut 1 pour un accord parfait et environ 0 pour un regroupement au hasard. Et dans tous les cas, on valide avec le métier : un groupe doit pouvoir être décrit et utilisé.
+
+<Exercise
+  id="silhouette"
+  question="Pour un point, la distance moyenne aux points de son groupe vaut 0,4 et la distance moyenne au groupe voisin le plus proche vaut 1,0. Quel est son coefficient de silhouette ?"
+  answer={0.6}
+  tolerance={0.005}
+  hint="s = (b − a) / max(a, b)."
+>
+$(1{,}0 - 0{,}4) / 1{,}0 = 0{,}6$ : le point est nettement plus proche de son groupe que du voisin. La silhouette globale est la moyenne sur tous les points.
+</Exercise>
+
+```python
+from sklearn.cluster import DBSCAN, AgglomerativeClustering
+from sklearn.mixture import GaussianMixture
+from sklearn.preprocessing import StandardScaler
+
+X = StandardScaler().fit_transform(df[["x", "y"]])
+labels = DBSCAN(eps=0.2, min_samples=5).fit_predict(X)
+hier = AgglomerativeClustering(n_clusters=4, linkage="ward").fit_predict(X)
+gmm = GaussianMixture(n_components=3, covariance_type="full", random_state=0).fit(X)
+proba = gmm.predict_proba(X)               # affectation souple ; gmm.bic(X) pour choisir le nombre de composantes
+```
+
+<CodeChoice
+  id="bruit"
+  question="Avec scikit-learn, quel label DBSCAN attribue-t-il aux points de bruit ?"
+  code={`bruit = X[labels == ___]`}
+  options={["-1", "0", "None", "len(set(labels))"]}
+  answer={0}
+>
+Le label −1 marque le bruit ; les groupes sont numérotés à partir de 0. Pense à exclure −1 avant de compter les groupes ou de calculer des statistiques par groupe, sinon le bruit devient un groupe « fourre-tout ».
+</CodeChoice>
+
+<Callout type="intuition">
+Chaque algorithme apporte sa définition du mot « groupe » : des boules autour de centres (k-means), des régions denses (DBSCAN), une hiérarchie de fusions (agglomératif), des nuages gaussiens qui se chevauchent (GMM). Il n'y a pas de bonne réponse universelle ; il y a la définition qui correspond à ton problème.
+</Callout>
+
+<Callout type="piege">
+Tous ces algorithmes reposent sur des distances : **standardise** les variables, et réfléchis à leur poids. Un clustering de clients sur le revenu en euros et l'âge en années se fera presque uniquement sur le revenu. En grande dimension, les distances perdent leur sens : réduis d'abord la dimension (ACP, embeddings).
+</Callout>
+
+<Callout type="entretien">
+Pour choisir $\varepsilon$ dans DBSCAN, la méthode classique est le **graphe des k-distances** : pour chaque point, la distance à son k-ième voisin (k = minPts), triée par ordre croissant ; le coude de la courbe donne un bon $\varepsilon$. Pour minPts, une règle empirique est au moins la dimension plus un, souvent le double de la dimension.
+</Callout>
+
+<Callout type="astuce">
+En segmentation client, un résultat de clustering n'a de valeur que s'il est **actionnable** : décris chaque groupe par ses variables saillantes, vérifie sa stabilité (relance sur des sous-échantillons), et confronte-le au métier. Un modèle de mélange qui donne des probabilités aide aussi à repérer les clients « entre deux » segments.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quel algorithme identifie explicitement des points de bruit ?",
+      options: ["k-means", "DBSCAN", "Clustering hiérarchique de Ward", "Régression logistique"],
+      answer: 1,
+      explain: "Les points qui ne sont ni cœur ni à portée d'un cœur sont marqués comme bruit.",
+    },
+    {
+      q: "Quel avantage principal d'un mélange gaussien sur k-means ?",
+      options: [
+        "Il est plus rapide",
+        "Il donne des probabilités d'appartenance et accepte des groupes elliptiques de tailles différentes",
+        "Il n'a pas de paramètre",
+        "Il détecte toujours le bon nombre de groupes",
+      ],
+      answer: 1,
+      explain: "k-means correspond à un cas particulier : covariances sphériques égales et affectation dure.",
+    },
+    {
+      q: "Que montre un dendrogramme ?",
+      options: ["L'importance des variables", "La suite des fusions et les distances auxquelles elles ont lieu, à toutes les échelles", "La courbe ROC", "La convergence de k-means"],
+      answer: 1,
+      explain: "On le coupe à la hauteur qui donne le nombre de groupes souhaité.",
+    },
+    {
+      q: "Un DBSCAN avec un ε très grand donne…",
+      options: ["Beaucoup de petits groupes", "Un seul groupe contenant presque tout", "Uniquement du bruit", "Le même résultat que k-means"],
+      answer: 1,
+      explain: "Tous les points deviennent voisins. Un ε trop petit donne au contraire beaucoup de bruit.",
+    },
+    {
+      q: "Pourquoi la silhouette peut-elle mal noter un clustering correct en forme de lunes ?",
+      options: ["Elle est buguée", "Elle favorise les groupes compacts et convexes, mesurés par des distances moyennes", "Elle ne fonctionne qu'en 3D", "Elle demande des étiquettes"],
+      answer: 1,
+      explain: "Choisir une métrique de clustering, c'est aussi choisir une définition du groupe.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Quels algorithmes de clustering connais-tu, et comment choisis-tu ?">
+k-means pour des groupes compacts et à peu près sphériques, rapide et simple, avec k à choisir. DBSCAN ou HDBSCAN pour des formes quelconques, du bruit à isoler, sans fixer le nombre de groupes ; ils demandent de régler la densité. Le clustering hiérarchique pour explorer plusieurs niveaux de granularité avec un dendrogramme, sur des jeux de taille modeste. Les mélanges gaussiens quand je veux des probabilités d'appartenance et des groupes elliptiques. Je choisis selon la forme attendue des groupes, la présence de bruit, la taille des données et le besoin d'interprétation, et je valide par la silhouette, la stabilité et surtout l'utilité métier.
+</Interview>
+
+<Interview q="Comment évalues-tu un clustering sans étiquettes ?">
+Avec des indices internes comme la silhouette ou Davies-Bouldin, en sachant qu'ils favorisent des groupes compacts et convexes. Avec la stabilité : je relance sur des sous-échantillons ou avec d'autres graines, et je mesure l'accord entre les partitions (ARI). Et surtout avec la validation métier : chaque groupe doit être descriptible par quelques variables et conduire à une action différente. Si des étiquettes partielles existent, l'ARI ou l'information mutuelle ajustée mesurent l'accord avec elles.
+</Interview>
+
+<Recap>
+- k-means : groupes convexes, pas de bruit.
+- **DBSCAN** : densité (ε, minPts), formes quelconques, bruit (label −1) ; HDBSCAN pour des densités variables.
+- **Hiérarchique** : fusions successives, linkage (single, complete, average, Ward), dendrogramme.
+- **GMM** : $p(x) = \sum \pi_k \mathcal N(\mu_k, \Sigma_k)$, EM, affectation souple, BIC.
+- Évaluer : silhouette $\frac{b-a}{\max(a,b)}$, stabilité, ARI si étiquettes, utilité métier.
+- Standardiser ; réduire la dimension si besoin.
+</Recap>
+
+<LessonComplete />

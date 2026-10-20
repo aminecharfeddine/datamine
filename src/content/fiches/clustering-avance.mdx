@@ -1,0 +1,34 @@
+<FicheSection kind="essentiel">
+- k-means : convexe, pas de bruit.
+- DBSCAN : densité, formes quelconques, bruit ; HDBSCAN pour densités variables.
+- Hiérarchique : linkage, dendrogramme.
+- GMM : mélange de gaussiennes, probabilités, EM, BIC.
+- Évaluer : silhouette, stabilité, ARI, métier.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+s = \frac{b - a}{\max(a, b)} \qquad p(x) = \sum_k \pi_k \mathcal{N}(x \mid \mu_k, \Sigma_k)
+$$
+
+$a = 0{,}4$, $b = 1{,}0$ : $s = 0{,}6$.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Variables non standardisées.
+- ε mal réglé : tout fusionne ou tout est bruit.
+- Juger des formes non convexes à la silhouette.
+- Compter le bruit (−1) comme un groupe.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Choisir un algorithme ?** Forme des groupes, bruit, taille, besoin de probabilités ou de hiérarchie.
+
+**Évaluer sans étiquettes ?** Indices internes, stabilité, validation métier.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Graphe des k-distances pour choisir ε.
+- `GaussianMixture(...).bic(X)` pour le nombre de composantes.
+- Décrire chaque groupe par ses variables saillantes.
+</FicheSection>

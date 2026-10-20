@@ -120,3 +120,50 @@ describe("ACP", () => {
     SCREE.forEach((l, i) => i && expect(l).toBeLessThanOrEqual(SCREE[i - 1]));
   });
 });
+
+import { avgLogLik, BEST_POISSON_LL, CALLS, sampleMean, simpson, pearson, spearman } from "./stats2";
+import { clusterQuality, dbscan, fitLine, kmeans, LOSS_POINTS, MOONS, OUTLIERS, trainSvm, SVM_TRAIN, lossValue } from "./ml2";
+
+describe("modules 1 à 3 (suite)", () => {
+  it("vraisemblance : la Poisson au paramètre λ = moyenne bat la meilleure normale", () => {
+    const lam = Math.round(sampleMean(CALLS) * 10) / 10;
+    expect(avgLogLik({ law: "poisson", lambda: lam })).toBeGreaterThan(BEST_POISSON_LL - 0.003);
+    let bestNormal = -Infinity;
+    for (let mu = 2; mu <= 5; mu += 0.1) for (let s = 1; s <= 3; s += 0.05) bestNormal = Math.max(bestNormal, avgLogLik({ law: "normale", mu, sigma: s }));
+    expect(bestNormal).toBeLessThan(BEST_POISSON_LL - 0.003);
+  });
+  it("Simpson : répartition équilibrée sans inversion, A aux graves avec inversion", () => {
+    expect(simpson(0.5, 0.5).reversed).toBe(false);
+    expect(simpson(0.8, 0.2).reversed).toBe(true);
+    expect(simpson(0.8, 0.2).adjA).toBeGreaterThan(simpson(0.8, 0.2).adjB);
+  });
+  it("corrélations : Spearman capte une relation monotone non linéaire", () => {
+    const x = Array.from({ length: 50 }, (_, i) => i);
+    const y = x.map((v) => Math.exp(v / 6));
+    expect(spearman(x, y)).toBeCloseTo(1, 10);
+    expect(pearson(x, y)).toBeLessThan(0.8);
+  });
+  it("pertes : la MAE résiste aux aberrants, pas la MSE", () => {
+    const clean = fitLine(LOSS_POINTS, "mse").slope;
+    const all = [...LOSS_POINTS, ...OUTLIERS];
+    expect(Math.abs(fitLine(all, "mse").slope - clean)).toBeGreaterThan(0.2);
+    expect(Math.abs(fitLine(all, "mae").slope - clean)).toBeLessThan(0.05);
+    expect(lossValue("huber", 3)).toBeCloseTo(2.5);
+  });
+  it("SVM : linéaire échoue, RBF réussit avec peu de vecteurs de support, γ trop grand sur-apprend", () => {
+    expect(trainSvm(SVM_TRAIN, "lineaire", 1, 1).testAcc).toBeLessThan(0.8);
+    const good = trainSvm(SVM_TRAIN, "rbf", 10, 1);
+    expect(good.testAcc).toBeGreaterThanOrEqual(0.98);
+    expect(good.supportVectors.length).toBeLessThanOrEqual(20);
+    const over = trainSvm(SVM_TRAIN, "rbf", 10, 100);
+    expect(over.testAcc).toBeLessThan(good.testAcc);
+    expect(over.supportVectors.length).toBeGreaterThan(60);
+  });
+  it("clustering : k-means échoue sur les lunes, DBSCAN réussit et isole le bruit", () => {
+    expect(clusterQuality(kmeans(MOONS, 2)).ari).toBeLessThan(0.5);
+    const q = clusterQuality(dbscan(MOONS, 0.2, 5));
+    expect(q.ari).toBeGreaterThanOrEqual(0.95);
+    expect(q.noiseFound).toBeGreaterThanOrEqual(0.8);
+    expect(q.noiseCount).toBeGreaterThan(3);
+  });
+});

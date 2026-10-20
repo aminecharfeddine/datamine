@@ -359,3 +359,7 @@ input[type="range"] {
   transition: top 120ms ease;
 }
 .skip-link:focus { top: 12px; }
+
+/* Tableaux de leçon : jamais plus larges que l'écran */
+.lesson-prose .table-scroll { overflow-x: auto; margin: 1.6em 0; }
+.lesson-prose .table-scroll > table { margin: 0; }

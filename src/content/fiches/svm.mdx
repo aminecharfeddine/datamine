@@ -1,0 +1,33 @@
+<FicheSection kind="essentiel">
+- Frontière de marge maximale ; vecteurs de support.
+- C : compromis erreurs / marge.
+- Kernel trick : RBF, polynomial ; γ règle la portée.
+- Standardiser ; régler C et γ ensemble.
+- Coût au moins quadratique en n ; pas de probabilités natives.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\min_{w,b} \tfrac12\|w\|^2 + C\sum_i \max\big(0, 1 - y_i(w\cdot x_i + b)\big) \qquad K(x,x') = e^{-\gamma\|x-x'\|^2}
+$$
+
+Marge $= 2/\|w\|$ ; $w = (3, 4)$ : 0,4.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Oublier la standardisation.
+- γ trop grand : mémorisation.
+- SVM à noyau sur des millions de lignes.
+- Lire le score comme une probabilité.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**SVM ?** Marge maximale, hinge loss + L2, vecteurs de support, kernel trick, C et γ par validation croisée.
+
+**SVM ou logistique ?** Proches en linéaire ; logistique par défaut ; SVM linéaire pour le texte ; noyau pour du non linéaire de taille modeste.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `make_pipeline(StandardScaler(), SVC(kernel="rbf"))`.
+- Nombre de vecteurs de support : indicateur de complexité.
+</FicheSection>

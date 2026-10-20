@@ -1,0 +1,150 @@
+<Predict
+  id="hook"
+  question="Tu ajustes une droite sur 30 mesures propres et 4 mesures aberrantes (un capteur défaillant). Avec la perte quadratique (MSE), que fait la droite ?"
+  options={[
+    "Elle ignore les 4 points",
+    "Elle est fortement tirée vers eux : un résidu 10 fois plus grand pèse 100 fois plus",
+    "Elle passe exactement par eux",
+    "Elle ne change pas du tout",
+  ]}
+  answer={1}
+>
+La perte quadratique élève chaque résidu au carré : quelques grandes erreurs dominent la somme, et l'optimisation déplace toute la droite pour les réduire. La **fonction de perte** encode ce qu'on considère comme une erreur grave ; la changer change le modèle obtenu, parfois radicalement, avec exactement les mêmes données.
+</Predict>
+
+## Perte et métrique : deux rôles
+
+- La **perte** (loss) est ce que l'algorithme minimise pendant l'entraînement. Elle doit être dérivable (ou presque) et bien se comporter numériquement.
+- La **métrique** est ce qu'on rapporte et ce qui compte pour le métier : accuracy, F1, MAE en euros, NDCG.
+
+Elles ne coïncident pas toujours : on ne peut pas descendre le gradient de l'accuracy (fonction en escalier), donc on minimise la log loss, une perte **de substitution** qui la favorise. L'idéal est une perte aussi alignée que possible avec la métrique.
+
+## Les pertes de régression
+
+- **MSE** $(y - \hat y)^2$ : prédit la moyenne, pénalise fortement les grosses erreurs, sensible aux aberrants.
+- **MAE** $|y - \hat y|$ : prédit la médiane, robuste, mais gradient constant (convergence moins douce) et non dérivable en 0.
+- **Huber** : quadratique pour les petits résidus, linéaire au-delà d'un seuil $\delta$, un compromis :
+
+$$
+L_\delta(r) = \begin{cases} \tfrac{1}{2} r^2 & \text{si } |r| \leq \delta \\ \delta\left(|r| - \tfrac{1}{2}\delta\right) & \text{sinon} \end{cases}
+$$
+
+- **Quantile (pinball)** : pour prédire un quantile, avec un coût asymétrique.
+- **Poisson, gamma** : pour des comptages ou des montants positifs, cohérentes avec la loi de la cible.
+
+<LossLab id="robustesse" challenge="loss-robust" />
+
+Avec les aberrants, la MSE double presque la pente ; la MAE ne bouge presque pas ; Huber est entre les deux, d'autant plus robuste que $\delta$ est petit. Mais attention : si ces points sont de vraies valeurs (de vraies grosses commandes), les ignorer serait une erreur. Le choix dépend de la nature des données et du coût réel des erreurs.
+
+<Exercise
+  id="huber"
+  question="Avec la perte de Huber (δ = 1), quelle est la perte pour un résidu de 3 ? (La MSE ½r² donnerait 4,5.)"
+  answer={2.5}
+  tolerance={0.01}
+  hint="|r| > δ : δ (|r| − δ/2)."
+>
+$1 \times (3 - 0{,}5) = 2{,}5$, contre $4{,}5$ pour $\tfrac12 r^2$ et 3 pour la MAE. Au-delà de $\delta$, la perte croît linéairement : un résidu de 30 coûte 29,5 au lieu de 450.
+</Exercise>
+
+## Les pertes de classification
+
+- **Log loss** (cross-entropy) : $-[y \log \hat p + (1 - y)\log(1 - \hat p)]$, le maximum de vraisemblance d'une sortie Bernoulli ; elle produit des probabilités et punit sévèrement les erreurs confiantes.
+- **Hinge** $\max(0, 1 - y\,f(x))$, avec $y \in \{-1, 1\}$ : la perte des SVM, nulle dès qu'un exemple est bien classé avec une marge suffisante.
+- **Focal loss** : une log loss qui réduit le poids des exemples faciles, utile avec un fort déséquilibre (détection d'objets).
+- **Poids de classes** : multiplier la perte des exemples rares pour qu'ils comptent davantage.
+
+```python
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.linear_model import HuberRegressor
+
+robuste = HuberRegressor(epsilon=1.35).fit(X_train, y_train)                 # régression linéaire robuste
+comptages = HistGradientBoostingRegressor(loss="poisson").fit(X_train, n_appels)
+quantile = HistGradientBoostingRegressor(loss="quantile", quantile=0.9).fit(X_train, y_train)
+```
+
+<CodeChoice
+  id="poisson"
+  question="Tu prédis le nombre de sinistres par contrat (entier, souvent 0, parfois 3 ou 4). Quelle perte pour le boosting ?"
+  code={`modele = HistGradientBoostingRegressor(loss=___)`}
+  options={['"poisson"', '"squared_error"', '"absolute_error"', '"quantile"']}
+  answer={0}
+>
+La perte de Poisson correspond au maximum de vraisemblance pour des comptages : elle garantit des prédictions positives (le modèle travaille en log) et gère naturellement la variance qui croît avec la moyenne. La MSE pourrait prédire des valeurs négatives et traiterait une erreur de 1 de la même façon pour un contrat à 0,1 ou à 3 sinistres attendus.
+</CodeChoice>
+
+<Callout type="intuition">
+Une perte, c'est une **traduction mathématique du coût des erreurs**. Si une erreur de 20 est deux fois pire qu'une erreur de 10 : MAE. Si elle est quatre fois pire : MSE. Si sous-estimer coûte plus que surestimer : pinball. Si les données contiennent des erreurs de mesure : Huber. Choisir la perte, c'est formaliser une préférence métier.
+</Callout>
+
+<Callout type="piege">
+Optimiser une perte et rapporter une autre métrique crée des surprises : un modèle entraîné en MSE n'est pas le meilleur en MAE, ni en MAPE. Si la métrique de décision est la MAE ou un quantile, entraîne avec cette perte (ou une perte proche), et règle les hyperparamètres sur cette métrique.
+</Callout>
+
+<Callout type="entretien">
+« Pourquoi pas la MSE pour la classification ? » Avec une sigmoïde, son gradient contient la dérivée de la sigmoïde, presque nulle quand le modèle se trompe avec confiance : l'apprentissage stagne au pire moment. La log loss supprime ce terme (gradient $\hat p - y$), est convexe pour un modèle linéaire, et correspond au maximum de vraisemblance.
+</Callout>
+
+<Callout type="astuce">
+Trace la distribution des résidus d'un premier modèle : une queue lourde ou quelques points énormes suggèrent Huber ou une transformation de la cible ; une variance qui croît avec la prédiction suggère une perte Poisson ou gamma, ou une cible en log.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quelle est la différence entre perte et métrique ?",
+      options: [
+        "Aucune",
+        "La perte est minimisée à l'entraînement (dérivable) ; la métrique sert à évaluer et à décider",
+        "La métrique est toujours la log loss",
+        "La perte ne sert qu'aux réseaux de neurones",
+      ],
+      answer: 1,
+      explain: "On minimise souvent une perte de substitution, faute de pouvoir optimiser la métrique directement.",
+    },
+    {
+      q: "Quelle perte prédit la médiane conditionnelle ?",
+      options: ["MSE", "MAE", "Log loss", "Hinge"],
+      answer: 1,
+      explain: "La MSE prédit la moyenne, la pinball d'ordre τ le quantile τ.",
+    },
+    {
+      q: "Que fait la perte de Huber ?",
+      options: ["Elle ignore les résidus", "Elle est quadratique pour les petits résidus et linéaire pour les grands", "Elle est toujours quadratique", "Elle ne fonctionne qu'en classification"],
+      answer: 1,
+      explain: "Un compromis entre la douceur de la MSE et la robustesse de la MAE.",
+    },
+    {
+      q: "La hinge loss est associée à quel modèle ?",
+      options: ["Régression logistique", "SVM", "k-means", "Arbre de décision"],
+      answer: 1,
+      explain: "Elle ne pénalise que les exemples mal classés ou dans la marge.",
+    },
+    {
+      q: "Pourquoi entraîne-t-on un classifieur avec la log loss plutôt qu'avec l'accuracy ?",
+      options: ["L'accuracy est trop lente", "L'accuracy n'est pas dérivable (fonction en escalier) ; la log loss est lisse et favorise de bonnes probabilités", "La log loss est plus facile à lire", "C'est une convention"],
+      answer: 1,
+      explain: "On optimise une perte de substitution, puis on évalue avec la métrique voulue.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment choisis-tu une fonction de perte ?">
+Je pars de ce qu'on cherche à prédire et du coût réel des erreurs. Pour une valeur moyenne avec des erreurs symétriques et sans aberrants, la MSE. Pour une valeur typique robuste aux extrêmes, la MAE ou Huber. Pour un niveau de service, une pinball loss au bon quantile. Pour des comptages ou des montants positifs, Poisson ou gamma, cohérentes avec la loi des données. En classification, la log loss, avec des poids de classe ou une focal loss en cas de fort déséquilibre. Et je vérifie que la perte est alignée avec la métrique sur laquelle le modèle sera jugé.
+</Interview>
+
+<Interview q="Quel est le lien entre fonction de perte et maximum de vraisemblance ?">
+Minimiser une perte revient souvent à maximiser la vraisemblance d'un modèle de bruit. La MSE correspond à un bruit gaussien de variance constante, la MAE à un bruit de Laplace, la log loss à une sortie de Bernoulli, la perte de Poisson à des comptages poissonniens. Ce lien aide à choisir : si la variance des erreurs croît avec la valeur, une perte gaussienne à variance constante est mal adaptée. Et ajouter une régularisation revient à ajouter un a priori sur les paramètres (maximum a posteriori).
+</Interview>
+
+<Recap>
+- **Perte** : minimisée, dérivable. **Métrique** : évaluée, alignée avec le métier.
+- MSE (moyenne, sensible), MAE (médiane, robuste), **Huber** (compromis), pinball (quantile), Poisson et gamma (comptages, montants).
+- Log loss (probabilités), hinge (SVM), focal (déséquilibre), poids de classes.
+- Pertes ≈ vraisemblances : gaussien, Laplace, Bernoulli, Poisson.
+- Choisir la perte, c'est formaliser le coût des erreurs.
+</Recap>
+
+<LessonComplete />

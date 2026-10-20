@@ -120,6 +120,7 @@ export const STATS: ItvQuestion[] = [
     kind: "qcm",
     level: 2,
     trap: true,
+    lesson: "correlation-et-causalite",
     q: "Le traitement A a un meilleur taux de guérison que B chez les patients légers ET chez les patients graves, mais B a un meilleur taux global. Comment est-ce possible ?",
     options: [
       "C'est une erreur de calcul",
@@ -136,6 +137,7 @@ export const STATS: ItvQuestion[] = [
     kind: "qcm",
     level: 1,
     trap: true,
+    lesson: "correlation-et-causalite",
     q: "Les ventes de glaces et le nombre de noyades sont fortement corrélés. Conclusion ?",
     options: [
       "Les glaces provoquent des noyades",
@@ -168,6 +170,7 @@ export const STATS: ItvQuestion[] = [
     topic: "stats",
     kind: "qcm",
     level: 2,
+    lesson: "lois-et-vraisemblance",
     q: "Tu modélises le nombre de commandes reçues par minute, puis le temps entre deux commandes. Quelles lois ?",
     options: ["Normale puis uniforme", "Poisson puis exponentielle", "Binomiale puis Poisson", "Exponentielle puis normale"],
     answer: 1,

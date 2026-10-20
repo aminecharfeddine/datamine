@@ -74,6 +74,11 @@ export type DetectionState = { tp: number; fp: number; fn: number };
 export type JudgeState = { estimate: number; truth: number };
 export type OrchState = { seconds: number; tokens: number; maxSeconds: number; maxTokens: number };
 export type PcaState = { standardized: boolean; share: number; best: number };
+export type MleState = { law: string; avgLL: number; best: number };
+export type SimpsonState = { reversed: boolean; split: boolean };
+export type LossState = { outliers: boolean; slope: number; cleanSlope: number };
+export type SvmState = { testAcc: number; supportVectors: number };
+export type DbscanState = { algo: string; ari: number; noiseFound: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -668,4 +673,39 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Fais tourner l'axe et regarde la part de variance conservée : elle est maximale quand les points sont le plus étalés le long de l'axe, et les segments de projection les plus courts.",
     check: (s: PcaState) => s.standardized && s.share >= s.best - 0.005,
   } satisfies Challenge<PcaState>,
+  "mle-fit": {
+    id: "mle-fit",
+    title: "La loi la plus vraisemblable",
+    goal: "Trouve la loi et le paramètre qui maximisent la vraisemblance des données (à 0,003 près de la log-vraisemblance maximale).",
+    hint: "Ce sont des nombres d'événements par heure. Et pour cette loi, le maximum de vraisemblance a une forme très simple : regarde la moyenne des données.",
+    check: (s: MleState) => s.law === "poisson" && s.avgLL >= s.best - 0.003,
+  } satisfies Challenge<MleState>,
+  "simpson-reverse": {
+    id: "simpson-reverse",
+    title: "Le paradoxe en direct",
+    goal: "Trouve une répartition des patients pour laquelle A paraît moins efficace que B au global, puis affiche les résultats par gravité.",
+    hint: "Donne le traitement A surtout aux patients graves, qui guérissent moins quel que soit le traitement.",
+    check: (s: SimpsonState) => s.reversed && s.split,
+  } satisfies Challenge<SimpsonState>,
+  "loss-robust": {
+    id: "loss-robust",
+    title: "Résister aux aberrants",
+    goal: "Avec les mesures aberrantes, choisis une perte qui retrouve une pente à moins de 0,05 de celle obtenue sur les données propres.",
+    hint: "Une perte quadratique donne un poids énorme aux grands résidus. Quelle perte les traite proportionnellement ?",
+    check: (s: LossState) => s.outliers && Math.abs(s.slope - s.cleanSlope) < 0.05,
+  } satisfies Challenge<LossState>,
+  "svm-sparse": {
+    id: "svm-sparse",
+    title: "Juste et économe",
+    goal: "Atteins au moins 98 % de précision sur le jeu de test avec au plus 20 vecteurs de support.",
+    hint: "Une droite ne sépare pas deux cercles. Avec un noyau RBF, un gamma trop grand mémorise chaque point ; un C trop petit tolère trop d'erreurs.",
+    check: (s: SvmState) => s.testAcc >= 0.98 && s.supportVectors <= 20,
+  } satisfies Challenge<SvmState>,
+  "dbscan-moons": {
+    id: "dbscan-moons",
+    title: "Deux lunes et du bruit",
+    goal: "Retrouve les deux lunes (indice de Rand ajusté ≥ 0,95) et signale au moins 80 % des points de bruit comme bruit.",
+    hint: "k-means coupe l'espace en régions convexes. Un algorithme par densité suit les formes ; règle le rayon de voisinage pour que chaque lune reste connectée sans toucher l'autre.",
+    check: (s: DbscanState) => s.algo === "dbscan" && s.ari >= 0.95 && s.noiseFound >= 0.8,
+  } satisfies Challenge<DbscanState>,
 };
