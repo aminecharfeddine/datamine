@@ -39,9 +39,9 @@ describe("questions d'entretien", () => {
   });
 
   it("calcul : accepte la virgule", () => {
-    const q = questionById("eval-f1-calc") as CalcQ;
+    const q = questionById("stats-bayes-test") as CalcQ;
     const onDone = view(q.id);
-    fireEvent.change(screen.getByLabelText("Ta réponse"), { target: { value: "0,727" } });
+    fireEvent.change(screen.getByLabelText("Ta réponse"), { target: { value: "0,167" } });
     fireEvent.click(screen.getByText("Valider"));
     expect(onDone).toHaveBeenCalledWith(1);
   });

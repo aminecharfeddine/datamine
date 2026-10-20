@@ -8,11 +8,13 @@ import { LLM } from "./q-llm";
 import { MODELES } from "./q-modeles";
 import { PROD } from "./q-prod";
 import { STATS } from "./q-stats";
-import type { ItvKind, ItvLevel, ItvQuestion, ItvTopic } from "./types";
+import { TOPICS, type ItvKind, type ItvLevel, type ItvQuestion, type ItvTopic } from "./types";
+import { CHOIX } from "./q-choix";
+import { CONCEPTS } from "./q-concepts";
 
 export * from "./types";
 
-export const QUESTIONS: ItvQuestion[] = [...FONDAMENTAUX, ...STATS, ...MODELES, ...EVALUATION, ...DATA, ...DEEP, ...LLM, ...PROD, ...CAS];
+export const QUESTIONS: ItvQuestion[] = [...FONDAMENTAUX, ...STATS, ...MODELES, ...CHOIX, ...EVALUATION, ...DATA, ...DEEP, ...LLM, ...PROD, ...CAS, ...CONCEPTS];
 export const questionById = (id: string) => QUESTIONS.find((q) => q.id === id);
 
 /** Score à partir duquel une question est considérée comme réussie. */
@@ -84,10 +86,10 @@ export function shuffle<T>(xs: T[], rand: () => number) {
 }
 
 export const SIMULATION_SIZE = 10;
-const SIM_MIX: Record<ItvKind, number> = { qcm: 4, oral: 2, bug: 2, calcul: 2 };
+const SIM_MIX: Record<ItvKind, number> = { qcm: 6, oral: 3, bug: 1, calcul: 0 };
 
 /**
- * Entretien blanc : 10 questions, 4 QCM, 2 orales, 2 bugs, 2 calculs, au plus 2 par thème,
+ * Entretien blanc : 10 questions, 6 QCM, 3 orales, 1 bug, au plus 2 par thème,
  * en privilégiant les questions jamais vues ou à retravailler, ordonnées de la plus simple à la plus difficile.
  */
 export function pickSimulation(seed: number, answers: Record<string, number>, bank = QUESTIONS): ItvQuestion[] {
@@ -134,7 +136,7 @@ export function sessionReport(results: SessionResult[]) {
 /** Progression globale par thème : réussies / total. */
 export function topicProgress(answers: Record<string, number>) {
   return Object.fromEntries(
-    (["fondamentaux", "stats", "modeles", "evaluation", "data", "deep", "llm", "prod", "cas"] as ItvTopic[]).map((t) => {
+    TOPICS.map(({ id: t }) => {
       const qs = QUESTIONS.filter((q) => q.topic === t);
       return [t, { total: qs.length, ok: qs.filter((q) => statusOf(q.id, answers) === "ok").length, retry: qs.filter((q) => statusOf(q.id, answers) === "retry").length }];
     }),

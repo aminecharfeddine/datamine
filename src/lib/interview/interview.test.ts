@@ -10,7 +10,10 @@ describe("banque de questions d'entretien", () => {
   it("assez de questions, réparties sur tous les thèmes et formats", () => {
     expect(QUESTIONS.length).toBeGreaterThanOrEqual(120);
     for (const t of TOPICS) expect(QUESTIONS.filter((q) => q.topic === t.id).length, t.id).toBeGreaterThanOrEqual(10);
-    for (const k of ["qcm", "oral", "bug", "calcul"]) expect(QUESTIONS.filter((q) => q.kind === k).length, k).toBeGreaterThanOrEqual(15);
+    for (const k of ["qcm", "oral", "bug"]) expect(QUESTIONS.filter((q) => q.kind === k).length, k).toBeGreaterThanOrEqual(15);
+    // Peu de calculs : on privilégie la compréhension et les choix de modèles.
+    expect(QUESTIONS.filter((q) => q.kind === "calcul").length).toBeLessThanOrEqual(5);
+    expect(QUESTIONS.filter((q) => q.topic === "choix").length).toBeGreaterThanOrEqual(25);
     expect(QUESTIONS.filter((q) => q.trap).length).toBeGreaterThanOrEqual(25);
   });
 
@@ -66,9 +69,10 @@ describe("logique de session", () => {
       const sim = pickSimulation(seed, {});
       expect(sim).toHaveLength(SIMULATION_SIZE);
       expect(new Set(sim.map((q) => q.id)).size).toBe(SIMULATION_SIZE);
-      expect(sim.filter((q) => q.kind === "oral")).toHaveLength(2);
-      expect(sim.filter((q) => q.kind === "bug")).toHaveLength(2);
-      expect(sim.filter((q) => q.kind === "calcul")).toHaveLength(2);
+      expect(sim.filter((q) => q.kind === "qcm")).toHaveLength(6);
+      expect(sim.filter((q) => q.kind === "oral")).toHaveLength(3);
+      expect(sim.filter((q) => q.kind === "bug")).toHaveLength(1);
+      expect(sim.filter((q) => q.kind === "calcul")).toHaveLength(0);
       const perTopic = new Map<string, number>();
       sim.forEach((q) => perTopic.set(q.topic, (perTopic.get(q.topic) ?? 0) + 1));
       expect(Math.max(...perTopic.values())).toBeLessThanOrEqual(2);
@@ -77,7 +81,8 @@ describe("logique de session", () => {
   });
 
   it("l'entretien blanc privilégie les questions à retravailler", () => {
-    const retry = QUESTIONS.filter((q) => q.kind === "oral").slice(0, 2);
+    const orals = QUESTIONS.filter((q) => q.kind === "oral");
+    const retry = ["fondamentaux", "llm", "cas"].map((t) => orals.find((q) => q.topic === t)!);
     const answers = Object.fromEntries(retry.map((q) => [`itv:${q.id}`, 20]));
     const sim = pickSimulation(7, answers);
     retry.forEach((q) => expect(sim.map((x) => x.id)).toContain(q.id));

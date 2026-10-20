@@ -70,8 +70,8 @@ function Hub({ start }: { start: (mode: Session["mode"], ids: string[]) => void 
       </div>
       <h1 className="mt-3 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Entretiens</h1>
       <p className="mt-3 max-w-2xl text-lg text-muted">
-        {QUESTIONS.length} questions types d'entretien data et IA : théorie à expliquer à l'oral, choix de modèle, études de cas, code à déboguer,
-        calculs au tableau, et les pièges classiques des recruteurs.
+        {QUESTIONS.length} questions types d'entretien data et IA : comprendre et expliquer les concepts, choisir et comparer des modèles, études de cas,
+        code à déboguer, et les pièges classiques des recruteurs.
       </p>
 
       <div className="mt-6 grid grid-cols-3 gap-3 sm:max-w-xl">
@@ -87,7 +87,7 @@ function Hub({ start }: { start: (mode: Session["mode"], ids: string[]) => void 
           </span>
           <h2 className="mt-4 font-display text-2xl font-bold">Entretien blanc</h2>
           <p className="mt-2 text-muted">
-            10 questions tirées au sort comme dans un vrai entretien technique : 4 QCM, 2 réponses orales, 2 bugs, 2 calculs, sur des thèmes variés et de
+            10 questions tirées au sort comme dans un vrai entretien technique : 6 QCM, 3 réponses orales et 1 bug à trouver, sur des thèmes variés et de
             difficulté croissante. Chronomètre et bilan par thème à la fin.
           </p>
           <ul className="mt-4 space-y-1.5 text-sm">

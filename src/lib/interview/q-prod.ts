@@ -106,17 +106,6 @@ export const PROD: ItvQuestion[] = [
     explain: "Un réentraînement automatique peut apprendre une donnée corrompue et la déployer en quelques heures. On automatise, mais derrière des contrôles qui peuvent bloquer la mise en production.",
   },
   {
-    id: "prod-debit",
-    topic: "prod",
-    kind: "calcul",
-    level: 2,
-    q: "Une prédiction prend 50 ms sur un worker qui traite une requête à la fois. Il faut absorber 400 requêtes par seconde. Combien de workers au minimum (sans marge) ?",
-    answer: 20,
-    tolerance: 0,
-    unit: "workers",
-    explain: "Un worker traite 20 requêtes par seconde (1 / 0,05). 400 / 20 = 20 workers. En pratique, on vise 60 à 70 % d'utilisation pour tenir la latence p99, donc environ 30, ou on regroupe les requêtes en micro-batchs sur GPU.",
-  },
-  {
     id: "prod-versioning",
     topic: "prod",
     kind: "qcm",

@@ -97,17 +97,6 @@ export const MODELES: ItvQuestion[] = [
       "k-means minimise l'inertie intra-cluster : il faut fixer k, il produit des clusters convexes et plutôt sphériques, se laisse tirer par les outliers et dépend de l'initialisation (on utilise k-means++ et plusieurs lancements). Comme il repose sur des distances euclidiennes, l'échelle des variables est décisive. Pour des formes arbitraires et du bruit, DBSCAN ou HDBSCAN ; pour des clusters elliptiques avec appartenance probabiliste, un mélange gaussien ; pour explorer plusieurs niveaux de granularité, le clustering hiérarchique. Et on valide toujours la segmentation avec le métier.",
   },
   {
-    id: "mod-gini",
-    topic: "modeles",
-    kind: "calcul",
-    level: 2,
-    lesson: "arbres-de-decision",
-    q: "Un nœud d'arbre contient 8 exemples positifs et 2 négatifs. Quelle est son impureté de Gini ?",
-    answer: 0.32,
-    tolerance: 0.001,
-    explain: "Gini = 1 − Σ p_k² = 1 − (0,8² + 0,2²) = 1 − 0,68 = 0,32. Un nœud pur vaut 0, un nœud 50/50 vaut 0,5 en binaire. L'arbre choisit la coupure qui réduit le plus l'impureté pondérée des enfants.",
-  },
-  {
     id: "mod-tabulaire",
     topic: "modeles",
     kind: "qcm",

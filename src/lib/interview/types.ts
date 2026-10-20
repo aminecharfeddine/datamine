@@ -1,6 +1,6 @@
 // Banque de questions d'entretien : types communs.
 
-export type ItvTopic = "fondamentaux" | "stats" | "modeles" | "evaluation" | "data" | "deep" | "llm" | "prod" | "cas";
+export type ItvTopic = "fondamentaux" | "stats" | "modeles" | "choix" | "evaluation" | "data" | "deep" | "llm" | "prod" | "cas";
 export type ItvKind = "qcm" | "oral" | "bug" | "calcul";
 /** 1 = classique (junior), 2 = confirmé, 3 = avancé. */
 export type ItvLevel = 1 | 2 | 3;
@@ -29,6 +29,7 @@ export const TOPICS: { id: ItvTopic; title: string; short: string }[] = [
   { id: "fondamentaux", title: "Fondamentaux ML", short: "Fondamentaux" },
   { id: "stats", title: "Stats & probas", short: "Stats" },
   { id: "modeles", title: "Modèles classiques", short: "Modèles" },
+  { id: "choix", title: "Choisir un modèle", short: "Choix de modèle" },
   { id: "evaluation", title: "Évaluation", short: "Évaluation" },
   { id: "data", title: "Data, SQL & features", short: "Data & SQL" },
   { id: "deep", title: "Deep learning", short: "Deep learning" },
