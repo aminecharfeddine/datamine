@@ -84,6 +84,11 @@ export type MatrixState = { det: number; zero: boolean };
 export type CompareState = { n: number; pairedP: number; unpairedP: number; smallerPairedP: number };
 export type LiftState = { profit: number; best: number };
 export type FairState = { tprGap: number; minTpr: number; precision: number };
+export type RecoState = { method: string; valid: number; best: number };
+export type AnomalyState = { precision: number; recall: number };
+export type ImbState = { recall: number; precision: number; calibrationGap: number };
+export type PromptState = { usable: number; tokens: number };
+export type AlignState = { gold: number; best: number };
 export type BvState = { degree: number; n: number; noise: number; train: Pt[]; test: Pt[]; trainMse: number; testMse: number };
 
 const bestTestCache = new WeakMap<Pt[], number>();
@@ -748,4 +753,39 @@ export const CHALLENGES: Record<string, Challenge> = {
     hint: "Avec un seul seuil, le groupe B, moins bien noté par le modèle, a un recall bien plus faible. Abaisse son seuil, et remonte celui du groupe A pour garder la precision.",
     check: (s: FairState) => s.tprGap <= 0.02 && s.minTpr >= 0.8 && s.precision >= 0.65,
   } satisfies Challenge<FairState>,
+  "reco-factors": {
+    id: "reco-factors",
+    title: "Le bon nombre de goûts",
+    goal: "Trouve la factorisation (nombre de facteurs et régularisation) qui prédit le mieux les notes cachées.",
+    hint: "Trop de facteurs sans régularisation : l'erreur d'entraînement tombe à presque zéro, mais les notes cachées sont mal prédites. Trop de régularisation : le modèle ne retient plus que les moyennes.",
+    check: (s: RecoState) => s.method === "mf" && s.valid <= s.best + 1e-9,
+  } satisfies Challenge<RecoState>,
+  "anomaly-catch": {
+    id: "anomaly-catch",
+    title: "Les fraudes discrètes",
+    goal: "Signale au moins 90 % des transactions frauduleuses avec une precision d'au moins 75 %.",
+    hint: "Certaines fraudes sont proches du petit groupe dense : loin de leurs voisins, mais pas du reste des données. Il faut une méthode qui compare chaque point à la densité de son voisinage.",
+    check: (s: AnomalyState) => s.recall >= 0.9 && s.precision >= 0.75,
+  } satisfies Challenge<AnomalyState>,
+  "imbalance-threshold": {
+    id: "imbalance-threshold",
+    title: "Rattraper les fraudes sans tricher",
+    goal: "Atteins un recall d'au moins 80 % et une precision d'au moins 30 %, avec des probabilités qui restent calibrées (moyenne prédite à 0,3 point du vrai taux).",
+    hint: "Rééquilibrer les classes décale toutes les probabilités vers le haut. Déplacer le seuil donne le même effet sur le recall, sans fausser les probabilités.",
+    check: (s: ImbState) => s.recall >= 0.8 && s.precision >= 0.3 && s.calibrationGap <= 0.003,
+  } satisfies Challenge<ImbState>,
+  "prompt-budget": {
+    id: "prompt-budget",
+    title: "Le prompt efficace",
+    goal: "Obtiens au moins 90 % de réponses exploitables (correctes et lisibles par le programme) avec moins de 800 tokens par requête.",
+    hint: "Une sortie structurée rend chaque réponse lisible. Quelques exemples variés aident beaucoup ; huit exemples ou un raisonnement pas à pas coûtent cher pour un petit gain.",
+    check: (s: PromptState) => s.usable >= 0.9 - 1e-9 && s.tokens <= 800,
+  } satisfies Challenge<PromptState>,
+  "align-sweetspot": {
+    id: "align-sweetspot",
+    title: "Optimiser sans tricher",
+    goal: "Trouve le reward model et la distance au modèle de référence qui donnent la meilleure qualité jugée par des humains.",
+    hint: "Le score du reward model monte toujours : il ne faut pas le suivre. Un reward model plus grand se laisse moins facilement exploiter, et repousse le moment où la qualité réelle décroche.",
+    check: (s: AlignState) => s.gold >= s.best - 1e-9,
+  } satisfies Challenge<AlignState>,
 };

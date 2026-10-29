@@ -1,0 +1,177 @@
+import type { ItvQuestion } from "./types";
+
+// Questions sur la détection d'anomalies, les systèmes de recommandation, les données déséquilibrées,
+// le prompt engineering et l'alignement des LLM.
+export const SUITE4: ItvQuestion[] = [
+  {
+    id: "suite4-anomalie-locale",
+    topic: "modeles",
+    kind: "qcm",
+    level: 2,
+    trap: true,
+    lesson: "detection-d-anomalies",
+    q: "Tes transactions forment deux groupes : un grand groupe diffus et un petit groupe très homogène. Un z-score global ne repère pas certaines fraudes proches du petit groupe. Pourquoi ?",
+    options: [
+      "Le z-score est trop lent",
+      "Ces fraudes sont des anomalies locales : loin de leur voisinage dense, mais dans l'étendue globale des données ; une méthode de densité relative comme le LOF les repère",
+      "Il faut un seuil à 2 écarts-types",
+      "Ce ne sont pas vraiment des anomalies",
+    ],
+    answer: 1,
+    explain: "Une règle globale ne voit que ce qui est extrême par rapport à toutes les données. Le LOF compare la densité d'un point à celle de ses voisins ; des variables relatives (écart à l'habitude du client) aident aussi.",
+  },
+  {
+    id: "suite4-fraude-sans-labels",
+    topic: "cas",
+    kind: "oral",
+    level: 2,
+    lesson: "detection-d-anomalies",
+    q: "Tu dois détecter des fraudes sur des millions de transactions, sans étiquettes, avec une équipe qui peut examiner 100 alertes par jour. Comment t'y prends-tu ?",
+    points: [
+      "Comprendre avec le métier les schémas connus et les règles existantes",
+      "Variables relatives au client : écart au montant habituel, vitesse, nouveau bénéficiaire, localisation",
+      "Score non supervisé (Isolation Forest, LOF), seuil fixé pour environ 100 alertes par jour",
+      "Retour des enquêteurs comme étiquettes, mesure de la precision des alertes",
+      "Passage progressif au supervisé, en gardant le non supervisé pour les fraudes nouvelles ; suivi de la dérive",
+    ],
+    answer:
+      "Je partirais des schémas connus avec le métier, puis je construirais des variables relatives à l'historique de chaque client, qui transforment les anomalies contextuelles en anomalies visibles. Un score non supervisé comme une Isolation Forest classe les transactions ; le seuil est fixé par la capacité d'investigation, environ 100 alertes par jour. Les décisions des enquêteurs deviennent des étiquettes : je mesure la precision des alertes, puis j'entraîne un modèle supervisé quand il y a assez de cas, en gardant le détecteur non supervisé pour les fraudes nouvelles. Et je surveille la dérive, car les fraudeurs s'adaptent.",
+  },
+  {
+    id: "suite4-factorisation",
+    topic: "modeles",
+    kind: "oral",
+    level: 2,
+    lesson: "systemes-de-recommandation",
+    q: "Explique la factorisation matricielle pour la recommandation, et comment tu la règles.",
+    points: [
+      "Un vecteur latent par utilisateur et par objet ; note prédite = moyenne + biais + produit scalaire",
+      "Apprise uniquement sur les interactions observées, avec régularisation L2",
+      "ALS ou descente de gradient",
+      "Nombre de facteurs et régularisation choisis sur des données mises de côté, découpage temporel",
+      "Feedback implicite : négatifs échantillonnés, objectif de classement",
+    ],
+    answer:
+      "Chaque utilisateur et chaque objet reçoit un vecteur de dimension k ; la note prédite est la moyenne globale plus un biais utilisateur, un biais objet et le produit scalaire des deux vecteurs. On apprend ces paramètres sur les seules notes observées, en minimisant l'erreur quadratique régularisée, par moindres carrés alternés ou descente de gradient. Le nombre de facteurs et la régularisation se règlent sur des interactions mises de côté, avec un découpage temporel : trop de facteurs sans régularisation surapprennent. Avec des clics plutôt que des notes, on échantillonne des négatifs et on optimise un classement.",
+  },
+  {
+    id: "suite4-reco-eval",
+    topic: "evaluation",
+    kind: "qcm",
+    level: 2,
+    trap: true,
+    lesson: "systemes-de-recommandation",
+    q: "Ton nouveau recommandeur bat l'ancien sur un jeu de test tiré au hasard parmi les interactions passées. Qu'est-ce qui doit te faire douter ?",
+    options: [
+      "Rien, c'est un bon protocole",
+      "Le découpage aléatoire laisse fuir le futur, et les interactions passées n'existent que pour ce que l'ancien système a montré : il faut un découpage temporel puis un test A/B",
+      "Le jeu de test est trop grand",
+      "Il faudrait utiliser l'accuracy",
+    ],
+    answer: 1,
+    explain: "Hors ligne, on mesure surtout la capacité à retrouver ce que l'ancien système exposait. Le découpage temporel réduit la fuite ; le test A/B mesure l'effet réel.",
+  },
+  {
+    id: "suite4-smote-fuite",
+    topic: "data",
+    kind: "bug",
+    level: 2,
+    lesson: "donnees-desequilibrees",
+    q: "Le score de validation croisée est excellent, mais le modèle déçoit en production. Quelle ligne pose problème ?",
+    lang: "python",
+    code: `from imblearn.over_sampling import SMOTE
+from sklearn.model_selection import cross_val_score
+
+X_res, y_res = SMOTE(random_state=0).fit_resample(X, y)
+model = GradientBoostingClassifier()
+scores = cross_val_score(model, X_res, y_res, cv=5, scoring="average_precision")
+print(scores.mean())`,
+    line: 4,
+    explain: "SMOTE est appliqué avant la validation croisée : des positifs synthétiques interpolés à partir d'un exemple se retrouvent à la fois dans l'entraînement et dans la validation, et l'évaluation se fait sur une distribution rééquilibrée.",
+    fix: "Mettre SMOTE dans un imblearn.pipeline.Pipeline avec le modèle, et appeler cross_val_score(pipeline, X, y, ...) sur les données d'origine.",
+  },
+  {
+    id: "suite4-poids-proba",
+    topic: "evaluation",
+    kind: "qcm",
+    level: 2,
+    trap: true,
+    lesson: "donnees-desequilibrees",
+    q: "Un modèle de fraude entraîné avec class_weight='balanced' prédit 70 % pour une transaction. Le métier veut afficher ce chiffre aux enquêteurs. Qu'en penses-tu ?",
+    options: [
+      "C'est correct, 70 % de chances de fraude",
+      "C'est trompeur : le rééquilibrage a gonflé les probabilités ; il faut les corriger (prior) ou recalibrer sur des données à la distribution réelle",
+      "Il faut l'arrondir à 100 %",
+      "Il faut utiliser l'accuracy à la place",
+    ],
+    answer: 1,
+    explain: "Les cotes sont multipliées par environ le rapport des poids. Avec 1 % de fraudes, ce « 70 % » correspond à quelques pourcents.",
+  },
+  {
+    id: "suite4-prompt-methode",
+    topic: "llm",
+    kind: "oral",
+    level: 2,
+    lesson: "prompt-engineering",
+    q: "Ton classifieur de tickets à base de LLM fait trop d'erreurs. Comment améliores-tu le prompt ?",
+    points: [
+      "Constituer un jeu d'évaluation représentatif, avec les cas difficiles",
+      "Analyser les erreurs par catégorie avant de changer quoi que ce soit",
+      "Préciser les définitions et les cas limites, délimiter les données",
+      "Exemples few-shot variés et équilibrés, format de sortie imposé",
+      "Mesurer chaque changement, versionner, suivre coût et latence ; envisager le fine-tuning si plafond",
+    ],
+    answer:
+      "Je ne change rien avant d'avoir un jeu d'évaluation représentatif et une mesure de départ. J'analyse les erreurs : confusions entre deux catégories, cas ambigus, réponses mal formatées. Je précise ensuite les définitions et les règles de décision pour les cas limites, je délimite clairement le ticket, j'ajoute quelques exemples variés et équilibrés ciblant les confusions observées, et j'impose un format de sortie structuré. Chaque changement est mesuré et versionné. Si l'on plafonne, j'envisage un raisonnement explicite pour les cas difficiles, un autre modèle ou un fine-tuning, en comparant le coût et la latence.",
+  },
+  {
+    id: "suite4-few-shot-biais",
+    topic: "llm",
+    kind: "qcm",
+    level: 1,
+    trap: true,
+    lesson: "prompt-engineering",
+    q: "Après avoir ajouté trois exemples au prompt, ton LLM classe beaucoup trop de tickets dans la catégorie « Technique ». Cause probable ?",
+    options: [
+      "La température est trop basse",
+      "Les trois exemples sont tous de la catégorie « Technique » : le modèle imite leur répartition",
+      "Le modèle est trop petit",
+      "Le prompt est trop court",
+    ],
+    answer: 1,
+    explain: "Les exemples doivent être variés et équilibrés entre les classes ; leur ordre et leur format influencent aussi les réponses.",
+  },
+  {
+    id: "suite4-rlhf-dpo",
+    topic: "llm",
+    kind: "oral",
+    level: 3,
+    lesson: "alignement-rlhf-dpo",
+    q: "Quelle différence entre RLHF et DPO ?",
+    points: [
+      "RLHF : reward model appris sur des paires (Bradley-Terry), puis RL (PPO) avec pénalité KL vers la référence",
+      "DPO : loss de classification directe sur les paires, en comparant les log-ratios avec le modèle de référence",
+      "DPO : pas de reward model séparé ni de génération pendant l'entraînement, plus simple et stable",
+      "RL en ligne : peut explorer de nouvelles réponses, utile avec des récompenses vérifiables",
+    ],
+    answer:
+      "Les deux apprennent à partir de paires de réponses où l'une est préférée. Le RLHF entraîne d'abord un reward model, avec un modèle de Bradley-Terry, puis optimise le LLM par renforcement, typiquement PPO, en maximisant la récompense moins une pénalité KL vers le modèle de référence. DPO montre que cet objectif a une solution analytique et optimise directement le LLM avec une loss de classification sur les paires : augmenter la log-probabilité relative de la réponse préférée par rapport à la référence, diminuer celle de la rejetée. DPO est plus simple et plus stable ; le RL en ligne reste intéressant quand on peut générer et noter de nouvelles réponses, par exemple avec des récompenses vérifiables en mathématiques ou en code.",
+  },
+  {
+    id: "suite4-reward-hacking",
+    topic: "llm",
+    kind: "qcm",
+    level: 2,
+    trap: true,
+    lesson: "alignement-rlhf-dpo",
+    q: "Pendant le RLHF, le score du reward model ne cesse d'augmenter, mais les évaluateurs humains trouvent les réponses de plus en plus longues et flatteuses. Que se passe-t-il ?",
+    options: [
+      "L'entraînement fonctionne parfaitement",
+      "Le modèle exploite les défauts du reward model (reward hacking) : il faut augmenter la pénalité KL, améliorer le reward model ou arrêter plus tôt",
+      "Les évaluateurs se trompent",
+      "Il faut augmenter le learning rate",
+    ],
+    answer: 1,
+    explain: "Le reward model est un proxy imparfait ; optimisé trop fort, il cesse de mesurer la qualité (loi de Goodhart).",
+  },
+];

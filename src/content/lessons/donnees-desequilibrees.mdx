@@ -1,0 +1,144 @@
+<Predict
+  id="hook"
+  question="Ton modèle de détection de fraude (1 % de fraudes) ne repère pas assez de cas au seuil de 0,5. Un collègue propose d'appliquer SMOTE pour rééquilibrer les classes. Quelle est la première chose à essayer ?"
+  options={[
+    "SMOTE, c'est la méthode standard",
+    "Abaisser le seuil de décision : c'est souvent tout ce qu'apporte le rééquilibrage, sans fausser les probabilités",
+    "Supprimer 99 % des transactions normales",
+    "Changer de modèle",
+  ]}
+  answer={1}
+>
+Rééquilibrer les classes pousse le modèle à prédire plus souvent « fraude » : toutes ses probabilités montent. Mais un modèle bien entraîné sur les données d'origine classe déjà les transactions dans le bon ordre ; il suffit de choisir le seuil qui donne le compromis voulu entre recall et precision. Le rééquilibrage a un coût caché : les probabilités ne veulent plus rien dire, et le sous-échantillonnage jette des données. Il a sa place, mais pas comme premier réflexe.
+</Predict>
+
+## Le piège de l'accuracy
+
+Avec 1 % de fraudes, prédire « jamais de fraude » donne 99 % d'accuracy. Sur des classes déséquilibrées, on regarde le **recall** et la **precision** de la classe rare, la **PR-AUC** (average precision) plutôt que la ROC-AUC, ou le recall à precision fixée (« combien de fraudes on attrape si 1 alerte sur 3 doit être réelle »). Et on découpe les données de façon **stratifiée**, pour que chaque jeu ait sa part de positifs.
+
+## Ce que fait vraiment le rééquilibrage
+
+Pondérer les classes (`class_weight`) multiplie la contribution des positifs dans la loss :
+
+$$
+L = -\frac{1}{n}\sum_i \Big[w_1\, y_i \log p_i + w_0\, (1 - y_i) \log(1 - p_i)\Big]
+$$
+
+Avec $w_1 / w_0 = 99$, le modèle se comporte à peu près comme s'il voyait autant de fraudes que de transactions normales : ses cotes $p / (1-p)$ sont multipliées par environ 99. Le **sous-échantillonnage** des négatifs fait la même chose en jetant des données ; le **sur-échantillonnage** et **SMOTE** (qui crée des positifs synthétiques par interpolation entre voisins) aussi, en dupliquant ou en inventant des positifs.
+
+Si l'on a entraîné sur des classes rééquilibrées de proportion $\pi'$ alors que la vraie proportion est $\pi$, on retrouve des probabilités correctes en corrigeant les cotes :
+
+$$
+\frac{p}{1-p} = \frac{p'}{1-p'} \times \frac{\pi / (1-\pi)}{\pi' / (1-\pi')}
+$$
+
+<ImbalanceLab id="fraude" challenge="imbalance-threshold" />
+
+À seuil égal, le rééquilibrage augmente le recall, mais la probabilité moyenne prédite passe de 1 % à 9 % ou plus : le modèle croit qu'il y a dix fois plus de fraudes qu'en réalité. Et le sous-échantillonnage fait baisser la PR-AUC : en jetant 98 % des transactions normales, il a appris un moins bon classement. Le modèle d'origine, avec un seuil plus bas, atteint le même compromis et garde des probabilités exploitables.
+
+<Exercise
+  id="correction"
+  question="Un modèle entraîné sur des données rééquilibrées à 50/50 prédit p' = 0,8 pour une transaction. La vraie proportion de fraudes est 1 %. Quelle est la probabilité corrigée, en % (1 décimale) ?"
+  answer={3.9}
+  tolerance={0.1}
+  hint="Cotes : 0,8 / 0,2 = 4. On multiplie par (0,01 / 0,99) / (0,5 / 0,5)."
+>
+Cotes corrigées : $4 \times 0{,}0101 = 0{,}0404$, soit $p = 0{,}0404 / 1{,}0404 \approx 3{,}9\,\%$. Le « 80 % » du modèle rééquilibré correspond en réalité à une transaction suspecte, mais très probablement légitime. Présenter 80 % à un enquêteur serait trompeur.
+</Exercise>
+
+```python
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import average_precision_score, precision_recall_curve
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=0)
+model.fit(X_train, y_train)                      # données d'origine, sans rééquilibrage
+proba = model.predict_proba(X_val)[:, 1]
+precision, recall, seuils = precision_recall_curve(y_val, proba)
+seuil = seuils[np.argmax(precision[:-1] >= 0.3)]   # premier seuil (le plus bas) avec au moins 30 % de precision
+```
+
+<CodeChoice
+  id="stratify"
+  question="Comment garantir que le jeu de test contient la même proportion de fraudes que l'ensemble des données ?"
+  code={`train_test_split(X, y, test_size=0.2, stratify=___)`}
+  options={["y", "X", "True", "0.01"]}
+  answer={0}
+>
+`stratify=y` conserve la proportion de chaque classe dans les deux jeux. Avec 1 % de positifs et un petit jeu de test, un découpage aléatoire peut laisser très peu de fraudes à évaluer. Même chose en validation croisée : `StratifiedKFold`.
+</CodeChoice>
+
+## Quand rééquilibrer quand même
+
+- Le seuil ne peut pas être changé (outil qui décide à 0,5) : `class_weight` est alors un moyen simple de déplacer la frontière.
+- Certains modèles apprennent mal une classe très rare (peu de gradient vers elle) : pondérer aide parfois le classement lui-même, surtout pour des réseaux de neurones ; la **focal loss** concentre l'entraînement sur les exemples difficiles.
+- Le jeu de données est énorme : sous-échantillonner les négatifs accélère l'entraînement, et l'on corrige les probabilités ensuite.
+
+Dans tous les cas : rééquilibrer **seulement le jeu d'entraînement**, après le découpage (SMOTE avant le découpage fait fuir des positifs synthétiques dans le test), évaluer sur la distribution réelle, et recalibrer si l'on a besoin de probabilités. Et la meilleure solution reste souvent d'obtenir plus de positifs ou de meilleures variables.
+
+<Callout type="intuition">
+Un modèle fait deux choses : il **classe** (qui est plus suspect que qui) et il **estime** (avec quelle probabilité). Le seuil transforme le classement en décision. Le rééquilibrage change surtout l'estimation, rarement le classement : quand le problème est le compromis recall et precision, c'est le seuil qu'il faut régler.
+</Callout>
+
+<Callout type="piege">
+Appliquer SMOTE ou un sur-échantillonnage avant la validation croisée : les copies et les interpolations d'un même positif se retrouvent dans l'entraînement et dans la validation, et les scores sont gonflés. Avec imbalanced-learn, on met le rééchantillonnage dans un `Pipeline` pour qu'il ne s'applique qu'aux plis d'entraînement.
+</Callout>
+
+<Callout type="entretien">
+« Comment gérez-vous des classes déséquilibrées ? » Une bonne réponse commence par les métriques (pas d'accuracy, PR-AUC, recall à precision fixée), le découpage stratifié et le choix du seuil selon les coûts, puis seulement les techniques de rééquilibrage, avec leurs effets sur la calibration et le risque de fuite.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Pourquoi l'accuracy est-elle trompeuse avec 1 % de positifs ?",
+      options: ["Elle est difficile à calculer", "Prédire toujours la classe majoritaire donne déjà 99 %", "Elle ignore les négatifs", "Elle dépend du seuil"],
+      answer: 1,
+      explain: "On regarde recall, precision et PR-AUC de la classe rare.",
+    },
+    {
+      q: "Qu'arrive-t-il aux probabilités d'un modèle entraîné avec class_weight='balanced' ?",
+      options: ["Rien", "Elles sont gonflées : elles ne reflètent plus la vraie fréquence de la classe rare", "Elles deviennent mieux calibrées", "Elles valent toutes 0,5"],
+      answer: 1,
+      explain: "Les cotes sont multipliées par environ le rapport des poids ; on peut les corriger.",
+    },
+    {
+      q: "Quand appliquer SMOTE ?",
+      options: ["Sur tout le jeu de données, avant le découpage", "Uniquement sur les données d'entraînement, dans chaque pli, après le découpage", "Sur le jeu de test", "Jamais"],
+      answer: 1,
+      explain: "Sinon, des positifs synthétiques fuient dans l'évaluation.",
+    },
+    {
+      q: "Le sous-échantillonnage des négatifs a un inconvénient spécifique. Lequel ?",
+      options: ["Il ralentit l'entraînement", "Il jette des données, ce qui peut dégrader le classement", "Il crée des données synthétiques", "Il empêche de choisir un seuil"],
+      answer: 1,
+      explain: "Utile pour accélérer sur de très gros volumes, avec une correction des probabilités.",
+    },
+    {
+      q: "Pour atteindre 80 % de recall sur un modèle bien entraîné, la solution la plus simple est…",
+      options: ["Rééquilibrer les classes", "Choisir le seuil qui donne 80 % de recall sur la validation", "Changer de métrique", "Ajouter des couches"],
+      answer: 1,
+      explain: "Le seuil se lit sur la courbe precision-recall de validation.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Comment gères-tu un problème de classification avec 0,5 % de positifs ?">
+D'abord l'évaluation : pas d'accuracy, mais la PR-AUC, le recall à une precision cible, avec des découpages stratifiés et assez de positifs dans la validation. J'entraîne un premier modèle sur les données d'origine (le gradient boosting s'en sort bien), et je choisis le seuil d'après le coût des faux positifs et des faux négatifs. Si le classement de la classe rare est mauvais, j'essaie de pondérer les classes ou une focal loss, en le validant sur la PR-AUC. Si je rééchantillonne, je le fais seulement sur l'entraînement, dans un pipeline, et je recalibre les probabilités ensuite. Souvent, le plus gros gain vient de meilleures variables ou de plus de positifs étiquetés.
+</Interview>
+
+<Interview q="Pourquoi rééquilibrer les classes fausse-t-il les probabilités, et comment le corriger ?">
+Le modèle apprend la fréquence des classes dans ses données d'entraînement : si on lui montre 50 % de positifs, il estime des probabilités cohérentes avec un monde à 50 %, donc beaucoup trop élevées pour un monde à 1 %. Concrètement, ses cotes sont multipliées par le rapport entre la proportion vue à l'entraînement et la vraie proportion. On corrige en divisant les cotes par ce rapport (correction de prior), ou en recalibrant le modèle sur un jeu de validation à la distribution réelle, avec une régression de Platt ou isotonique.
+</Interview>
+
+<Recap>
+- Métriques : recall, precision, **PR-AUC**, recall à precision fixée ; découpage **stratifié**.
+- Pondérer, sous-échantillonner, sur-échantillonner, SMOTE : les cotes sont multipliées par environ $w_1/w_0$.
+- Premier réflexe : **régler le seuil**, qui ne fausse pas les probabilités.
+- Correction : $\frac{p}{1-p} = \frac{p'}{1-p'} \times \frac{\pi/(1-\pi)}{\pi'/(1-\pi')}$, ou recalibration.
+- Rééchantillonner seulement l'entraînement, dans un pipeline ; évaluer sur la distribution réelle.
+</Recap>
+
+<LessonComplete />

@@ -1,0 +1,34 @@
+<FicheSection kind="essentiel">
+- Contexte, tâche précise, données délimitées, exemples, format.
+- Few-shot variés et équilibrés.
+- Raisonnement pas à pas pour les tâches à étapes.
+- Sortie structurée pour un programme.
+- Jeu d'évaluation, itérations mesurées, versionnage.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\text{exploitable} = \text{exactitude} \times \text{lisibilité} \qquad \text{coût} = N \big(T_{\text{in}} c_{\text{in}} + T_{\text{out}} c_{\text{out}}\big)
+$$
+
+900 tokens en cache à 10 % sur 1 200 : 32,5 % du coût d'entrée.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Exemples tous de la même classe.
+- Juger un prompt sur trois essais.
+- Texte libre parsé par un programme.
+- Données externes non délimitées (injection).
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Prompt en production ?** Jeu d'évaluation, prompt clair, format imposé, itérations, versionnage, suivi coût et latence.
+
+**Few-shot ou fine-tuning ?** Prompt d'abord ; fine-tuning si tâche stable, gros volume, plafond mesuré.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- Contenu stable au début pour le cache.
+- Long document en premier, question à la fin.
+- Température 0 pour classer ou extraire.
+</FicheSection>

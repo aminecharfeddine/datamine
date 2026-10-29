@@ -1,0 +1,155 @@
+<Predict
+  id="hook"
+  question="Pour repérer des transactions frauduleuses, tu signales celles dont le montant est à plus de 3 écarts-types de la moyenne. Quelle fraude risque d'échapper à cette règle ?"
+  options={[
+    "Une transaction de 50 000 € sur un compte qui dépense 30 € par mois",
+    "Une transaction d'un montant banal, mais inhabituelle pour ce client précis ou pour son groupe de clients",
+    "Aucune, la règle des 3 écarts-types attrape tout",
+    "Les transactions de montant négatif",
+  ]}
+  answer={1}
+>
+Une règle globale ne voit que ce qui est extrême par rapport à **toutes** les données. Or beaucoup d'anomalies sont **locales** : normales dans l'absolu, mais anormales dans leur contexte (pour ce client, à cette heure, dans ce groupe très homogène). La détection d'anomalies consiste à choisir une notion de « normal » adaptée, souvent sans aucune étiquette, puis à décider combien d'alertes on peut se permettre de traiter.
+</Predict>
+
+## Quel type d'anomalie ?
+
+- **Ponctuelle** : un point isolé de tous les autres (un montant aberrant).
+- **Contextuelle** : normale ailleurs, anormale ici (25 °C en janvier, une connexion à 3 h du matin pour ce compte).
+- **Collective** : chaque point est banal, la séquence ne l'est pas (une rafale de petits retraits).
+
+On a rarement des étiquettes, et les fraudes changent de forme : on modélise donc ce qui est normal et on mesure l'écart.
+
+## Les grandes méthodes
+
+**Statistiques.** Le z-score mesure l'écart à la moyenne en écarts-types ; sa version robuste remplace moyenne et écart-type, eux-mêmes tirés par les anomalies, par la médiane et la MAD :
+
+$$
+z = \frac{x - \mu}{\sigma} \qquad z_{\text{robuste}} = \frac{x - \text{médiane}(x)}{1{,}4826 \cdot \operatorname{MAD}(x)}
+$$
+
+Simple et lisible, mais global et souvent variable par variable.
+
+**Distance et densité.** La distance au $k$-ième voisin signale les points isolés ; le **Local Outlier Factor** (LOF) compare la densité autour d'un point à celle autour de ses voisins, ce qui détecte un point un peu à l'écart d'un groupe très dense, même s'il serait banal dans un groupe diffus.
+
+**Isolation Forest.** On coupe l'espace au hasard, variable et seuil aléatoires. Une anomalie s'isole en peu de coupes ; un point au cœur des données en demande beaucoup. Le score agrège la profondeur moyenne $h(x)$ sur une forêt d'arbres :
+
+$$
+s(x) = 2^{-\,\mathbb{E}[h(x)] / c(n)}
+$$
+
+où $c(n)$ est la profondeur moyenne attendue pour $n$ points ; $s$ proche de 1 signale une anomalie. Rapide, peu sensible à l'échelle, le choix par défaut sur des données tabulaires.
+
+**Reconstruction.** Un autoencodeur (ou une ACP) entraîné sur des données normales reconstruit mal ce qui est anormal : l'erreur de reconstruction sert de score. Pour les séries temporelles, on compare la valeur observée à une prévision.
+
+<AnomalyLab id="fraudes" challenge="anomaly-catch" />
+
+Le z-score attrape les fraudes lointaines mais pas celles qui entourent le petit groupe dense : elles restent dans l'étendue globale des données. La distance aux voisins les rate aussi, car un point en bordure du grand groupe diffus a des voisins aussi éloignés. Il faut une méthode qui juge chaque point par rapport à la densité de **son** voisinage.
+
+<Exercise
+  id="zscore"
+  question="Les transactions d'un client ont une moyenne de 120 € et un écart-type de 200 €. Quel est le z-score d'une transaction de 950 € (2 décimales) ?"
+  answer={4.15}
+  tolerance={0.01}
+  hint="(x − μ) / σ."
+>
+$(950 - 120) / 200 = 4{,}15$ : bien au-delà de 3, la transaction serait signalée. Mais un écart-type de 200 € pour une moyenne de 120 € indique une distribution très asymétrique, où les gros montants ne sont pas rares : une version robuste ou un modèle par client serait plus fiable.
+</Exercise>
+
+```python
+from sklearn.ensemble import IsolationForest
+from sklearn.neighbors import LocalOutlierFactor
+
+iso = IsolationForest(n_estimators=200, contamination=0.02, random_state=0).fit(X_train)
+scores = iso.decision_function(X_new)            # plus c'est bas, plus c'est anormal
+alertes = X_new[scores < np.quantile(scores, 0.02)]
+
+lof = LocalOutlierFactor(n_neighbors=20, novelty=True).fit(X_train)   # novelty=True pour scorer de nouveaux points
+```
+
+<CodeChoice
+  id="score"
+  question="Quelle méthode renvoie un score continu d'anormalité pour chaque point, à trier ou à seuiller ?"
+  code={`scores = iso.___(X_new)`}
+  options={["decision_function", "predict_proba", "transform", "fit_transform"]}
+  answer={0}
+>
+`decision_function` (ou `score_samples`) donne un score continu ; `predict` ne renvoie que −1 ou 1 selon le paramètre `contamination`. Garder le score permet de choisir le seuil selon le nombre d'alertes que l'équipe peut traiter.
+</CodeChoice>
+
+## Choisir le seuil et évaluer
+
+Le paramètre `contamination` n'est qu'un seuil déguisé : la part de points qu'on accepte de signaler. On le fixe d'après la **capacité d'investigation** (50 alertes par jour) et le coût d'une fraude manquée. Pour évaluer, on utilise les quelques cas étiquetés : precision parmi les alertes investiguées, recall sur les fraudes connues, courbe PR. Les retours des enquêteurs deviennent des étiquettes ; dès qu'on en a assez, un modèle **supervisé** (souvent du gradient boosting) fait mieux sur les fraudes connues, et la détection non supervisée garde son rôle pour les nouvelles.
+
+<Callout type="intuition">
+Tout détecteur d'anomalies encode une définition du « normal » : proche de la moyenne, entouré de voisins, facile à reconstruire, facile à prévoir. Choisir la méthode, c'est choisir la définition qui correspond au métier.
+</Callout>
+
+<Callout type="piege">
+Si les données d'entraînement contiennent déjà des anomalies, le modèle apprend qu'elles sont normales, et les moyennes et écarts-types sont tirés vers elles. On nettoie ce qu'on peut, on utilise des statistiques robustes, et on se méfie d'un score qui dérive avec le temps : le « normal » d'aujourd'hui n'est pas celui de l'an dernier.
+</Callout>
+
+<Callout type="entretien">
+« Comment détecter des fraudes sans étiquettes ? » Réponse attendue : définir le normal avec le métier, construire des variables par client (écart à son historique, vitesse des transactions), une méthode non supervisée (Isolation Forest, LOF) avec un seuil fixé par la capacité d'investigation, des règles métier en parallèle, la boucle de retour des enquêteurs, puis un modèle supervisé.
+</Callout>
+
+<Callout type="astuce">
+Les meilleures variables de détection sont souvent relatives : montant divisé par le montant habituel du client, distance au lieu habituel, nombre de transactions dans la dernière heure. Une anomalie contextuelle devient ainsi une anomalie ponctuelle que n'importe quelle méthode repère.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Pourquoi une Isolation Forest isole-t-elle vite les anomalies ?",
+      options: ["Elle les connaît à l'entraînement", "Des points rares et éloignés se retrouvent seuls après peu de coupes aléatoires", "Elle calcule toutes les distances", "Elle utilise la moyenne"],
+      answer: 1,
+      explain: "La profondeur moyenne d'isolement est le score.",
+    },
+    {
+      q: "Quel est l'intérêt du LOF par rapport à la distance au k-ième voisin ?",
+      options: ["Il est plus rapide", "Il compare la densité d'un point à celle de ses voisins, et repère donc les anomalies locales même quand les groupes ont des densités différentes", "Il ne demande pas de choisir k", "Il est supervisé"],
+      answer: 1,
+      explain: "Une même distance est grande pour un groupe dense et banale pour un groupe diffus.",
+    },
+    {
+      q: "Pourquoi utiliser la médiane et la MAD plutôt que la moyenne et l'écart-type ?",
+      options: ["Elles sont plus rapides à calculer", "Elles ne sont presque pas influencées par les anomalies elles-mêmes", "Elles sont toujours plus petites", "Elles fonctionnent sans données"],
+      answer: 1,
+      explain: "Quelques valeurs extrêmes gonflent l'écart-type et masquent les autres.",
+    },
+    {
+      q: "Comment fixer le paramètre contamination en pratique ?",
+      options: ["Toujours à 0,1", "D'après la capacité d'investigation et le coût des fraudes manquées, en validant sur les cas étiquetés", "Au hasard", "À la proportion de la classe majoritaire"],
+      answer: 1,
+      explain: "C'est un seuil de décision, donc un choix métier.",
+    },
+    {
+      q: "Une rafale de 40 petits retraits en 10 minutes, chacun banal. Quel type d'anomalie ?",
+      options: ["Ponctuelle", "Collective", "Aucune", "Contextuelle uniquement"],
+      answer: 1,
+      explain: "C'est la séquence qui est anormale ; une variable « nombre de retraits par heure » la rend visible.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique le fonctionnement d'une Isolation Forest.">
+On construit de nombreux arbres sur des sous-échantillons des données ; à chaque nœud, on choisit une variable et un seuil au hasard entre son minimum et son maximum, jusqu'à isoler chaque point. Un point anormal, rare et éloigné, est isolé après peu de coupes ; un point au cœur des données en demande beaucoup. Le score d'anomalie est la profondeur moyenne d'isolement, normalisée. C'est rapide, cela passe à l'échelle, ne demande pas de distance ni de standardisation, et fonctionne bien en tabulaire ; en revanche, les coupes parallèles aux axes gèrent moins bien certaines anomalies locales, où le LOF peut être meilleur.
+</Interview>
+
+<Interview q="Tu as des millions de transactions, aucune étiquette, et une équipe qui peut examiner 100 alertes par jour. Comment construis-tu le système ?">
+Je commencerais par le métier : quels schémas de fraude sont connus, quelles règles existent déjà. Je construirais des variables relatives à l'historique de chaque client (montant par rapport à l'habitude, nouveau bénéficiaire, vitesse, localisation), puis un score non supervisé, une Isolation Forest par exemple, en gardant les règles métier en parallèle. Le seuil serait fixé pour produire environ 100 alertes par jour, classées par score. Les décisions des enquêteurs deviennent des étiquettes : je mesure la precision des alertes, et quand les étiquettes suffisent, j'entraîne un modèle supervisé, tout en gardant le détecteur non supervisé pour les fraudes nouvelles. Enfin, je surveille la dérive, car les fraudeurs s'adaptent.
+</Interview>
+
+<Recap>
+- Anomalies **ponctuelles**, **contextuelles**, **collectives** ; globales ou **locales**.
+- Statistiques : z-score, version **robuste** (médiane, MAD).
+- Densité : distance aux voisins, **LOF** (densité relative, anomalies locales).
+- **Isolation Forest** : $s(x) = 2^{-\mathbb{E}[h(x)]/c(n)}$, rapide, défaut en tabulaire.
+- Reconstruction (autoencodeur, ACP), écart à la prévision pour les séries.
+- Seuil = capacité d'investigation ; retours des enquêteurs → modèle supervisé.
+</Recap>
+
+<LessonComplete />

@@ -1,0 +1,155 @@
+<Predict
+  id="hook"
+  question="Tu classes des tickets de support avec un LLM. Pour l'aider, tu ajoutes trois exemples au prompt, tous de la catégorie « Technique ». Que risque-t-il de se passer ?"
+  options={[
+    "Rien, les exemples aident toujours",
+    "Le modèle prédit « Technique » beaucoup trop souvent : il imite la répartition des exemples",
+    "Le modèle refuse de répondre",
+    "Le modèle devient plus rapide",
+  ]}
+  answer={1}
+>
+Un LLM apprend autant de la forme des exemples que de leur contenu : leur répartition, leur ordre, leur longueur, leur format. Trois exemples d'une même classe poussent les réponses vers cette classe. Le prompt engineering n'est pas une affaire de formules magiques ; c'est un travail d'ingénierie : formuler précisément la tâche, choisir des exemples représentatifs, contraindre le format de sortie, et surtout mesurer sur un jeu d'évaluation.
+</Predict>
+
+## Anatomie d'un bon prompt
+
+- **Le rôle et le contexte** (souvent dans le message système) : à qui le modèle s'adresse, pour quel produit, avec quelles contraintes.
+- **La tâche, précise** : les catégories et leur définition, les cas limites (« si un ticket en mentionne plusieurs, choisis… »), ce qu'il faut faire en cas de doute.
+- **Les données** à traiter, clairement délimitées (balises, guillemets), pour que le modèle ne les confonde pas avec des instructions.
+- **Des exemples** (few-shot) : variés, équilibrés entre les classes, proches des cas réels, y compris des cas difficiles.
+- **Le format de sortie** : un schéma JSON, une liste de valeurs autorisées.
+
+Un modèle n'a pas accès au contexte dans ta tête : la question utile est « une personne compétente, qui découvre la tâche, saurait-elle quoi faire avec ce texte ? ».
+
+## Raisonnement et sortie structurée
+
+Demander au modèle de **raisonner avant de répondre** (chain of thought) améliore les tâches qui demandent plusieurs étapes : calculs, règles à combiner, cas ambigus. Les modèles de raisonnement le font d'eux-mêmes. Le coût est réel : plus de tokens générés, donc plus de latence et de dépenses, pour un gain faible sur une classification simple.
+
+La **sortie structurée** (JSON mode, schéma imposé, décodage contraint) garantit qu'un programme peut lire chaque réponse. Ce qui compte en production, ce sont les réponses à la fois correctes et exploitables :
+
+$$
+\text{taux exploitable} = \text{exactitude} \times \text{taux de réponses lisibles}
+$$
+
+Et le coût d'un appel se calcule en tokens, l'entrée et la sortie n'ayant pas le même prix :
+
+$$
+\text{coût} = N_{\text{requêtes}} \times \big(T_{\text{entrée}} \cdot c_{\text{entrée}} + T_{\text{sortie}} \cdot c_{\text{sortie}}\big)
+$$
+
+<PromptLab id="tickets" challenge="prompt-budget" />
+
+Les instructions précises apportent le plus gros gain. Trois exemples variés ajoutent beaucoup ; huit exemples n'apportent que 2 points de plus, pour 550 tokens supplémentaires à chaque requête. Le texte libre fait perdre des réponses que le programme ne sait pas lire, et le raisonnement pas à pas, sans format imposé, aggrave ce problème.
+
+<Exercise
+  id="cache"
+  question="Un prompt de 1 200 tokens contient 900 tokens identiques pour toutes les requêtes (instructions et exemples). Avec un cache de prompt qui facture la partie déjà en cache à 10 % du prix normal, quelle part du coût d'entrée reste-t-il, en % (1 décimale) ?"
+  answer={32.5}
+  tolerance={0.1}
+  hint="300 tokens au plein tarif, 900 tokens à 10 %."
+>
+$(300 + 0{,}1 \times 900) / 1\,200 = 390 / 1\,200 = 32{,}5\,\%$. D'où une règle simple : mettre le contenu stable (instructions, exemples, documents de référence) au **début** du prompt, et ce qui change à chaque requête à la fin, pour que le préfixe puisse être mis en cache.
+</Exercise>
+
+```python
+messages = [
+    {"role": "system", "content": INSTRUCTIONS},            # stable : mis en cache
+    {"role": "user", "content": "Mon colis n'est jamais arrivé"},
+    {"role": "assistant", "content": '{"categorie": "Livraison"}'},
+    {"role": "user", "content": "J'ai été prélevé deux fois"},
+    {"role": "assistant", "content": '{"categorie": "Facturation"}'},
+    {"role": "user", "content": ticket},                      # variable : à la fin
+]
+```
+
+<CodeChoice
+  id="few-shot"
+  question="Dans un prompt few-shot sous forme de conversation, quel rôle porte la réponse attendue de chaque exemple ?"
+  code={`{"role": "___", "content": '{"categorie": "Livraison"}'}`}
+  options={['"assistant"', '"user"', '"system"', '"tool"']}
+  answer={0}
+>
+Les exemples se présentent comme de faux échanges passés : le ticket en message utilisateur, la réponse attendue en message assistant, exactement au format qu'on veut obtenir. Le modèle reproduit ce format.
+</CodeChoice>
+
+## Travailler comme un ingénieur
+
+1. Constituer un **jeu d'évaluation** : quelques dizaines à quelques centaines de cas réels étiquetés, avec les cas difficiles.
+2. Partir d'un prompt simple, mesurer, regarder les erreurs une par une, corriger le prompt, mesurer à nouveau.
+3. **Versionner** les prompts comme du code, et relancer l'évaluation à chaque changement de prompt ou de modèle (un nouveau modèle peut régresser sur ta tâche).
+4. Fixer la température à 0 pour une tâche d'extraction ou de classification.
+5. Se demander quand passer au **fine-tuning** : quand le prompt devient énorme, que la tâche est très spécifique et stable, ou qu'un petit modèle fine-tuné suffirait pour beaucoup moins cher.
+
+<Callout type="intuition">
+Un prompt est une spécification. Les mêmes défauts que dans un cahier des charges produisent les mêmes problèmes : ambiguïtés, cas non prévus, exemples trompeurs. La différence est qu'on peut tester cette spécification des centaines de fois en quelques minutes.
+</Callout>
+
+<Callout type="piege">
+Évaluer un prompt sur les exemples qu'on a sous les yeux en l'écrivant, ou sur trois essais qui « ont l'air bien ». Comme pour un modèle, on mesure sur un jeu séparé, et l'on se méfie de l'optimisation excessive d'un prompt contre un petit jeu de test. Et toute donnée venant de l'extérieur (e-mail, page web, document) peut contenir des instructions : c'est l'injection de prompt, vue dans la leçon sur la sécurité des agents.
+</Callout>
+
+<Callout type="entretien">
+« Comment amélioreriez-vous un prompt qui donne de mauvais résultats ? » La réponse attendue n'est pas une liste d'astuces, mais une méthode : construire un jeu d'évaluation, analyser les erreurs par catégorie, préciser les instructions et les cas limites, ajouter des exemples ciblés, contraindre le format, mesurer à chaque étape, et comparer coût et latence.
+</Callout>
+
+<Callout type="astuce">
+Pour les longs documents, place le document en premier et la question à la fin ; demande au modèle de citer les passages sur lesquels il s'appuie avant de répondre. Cela améliore la précision et rend les réponses vérifiables.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Quel est le principal avantage d'une sortie structurée (schéma JSON imposé) ?",
+      options: ["Elle rend le modèle plus intelligent", "Chaque réponse est lisible par le programme qui la consomme", "Elle réduit le nombre de tokens d'entrée", "Elle supprime les hallucinations"],
+      answer: 1,
+      explain: "Elle garantit le format, pas la justesse du contenu.",
+    },
+    {
+      q: "Quand le raisonnement pas à pas (chain of thought) est-il le plus utile ?",
+      options: ["Pour toutes les tâches", "Pour les tâches à plusieurs étapes : calculs, règles combinées, cas ambigus", "Pour réduire la latence", "Pour les classifications triviales"],
+      answer: 1,
+      explain: "Il coûte des tokens et du temps ; on le garde là où il améliore la mesure.",
+    },
+    {
+      q: "Où placer les instructions et exemples fixes pour profiter du cache de prompt ?",
+      options: ["À la fin", "Au début, avant la partie qui change à chaque requête", "Au milieu", "Cela n'a pas d'importance"],
+      answer: 1,
+      explain: "Le cache porte sur un préfixe identique.",
+    },
+    {
+      q: "Comment savoir si une modification du prompt est une amélioration ?",
+      options: ["En relisant trois réponses", "En la mesurant sur un jeu d'évaluation fixe, et en comparant au prompt précédent", "En demandant au modèle", "En augmentant la température"],
+      answer: 1,
+      explain: "Comme pour un modèle : une mesure, sur des données représentatives.",
+    },
+    {
+      q: "Quel est le risque des exemples few-shot tous de la même classe ?",
+      options: ["Aucun", "Le modèle sur-prédit cette classe", "Le modèle ignore les exemples", "Le prompt devient trop court"],
+      answer: 1,
+      explain: "On équilibre et on varie les exemples.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Quelle démarche suis-tu pour mettre un prompt en production ?">
+Je définis d'abord la tâche et ce qu'est une bonne réponse, puis je construis un jeu d'évaluation à partir de cas réels, avec les cas difficiles. J'écris un premier prompt clair : contexte, tâche précise avec les cas limites, données délimitées, format de sortie imposé, quelques exemples variés. Je mesure, j'analyse les erreurs, et j'itère. Je versionne le prompt, je relance l'évaluation à chaque changement de prompt ou de modèle, et je suis en production le taux de réponses exploitables, la latence et le coût. Si le prompt devient trop lourd ou que le volume est important, j'envisage un fine-tuning ou un modèle plus petit.
+</Interview>
+
+<Interview q="Few-shot ou fine-tuning : comment choisis-tu ?">
+Le few-shot est immédiat, ne demande pas de données d'entraînement et se modifie en quelques minutes ; il suffit souvent, surtout avec de bonnes instructions. Ses limites : chaque requête paie les tokens des exemples, le nombre d'exemples est limité, et certaines tâches très spécifiques ou un style précis restent difficiles à obtenir. Le fine-tuning demande des centaines ou milliers d'exemples et un pipeline d'entraînement, mais réduit la taille du prompt, peut permettre un modèle plus petit et moins cher, et rend le comportement plus constant. Je commence presque toujours par le prompt, et je passe au fine-tuning quand la tâche est stable, à fort volume, et que l'évaluation montre un plafond.
+</Interview>
+
+<Recap>
+- Contexte, tâche précise avec cas limites, données délimitées, exemples, format de sortie.
+- Few-shot : exemples **variés et équilibrés**, au format attendu.
+- Raisonnement : utile pour les tâches à étapes, coûteux en tokens.
+- **Sortie structurée** : exploitable = exactitude × lisibilité.
+- Contenu stable au début (cache), variable à la fin.
+- Jeu d'évaluation, itérations mesurées, versionnage ; fine-tuning quand le prompt plafonne.
+</Recap>
+
+<LessonComplete />

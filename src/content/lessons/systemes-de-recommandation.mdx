@@ -1,0 +1,149 @@
+<Predict
+  id="hook"
+  question="Une plateforme de vidéo veut recommander des films. Elle n'a aucune information sur le contenu des films, seulement les notes laissées par les utilisateurs. Peut-elle quand même faire de bonnes recommandations ?"
+  options={[
+    "Non, il faut connaître le genre, les acteurs, le résumé",
+    "Oui : les notes suffisent à rapprocher les utilisateurs aux goûts similaires et les films aimés par les mêmes personnes",
+    "Seulement en recommandant les films les plus populaires",
+    "Seulement si chaque utilisateur a noté tous les films",
+  ]}
+  answer={1}
+>
+C'est le **filtrage collaboratif** : si toi et moi avons aimé les mêmes dix films, le onzième que j'ai adoré a de bonnes chances de te plaire. Le modèle n'a pas besoin de savoir pourquoi ; il découvre des « goûts » cachés dans la matrice des notes, même quand elle est presque vide. C'est l'idée qui a fait gagner le prix Netflix, et elle reste au cœur des systèmes de recommandation, aux côtés de modèles beaucoup plus gros.
+</Predict>
+
+## Deux familles
+
+- **Basée sur le contenu** : on décrit les objets (genre, texte, prix, embeddings) et on recommande ce qui ressemble à ce que l'utilisateur a aimé. Fonctionne pour un objet neuf, mais enferme dans ce qu'on connaît déjà.
+- **Filtrage collaboratif** : on n'utilise que les interactions. **Par voisins** : trouver les utilisateurs (ou les objets) aux profils de notes proches, par exemple avec un cosinus sur les notes centrées. **Par factorisation** : apprendre un vecteur de goûts pour chaque utilisateur et chaque objet.
+
+En pratique, les systèmes combinent les deux, et ajoutent le contexte (heure, appareil, historique récent).
+
+## La factorisation matricielle
+
+On approche la note de l'utilisateur $u$ pour l'objet $i$ par une moyenne globale, deux biais et un produit scalaire de vecteurs latents de dimension $k$ :
+
+$$
+\hat r_{ui} = \mu + b_u + b_i + p_u \cdot q_i
+$$
+
+Les biais captent qu'un utilisateur note sévèrement ou qu'un film plaît à tout le monde ; $p_u \cdot q_i$ capte l'accord entre les goûts. On apprend ces paramètres sur les notes connues seulement, avec une régularisation :
+
+$$
+\min \sum_{(u,i)\ \text{connus}} \big(r_{ui} - \hat r_{ui}\big)^2 + \lambda \big(\|p_u\|^2 + \|q_i\|^2 + b_u^2 + b_i^2\big)
+$$
+
+On optimise par descente de gradient ou par moindres carrés alternés (ALS) : à $q$ fixé, trouver chaque $p_u$ est une régression ridge, et inversement.
+
+<RecoLab id="factorisation" challenge="reco-factors" />
+
+La popularité recommande la même chose à tout le monde. Les voisins personnalisent, mais avec peu de notes en commun leurs similarités sont bruitées. La factorisation partage l'information entre tous les utilisateurs, à condition de régler $k$ et $\lambda$ : avec 8 facteurs sans régularisation, l'erreur d'entraînement tombe presque à zéro et les notes cachées sont mal prédites, exactement le surapprentissage vu avec les polynômes.
+
+<Exercise
+  id="parametres"
+  question="Une plateforme a 1 million d'utilisateurs et 100 000 produits. Avec des vecteurs latents de dimension 64 (sans compter les biais), combien de paramètres la factorisation contient-elle, en millions ?"
+  answer={70.4}
+  tolerance={0.1}
+  hint="Un vecteur par utilisateur et un par produit."
+>
+$(1\,000\,000 + 100\,000) \times 64 = 70{,}4$ millions. C'est beaucoup moins que la matrice complète ($10^{11}$ cases), qu'on ne stocke jamais : on ne calcule que les scores des candidats à classer.
+</Exercise>
+
+```python
+import numpy as np
+
+# P : (n_users, k), Q : (n_items, k), appris par ALS ou descente de gradient
+R_hat = P @ Q.T                       # toutes les notes prédites, (n_users, n_items)
+R_hat[deja_vus] = -np.inf             # ne pas recommander ce qui a déjà été vu
+top10 = np.argsort(-R_hat[u])[:10]    # les 10 meilleurs objets pour l'utilisateur u
+```
+
+<CodeChoice
+  id="produit"
+  question="P a la forme (n_users, k) et Q la forme (n_items, k). Comment obtenir la matrice de toutes les notes prédites ?"
+  code={`R_hat = P @ Q.___`}
+  options={["T", "shape", "sum()", "mean()"]}
+  answer={0}
+>
+$(n_{users}, k) \times (k, n_{items})$ : il faut transposer Q. Sur un vrai catalogue, on ne calcule pas cette matrice entière ; on cherche les plus proches voisins de $p_u$ parmi les $q_i$ avec un index vectoriel (approximate nearest neighbors), comme pour le retrieval d'un RAG.
+</CodeChoice>
+
+## Ce qui change dans la vraie vie
+
+- **Feedback implicite** : on a rarement des notes, mais des clics, des achats, du temps de visionnage. L'absence d'interaction n'est pas un « je n'aime pas » ; on échantillonne des négatifs et on optimise un classement (BPR, ALS implicite).
+- **Démarrage à froid** : un nouvel utilisateur ou un nouvel objet n'a pas de vecteur. On s'appuie sur le contenu, la popularité, ou quelques questions à l'inscription.
+- **Architecture à deux étages** : un **retrieval** rapide (modèle à deux tours qui produit un embedding utilisateur et un embedding objet, puis recherche des voisins) sélectionne quelques centaines de candidats parmi des millions ; un **ranking** plus riche (gradient boosting ou réseau avec de nombreuses variables) les ordonne.
+- **Évaluation** : hors ligne avec des métriques de classement (recall@k, NDCG) sur un découpage **temporel** (prédire le futur à partir du passé), puis en ligne par test A/B, car le hors ligne ne mesure que ce que l'ancien système a montré.
+
+<Callout type="intuition">
+Les facteurs latents ressemblent souvent à des notions interprétables (action contre romance, grand public contre film d'auteur), mais personne ne les a définis : ils émergent parce qu'ils expliquent le mieux les notes. C'est la même idée que l'ACP, appliquée à une matrice incomplète.
+</Callout>
+
+<Callout type="piege">
+Un système de recommandation crée ses propres données : on ne voit des clics que sur ce qu'on a montré. Entraîner le modèle suivant sur ces clics renforce les objets déjà populaires (biais de popularité, boucle de rétroaction). On garde une part d'exploration, on corrige par l'exposition, et on suit la diversité et la couverture du catalogue, pas seulement le taux de clic.
+</Callout>
+
+<Callout type="entretien">
+« Conçois le système de recommandation d'un site e-commerce » est une question de system design très fréquente. Structure attendue : objectif métier et métrique (ventes, rétention, pas seulement le clic), données (implicites), retrieval puis ranking, démarrage à froid, évaluation hors ligne temporelle puis test A/B, latence, et surveillance des boucles de rétroaction.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "Qu'utilise le filtrage collaboratif ?",
+      options: ["Uniquement la description des objets", "Uniquement les interactions entre utilisateurs et objets", "Uniquement la popularité", "Uniquement des données démographiques"],
+      answer: 1,
+      explain: "C'est sa force (aucune description nécessaire) et sa faiblesse (démarrage à froid).",
+    },
+    {
+      q: "Dans une factorisation, l'erreur d'entraînement est presque nulle mais l'erreur sur les notes cachées est mauvaise. Que faire ?",
+      options: ["Augmenter le nombre de facteurs", "Augmenter la régularisation ou réduire le nombre de facteurs", "Supprimer les biais", "Entraîner plus longtemps"],
+      answer: 1,
+      explain: "C'est du surapprentissage : trop de paramètres pour peu de notes par utilisateur.",
+    },
+    {
+      q: "Comment traiter un objet tout juste ajouté au catalogue ?",
+      options: ["Attendre qu'il ait des notes", "S'appuyer sur son contenu (description, embedding) et sur l'exploration", "Lui donner un vecteur aléatoire", "Le supprimer"],
+      answer: 1,
+      explain: "C'est le démarrage à froid ; les modèles hybrides combinent contenu et collaboratif.",
+    },
+    {
+      q: "Pourquoi un découpage temporel pour évaluer un recommandeur ?",
+      options: ["C'est plus rapide", "Parce qu'en production on prédit les interactions futures à partir du passé ; un découpage aléatoire laisse fuir le futur", "Pour avoir plus de données de test", "Ce n'est pas nécessaire"],
+      answer: 1,
+      explain: "Un découpage aléatoire surestime la qualité (data leakage).",
+    },
+    {
+      q: "À quoi sert l'étage de retrieval dans une architecture à deux étages ?",
+      options: [
+        "À calculer la note exacte de chaque objet",
+        "À réduire rapidement des millions d'objets à quelques centaines de candidats, ensuite ordonnés par un modèle plus riche",
+        "À entraîner le modèle",
+        "À afficher les résultats",
+      ],
+      answer: 1,
+      explain: "Le ranking riche serait trop lent sur tout le catalogue.",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique la factorisation matricielle pour la recommandation.">
+On représente chaque utilisateur et chaque objet par un vecteur de dimension k, et on prédit la note par leur produit scalaire, plus une moyenne globale et des biais utilisateur et objet. On apprend ces vecteurs uniquement sur les notes observées, en minimisant l'erreur quadratique avec une régularisation L2, par descente de gradient ou par moindres carrés alternés. Les dimensions apprises captent des goûts latents. Le nombre de facteurs et la régularisation se règlent sur des notes mises de côté, idéalement avec un découpage temporel. Avec du feedback implicite, on adapte la loss (ALS implicite, BPR) et on échantillonne des négatifs.
+</Interview>
+
+<Interview q="Comment gères-tu le démarrage à froid ?">
+Pour un nouvel utilisateur : recommandations populaires ou tendances, éventuellement par segment (pays, appareil), quelques préférences demandées à l'inscription, puis mise à jour rapide dès les premières interactions. Pour un nouvel objet : un modèle basé sur le contenu (texte, image, catégorie, embedding) qui place l'objet près d'objets similaires, et une part d'exploration pour lui donner de l'exposition et collecter des interactions. Les modèles à deux tours qui prennent des variables de contenu en entrée gèrent naturellement les deux cas.
+</Interview>
+
+<Recap>
+- **Contenu** (description des objets) contre **collaboratif** (interactions seules) ; en pratique, hybride.
+- **Factorisation** : $\hat r_{ui} = \mu + b_u + b_i + p_u \cdot q_i$, apprise sur les notes connues, avec régularisation ; ALS ou SGD.
+- $k$ et $\lambda$ se règlent sur des notes cachées : trop de facteurs = surapprentissage.
+- **Implicite** : clics et achats, négatifs échantillonnés, objectif de classement.
+- **Démarrage à froid**, architecture **retrieval puis ranking**, évaluation **temporelle** puis A/B, boucles de rétroaction.
+</Recap>
+
+<LessonComplete />

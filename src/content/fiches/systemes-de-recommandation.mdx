@@ -1,0 +1,33 @@
+<FicheSection kind="essentiel">
+- Basé sur le contenu contre filtrage collaboratif ; hybride en pratique.
+- Collaboratif par voisins (cosinus) ou par factorisation.
+- Feedback implicite : clics, achats ; négatifs échantillonnés.
+- Démarrage à froid : contenu, popularité, exploration.
+- Retrieval (deux tours, voisins approchés) puis ranking.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+\hat r_{ui} = \mu + b_u + b_i + p_u \cdot q_i \qquad \min \sum \big(r_{ui} - \hat r_{ui}\big)^2 + \lambda\big(\|p_u\|^2 + \|q_i\|^2\big)
+$$
+
+1 M utilisateurs, 100 000 objets, k = 64 : 70,4 M paramètres.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Trop de facteurs sans régularisation.
+- Découpage aléatoire au lieu de temporel.
+- Absence d'interaction prise pour un rejet.
+- Boucle de rétroaction et biais de popularité.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Factorisation ?** Vecteurs latents, biais, notes observées seulement, L2, ALS ou SGD, réglage sur données cachées.
+
+**Démarrage à froid ?** Popularité et préférences pour les utilisateurs ; contenu et exploration pour les objets ; modèles à deux tours.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `P @ Q.T`, puis masquer les objets déjà vus.
+- Métriques : recall@k, NDCG, couverture, diversité.
+</FicheSection>

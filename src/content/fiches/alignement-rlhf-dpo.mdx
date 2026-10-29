@@ -1,0 +1,33 @@
+<FicheSection kind="essentiel">
+- SFT, préférences, reward model, RL avec pénalité KL.
+- Bradley-Terry pour apprendre des comparaisons.
+- Reward hacking : le proxy monte, la qualité réelle décroche.
+- DPO : loss directe sur les paires.
+- RLAIF, principes écrits, récompenses vérifiables.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+P(y_w \succ y_l) = \sigma(r_w - r_l) \qquad \max_\pi \mathbb{E}[r] - \beta\,\mathrm{KL}(\pi \,\|\, \pi_{\text{ref}})
+$$
+
+Scores 2,0 et 1,0 : σ(1) ≈ 0,731.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Mesurer le succès avec le score optimisé.
+- β trop petit : dérive et exploitation.
+- Ignorer le biais de longueur.
+- Comparer pi_w et pi_l sans la référence en DPO.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**RLHF de bout en bout ?** SFT, paires annotées, reward model Bradley-Terry, PPO avec KL, évaluation humaine indépendante.
+
+**Reward hacking ?** KL, meilleur reward model, arrêt précoce, contrôle de la longueur, évaluation indépendante.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- DPO : `-logsigmoid(beta * ((pi_w - ref_w) - (pi_l - ref_l)))`.
+- Comparer deux réponses est plus facile qu'en écrire une parfaite.
+</FicheSection>

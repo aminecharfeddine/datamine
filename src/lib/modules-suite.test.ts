@@ -214,3 +214,56 @@ describe("évaluation : comparaison, lift, équité", () => {
     expect(CHALLENGES["equal-opportunity"].check(st(0.46, 0.31))).toBe(true);
   });
 });
+
+describe("recommandation, anomalies, déséquilibre, prompting, alignement", () => {
+  it("la factorisation bat les voisins, qui battent la popularité ; l'optimum unique est k = 2, λ = 1", async () => {
+    const { recoScores, bestMf, MF_K, MF_LAMBDA } = await import("./models3");
+    const best = bestMf();
+    expect(best).toMatchObject({ k: 2, lambda: 1 });
+    expect(best.valid).toBeLessThan(recoScores("knn").valid);
+    expect(recoScores("knn").valid).toBeLessThan(recoScores("pop").valid);
+    // surapprentissage : beaucoup de facteurs sans régularisation
+    const over = recoScores("mf", 8, 0.01);
+    expect(over.train).toBeLessThan(0.1);
+    expect(over.valid).toBeGreaterThan(1);
+    const ok = MF_K.flatMap((k) => MF_LAMBDA.filter((l) => CHALLENGES["reco-factors"].check({ method: "mf", valid: recoScores("mf", k, l).valid, best: best.valid })));
+    expect(ok).toHaveLength(1);
+  });
+  it("seul le LOF atteint 90 % de recall avec 75 % de precision", async () => {
+    const { detect, CONTAMINATIONS } = await import("./models3");
+    const solves = (["zscore", "knn", "iforest", "lof"] as const).filter((m) => CONTAMINATIONS.some((c) => CHALLENGES["anomaly-catch"].check(detect(m, c))));
+    expect(solves).toEqual(["lof"]);
+  }, 20000);
+  it("seul le modèle non rééquilibré, avec un seuil abaissé, est à la fois performant et calibré", async () => {
+    const { imbalance, IMB_THRESHOLDS, averagePrecision } = await import("./models3");
+    const solves = (["none", "weights", "under", "smote"] as const).filter((s) => IMB_THRESHOLDS.some((t) => CHALLENGES["imbalance-threshold"].check(imbalance(s, t))));
+    expect(solves).toEqual(["none"]);
+    expect(CHALLENGES["imbalance-threshold"].check(imbalance("none", 0.5))).toBe(false);
+    expect(imbalance("weights", 0.5).meanProba).toBeGreaterThan(0.05);
+    expect(averagePrecision("under")).toBeLessThan(averagePrecision("none") - 0.1);
+  });
+  it("un seul prompt atteint 90 % de réponses exploitables sous 800 tokens", async () => {
+    const { promptEval } = await import("./models3");
+    const ok: string[] = [];
+    for (const instructions of ["vague", "precise"] as const)
+      for (const examples of ["0", "3-biased", "3", "8"] as const)
+        for (const format of ["free", "json"] as const)
+          for (const reasoning of [false, true]) {
+            const r = promptEval({ instructions, examples, format, reasoning });
+            expect(r.predicted.reduce((a, p) => a + p.n, 0)).toBe(60);
+            if (CHALLENGES["prompt-budget"].check(r)) ok.push(`${instructions}/${examples}/${format}/${reasoning}`);
+          }
+    expect(ok).toEqual(["precise/3/json/false"]);
+    const biased = promptEval({ instructions: "precise", examples: "3-biased", format: "json", reasoning: false }).predicted;
+    expect(biased.find((p) => p.cat === "Technique")!.n).toBeGreaterThan(20);
+  });
+  it("la qualité réelle passe par un maximum ; le grand reward model va plus loin", async () => {
+    const { alignment, KL_STEPS, BEST_GOLD } = await import("./models3");
+    const argmax = (rm: "small" | "large") => KL_STEPS.reduce((b, k) => (alignment(k, rm).gold > alignment(b, rm).gold ? k : b), 0);
+    expect(argmax("small")).toBe(16);
+    expect(argmax("large")).toBe(64);
+    expect(alignment(100, "small").proxy).toBeGreaterThan(alignment(16, "small").proxy);
+    const ok = (["small", "large"] as const).flatMap((rm) => KL_STEPS.filter((k) => CHALLENGES["align-sweetspot"].check({ gold: alignment(k, rm).gold, best: BEST_GOLD })).map((k) => `${rm}:${k}`));
+    expect(ok).toEqual(["large:64"]);
+  });
+});

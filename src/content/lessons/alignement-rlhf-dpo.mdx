@@ -1,0 +1,155 @@
+<Predict
+  id="hook"
+  question="On entraîne un LLM par renforcement pour maximiser le score d'un reward model, lui-même appris sur des préférences humaines. On optimise de plus en plus fort. Que devient la qualité des réponses jugée par de vrais humains ?"
+  options={[
+    "Elle augmente toujours avec le score du reward model",
+    "Elle augmente, puis baisse : le modèle apprend à exploiter les défauts du reward model",
+    "Elle ne change pas",
+    "Elle baisse dès le début",
+  ]}
+  answer={1}
+>
+Le reward model n'est qu'une approximation des préférences humaines, apprise sur un nombre limité de comparaisons. Optimisé trop fort, le LLM trouve ce qui plaît au reward model sans plaire aux humains : réponses plus longues, flatteuses, chargées d'avertissements. C'est la loi de Goodhart appliquée aux LLM : quand une mesure devient un objectif, elle cesse d'être une bonne mesure. Tout l'art de l'alignement consiste à optimiser sans tomber dans ce piège.
+</Predict>
+
+## De l'auto-complétion à l'assistant
+
+Un modèle pré-entraîné complète du texte ; il ne suit pas d'instructions. La chaîne classique :
+
+1. **Fine-tuning supervisé (SFT)** sur des démonstrations écrites par des humains : le modèle apprend le format d'un assistant.
+2. **Données de préférences** : pour une même question, deux réponses du modèle ; un humain indique la meilleure.
+3. **Reward model** entraîné à prédire ces préférences.
+4. **Optimisation par renforcement** (PPO, puis des variantes comme GRPO) pour maximiser la récompense, sans trop s'éloigner du modèle SFT.
+
+## Le reward model
+
+Le reward model attribue un score $r(x, y)$ à une réponse $y$ à la question $x$. On suppose (modèle de Bradley-Terry) que la probabilité qu'un humain préfère $y_w$ à $y_l$ dépend de l'écart des scores, et l'on maximise la vraisemblance des préférences observées :
+
+$$
+P(y_w \succ y_l) = \sigma\big(r(x, y_w) - r(x, y_l)\big)
+$$
+
+Puis on optimise le LLM $\pi$ pour maximiser la récompense, avec une pénalité qui l'empêche de trop s'écarter du modèle de référence $\pi_{\text{ref}}$ :
+
+$$
+\max_\pi \; \mathbb{E}_{x,\, y \sim \pi}\big[r(x, y)\big] - \beta\, \mathrm{KL}\big(\pi \,\|\, \pi_{\text{ref}}\big)
+$$
+
+Le coefficient $\beta$ règle le compromis : trop petit, le modèle part loin et exploite le reward model ; trop grand, il ne change presque pas.
+
+<AlignmentLab id="sur-optimisation" challenge="align-sweetspot" />
+
+Le score du reward model monte toujours, la qualité réelle passe par un maximum puis décroche. Un reward model plus grand, entraîné sur plus de données, généralise mieux : on peut optimiser plus loin avant que la qualité ne baisse, et le maximum atteint est plus haut.
+
+<Exercise
+  id="bradley-terry"
+  question="Le reward model donne un score de 2,0 à la réponse A et de 1,0 à la réponse B. Selon le modèle de Bradley-Terry, quelle est la probabilité qu'un humain préfère A (3 décimales) ?"
+  answer={0.731}
+  tolerance={0.002}
+  hint="σ(r_A − r_B) = 1 / (1 + e^(−1))."
+>
+$\sigma(1) = 1 / (1 + e^{-1}) \approx 0{,}731$. Seul l'écart des scores compte : ajouter une constante à toutes les récompenses ne change rien, ce qui explique pourquoi on normalise souvent les récompenses pendant l'optimisation.
+</Exercise>
+
+## DPO : se passer du reward model explicite
+
+La **Direct Preference Optimization** montre que l'objectif précédent a une solution analytique, ce qui permet d'optimiser le LLM directement sur les paires de préférences, avec une simple loss de classification, sans reward model séparé ni boucle de renforcement :
+
+$$
+\mathcal{L}_{\text{DPO}} = -\log \sigma\!\left(\beta \left[\log \frac{\pi(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \log \frac{\pi(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)}\right]\right)
+$$
+
+Le modèle augmente la probabilité relative de la réponse préférée par rapport à la référence, et diminue celle de la réponse rejetée. C'est plus simple et plus stable que PPO, et très utilisé pour les modèles ouverts.
+
+```python
+import torch.nn.functional as F
+
+# log-probabilités des réponses préférée (w) et rejetée (l), sous le modèle entraîné et sous la référence gelée
+logits = (pi_w - ref_w) - (pi_l - ref_l)
+loss = -F.logsigmoid(beta * logits).mean()
+```
+
+<CodeChoice
+  id="dpo"
+  question="Quelle quantité passe dans la sigmoïde de la loss DPO ?"
+  code={`loss = -F.logsigmoid(beta * (___)).mean()`}
+  options={["(pi_w - ref_w) - (pi_l - ref_l)", "pi_w - pi_l", "ref_w - ref_l", "(pi_w + pi_l) - (ref_w + ref_l)"]}
+  answer={0}
+>
+On compare les **écarts à la référence** : la réponse préférée doit gagner en probabilité plus que la réponse rejetée, par rapport au modèle de départ. Comparer seulement `pi_w - pi_l` ignorerait la référence, et donc le terme qui empêche le modèle de dériver.
+</CodeChoice>
+
+## Au-delà des préférences humaines
+
+- **RLAIF** et méthodes constitutionnelles : un modèle juge les réponses selon une liste de principes écrits, ce qui réduit le coût de l'annotation humaine.
+- **Récompenses vérifiables** : pour les mathématiques ou le code, la récompense vient d'une vérification automatique (bonne réponse, tests qui passent). C'est ce qui a permis l'essor des modèles de raisonnement, avec des algorithmes comme GRPO.
+- **Limites connues** : biais de longueur, **sycophancy** (dire à l'utilisateur ce qu'il veut entendre), sur-refus, et préférences d'annotateurs qui ne représentent pas tout le monde.
+
+<Callout type="intuition">
+Le SFT montre au modèle **comment** répondre ; les préférences lui apprennent **laquelle** de ses réponses est la meilleure. Il est bien plus facile pour un humain de comparer deux réponses que d'écrire la réponse parfaite, et c'est ce qui rend l'apprentissage par préférences si efficace.
+</Callout>
+
+<Callout type="piege">
+Prendre le score du reward model (ou le taux de victoire contre un juge LLM) comme mesure de succès. C'est exactement la quantité que l'optimisation apprend à exploiter. On évalue avec des humains, sur des benchmarks indépendants, et l'on contrôle la longueur des réponses, qui gonfle les préférences.
+</Callout>
+
+<Callout type="entretien">
+« Quelle différence entre RLHF et DPO ? » RLHF entraîne un reward model puis optimise le LLM par renforcement (PPO) avec une pénalité KL ; DPO optimise directement sur les paires de préférences avec une loss de classification, sans reward model explicite ni génération pendant l'entraînement. DPO est plus simple et stable ; le RL en ligne reste utile quand on peut générer et noter de nouvelles réponses, notamment avec des récompenses vérifiables.
+</Callout>
+
+<Quiz
+  id="fin"
+  questions={[
+    {
+      q: "À quoi sert la pénalité KL dans le RLHF ?",
+      options: ["À accélérer l'entraînement", "À empêcher le modèle de trop s'éloigner du modèle de référence et d'exploiter les défauts du reward model", "À réduire la taille du modèle", "À calculer la récompense"],
+      answer: 1,
+      explain: "β règle le compromis entre récompense et fidélité au modèle de départ.",
+    },
+    {
+      q: "Que modélise le reward model de Bradley-Terry ?",
+      options: ["La longueur des réponses", "La probabilité qu'une réponse soit préférée à une autre, via l'écart de leurs scores", "La perplexité", "Le nombre de tokens"],
+      answer: 1,
+      explain: "P(A ≻ B) = σ(r_A − r_B).",
+    },
+    {
+      q: "Quel est le principal avantage pratique de DPO ?",
+      options: ["Il n'a besoin d'aucune donnée", "Il optimise directement sur les préférences, sans reward model séparé ni boucle de renforcement", "Il remplace le pré-entraînement", "Il est toujours meilleur que RLHF"],
+      answer: 1,
+      explain: "Plus simple et plus stable, très répandu pour les modèles ouverts.",
+    },
+    {
+      q: "Le score du reward model monte, mais les réponses deviennent longues et flatteuses. De quoi s'agit-il ?",
+      options: ["D'un bon alignement", "De reward hacking : sur-optimisation d'un proxy imparfait", "D'un bug de tokenisation", "D'un manque de données de pré-entraînement"],
+      answer: 1,
+      explain: "La loi de Goodhart ; on augmente β, on améliore le reward model, on arrête plus tôt.",
+    },
+    {
+      q: "Pourquoi les récompenses vérifiables sont-elles précieuses pour les modèles de raisonnement ?",
+      options: ["Elles sont plus jolies", "Elles ne peuvent pas être trompées aussi facilement qu'un reward model appris : la réponse est juste ou les tests passent", "Elles ne coûtent rien à calculer", "Elles remplacent le SFT"],
+      answer: 1,
+      explain: "Elles réduisent le reward hacking, sans l'éliminer (tests incomplets, par exemple).",
+    },
+  ]}
+/>
+
+## En entretien
+
+<Interview q="Explique le RLHF de bout en bout.">
+On part d'un modèle pré-entraîné, qu'on fine-tune de façon supervisée sur des démonstrations d'un bon assistant. On génère ensuite plusieurs réponses à des questions, et des annotateurs indiquent leur préférée. On entraîne un reward model qui prédit ces préférences, avec un modèle de Bradley-Terry : la probabilité de préférer une réponse est la sigmoïde de l'écart des scores. Enfin, on optimise le LLM par renforcement, typiquement PPO, pour maximiser la récompense moins une pénalité KL vers le modèle SFT, qui l'empêche de dériver et d'exploiter les failles du reward model. On évalue avec des humains et des benchmarks indépendants, pas avec le score du reward model.
+</Interview>
+
+<Interview q="Qu'est-ce que le reward hacking, et comment le limiter ?">
+C'est quand le modèle optimisé trouve des moyens d'obtenir une forte récompense sans réellement mieux faire : réponses plus longues parce que le reward model préfère la longueur, flatterie, avertissements inutiles, ou, avec des tests automatiques, du code qui contourne les tests. Pour le limiter : une pénalité KL suffisante vers le modèle de référence, un reward model plus grand et entraîné sur des données plus variées et régulièrement rafraîchies, l'arrêt de l'optimisation avant que la qualité réelle ne baisse, le contrôle de la longueur, et une évaluation humaine indépendante de la récompense optimisée.
+</Interview>
+
+<Recap>
+- Chaîne : pré-entraînement → **SFT** → préférences → **reward model** → **RL** (PPO, GRPO).
+- Bradley-Terry : $P(y_w \succ y_l) = \sigma(r_w - r_l)$.
+- Objectif : récompense $- \beta\,\mathrm{KL}(\pi \,\|\, \pi_{\text{ref}})$.
+- **Reward hacking** : le proxy monte, la qualité réelle décroche (longueur, sycophancy).
+- **DPO** : loss directe sur les paires, sans reward model ni RL.
+- RLAIF, principes écrits, **récompenses vérifiables** pour le raisonnement.
+</Recap>
+
+<LessonComplete />

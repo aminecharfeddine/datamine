@@ -1,0 +1,34 @@
+<FicheSection kind="essentiel">
+- Ponctuelles, contextuelles, collectives ; globales ou locales.
+- z-score (robuste : médiane et MAD).
+- Distance aux voisins, LOF pour les anomalies locales.
+- Isolation Forest : défaut en tabulaire.
+- Autoencodeur, ACP, écart à la prévision.
+</FicheSection>
+
+<FicheSection kind="formules">
+$$
+z_{\text{robuste}} = \frac{x - \text{médiane}(x)}{1{,}4826 \cdot \operatorname{MAD}(x)} \qquad s(x) = 2^{-\,\mathbb{E}[h(x)] / c(n)}
+$$
+
+Moyenne 120 €, écart-type 200 €, transaction de 950 € : z = 4,15.
+</FicheSection>
+
+<FicheSection kind="pieges">
+- Règle globale pour des anomalies locales.
+- Anomalies dans les données d'entraînement.
+- `contamination` choisi sans lien avec le métier.
+- Oublier la dérive des fraudes.
+</FicheSection>
+
+<FicheSection kind="entretien">
+**Isolation Forest ?** Coupes aléatoires, profondeur d'isolement, rapide, sans distance.
+
+**Fraude sans étiquettes ?** Variables relatives, score non supervisé, seuil par capacité, retours des enquêteurs, puis supervisé.
+</FicheSection>
+
+<FicheSection kind="astuces">
+- `decision_function` pour un score continu.
+- LOF : `novelty=True` pour scorer de nouveaux points.
+- Variables relatives au client.
+</FicheSection>

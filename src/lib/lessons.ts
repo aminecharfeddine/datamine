@@ -2,6 +2,11 @@
 export const LESSON_CONTENT: Record<string, () => Promise<{ default: React.ComponentType }>> = {
   "validation-croisee": () => import("@/content/lessons/validation-croisee.mdx"),
   knn: () => import("@/content/lessons/knn.mdx"),
+  "detection-d-anomalies": () => import("@/content/lessons/detection-d-anomalies.mdx"),
+  "systemes-de-recommandation": () => import("@/content/lessons/systemes-de-recommandation.mdx"),
+  "donnees-desequilibrees": () => import("@/content/lessons/donnees-desequilibrees.mdx"),
+  "alignement-rlhf-dpo": () => import("@/content/lessons/alignement-rlhf-dpo.mdx"),
+  "prompt-engineering": () => import("@/content/lessons/prompt-engineering.mdx"),
   "esperance-et-variance": () => import("@/content/lessons/esperance-et-variance.mdx"),
   "vecteurs-et-matrices": () => import("@/content/lessons/vecteurs-et-matrices.mdx"),
   "comparer-deux-modeles": () => import("@/content/lessons/comparer-deux-modeles.mdx"),
